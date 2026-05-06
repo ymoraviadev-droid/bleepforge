@@ -1,0 +1,12 @@
+{
+  "Id": "krang_intro",
+  "Lines": [
+    {
+      "SpeakerName": "Krang",
+      "Text": "What.",
+      "Portrait": "",
+      "Choices": []
+    }
+  ],
+  "SetsFlag": ""
+}

@@ -1,0 +1,23 @@
+{
+  "Id": "eddie_intro",
+  "Lines": [
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Oh, finally. Someone with hands.",
+      "Portrait": "/home/ymoravia/Data/gfx Packs/my/flock_of_bleeps/characters/Robots/Eddie/eddie-portrait2.png",
+      "Choices": [
+        {
+          "Text": "Hi.",
+          "NextSequenceId": "eddie_request",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "Get lost.",
+          "NextSequenceId": "eddie_refused",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

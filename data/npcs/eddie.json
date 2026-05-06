@@ -1,0 +1,9 @@
+{
+  "NpcId": "eddie",
+  "DisplayName": "Eddie",
+  "Description": "Wise-cracking robot stranded by the road. Wants his optical assembly back.",
+  "Portraits": [
+    "/home/ymoravia/Data/gfx Packs/my/flock_of_bleeps/characters/Robots/Eddie/eddie-portrait2.png"
+  ],
+  "Sprites": []
+}

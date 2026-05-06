@@ -1,0 +1,18 @@
+{
+  "Id": "eddie_accepted",
+  "Lines": [
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Excellent. Try not to die.",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "",
+          "NextSequenceId": "new_sequence",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": "eddie_quest_active"
+}

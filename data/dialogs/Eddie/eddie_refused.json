@@ -1,0 +1,18 @@
+{
+  "Id": "eddie_refused",
+  "Lines": [
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Right. Useless.",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "",
+          "NextSequenceId": "eddie_accepted",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

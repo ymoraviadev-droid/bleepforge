@@ -1,0 +1,13 @@
+{
+  "name": "bleepforge",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @bleepforge/server --filter @bleepforge/client run dev",
+    "build": "pnpm -r run build",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

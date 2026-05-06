@@ -1,0 +1,249 @@
+@import url("https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=VT323&display=swap");
+@import "tailwindcss";
+
+@theme {
+  /* Pixel art font stack. */
+  --font-sans: "Pixelify Sans", "Pixelify Sans Fallback", system-ui, sans-serif;
+  --font-mono: "VT323", "VT323 Fallback", ui-monospace, monospace;
+  --font-display: "Press Start 2P", "Press Start 2P Fallback", system-ui, sans-serif;
+
+  /* Square corners everywhere — pixel art. */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 2px;
+  --radius-2xl: 2px;
+}
+
+/* ---- Themes ----------------------------------------------------------------
+   Strategy: every theme except "light" leaves the neutral palette dark and
+   only re-tints the accent (emerald → other color). The "light" theme keeps
+   the accent (emerald) but inverts the neutral scale so light backgrounds and
+   dark text fall out automatically without touching any class string.
+*/
+
+/* Each tinted dark theme:
+   - Re-points emerald (accent) to its color family.
+   - Tints the neutral scale toward the same hue with low chroma — backgrounds
+     read as "darkish with tone" (wine / midnight / aubergine), not pure gray. */
+
+/* Per-theme canvas tones — the React Flow canvas area gets a deeper version
+   of the theme tint than the page bg, so it reads as a "stage" the nodes sit
+   on. Defaults below; tinted themes override. */
+:root {
+  --canvas-bg: var(--color-neutral-950);
+  --canvas-pattern: var(--color-neutral-800);
+}
+
+[data-theme="red"] {
+  /* Accent: red */
+  --color-emerald-50: var(--color-red-50);
+  --color-emerald-100: var(--color-red-100);
+  --color-emerald-200: var(--color-red-200);
+  --color-emerald-300: var(--color-red-300);
+  --color-emerald-400: var(--color-red-400);
+  --color-emerald-500: var(--color-red-500);
+  --color-emerald-600: var(--color-red-600);
+  --color-emerald-700: var(--color-red-700);
+  --color-emerald-800: var(--color-red-800);
+  --color-emerald-900: var(--color-red-900);
+  --color-emerald-950: var(--color-red-950);
+  /* Neutrals tinted toward red (hue ≈ 25, low chroma). */
+  --color-neutral-50:  oklch(0.97 0.005 25);
+  --color-neutral-100: oklch(0.94 0.010 25);
+  --color-neutral-200: oklch(0.88 0.015 25);
+  --color-neutral-300: oklch(0.78 0.020 25);
+  --color-neutral-400: oklch(0.68 0.030 25);
+  --color-neutral-500: oklch(0.58 0.040 25);
+  --color-neutral-600: oklch(0.50 0.050 25);
+  --color-neutral-700: oklch(0.38 0.060 25);
+  --color-neutral-800: oklch(0.26 0.060 25);
+  --color-neutral-900: oklch(0.19 0.050 25);
+  --color-neutral-950: oklch(0.15 0.040 25);
+  /* Canvas: darker than the page bg, deeper red tone. */
+  --canvas-bg: oklch(0.09 0.040 25);
+  --canvas-pattern: oklch(0.22 0.050 25);
+}
+
+[data-theme="blue"] {
+  /* Accent: blue */
+  --color-emerald-50: var(--color-blue-50);
+  --color-emerald-100: var(--color-blue-100);
+  --color-emerald-200: var(--color-blue-200);
+  --color-emerald-300: var(--color-blue-300);
+  --color-emerald-400: var(--color-blue-400);
+  --color-emerald-500: var(--color-blue-500);
+  --color-emerald-600: var(--color-blue-600);
+  --color-emerald-700: var(--color-blue-700);
+  --color-emerald-800: var(--color-blue-800);
+  --color-emerald-900: var(--color-blue-900);
+  --color-emerald-950: var(--color-blue-950);
+  /* Neutrals tinted toward blue (hue ≈ 245). */
+  --color-neutral-50:  oklch(0.97 0.005 245);
+  --color-neutral-100: oklch(0.93 0.010 245);
+  --color-neutral-200: oklch(0.86 0.015 245);
+  --color-neutral-300: oklch(0.76 0.020 245);
+  --color-neutral-400: oklch(0.66 0.030 245);
+  --color-neutral-500: oklch(0.56 0.045 245);
+  --color-neutral-600: oklch(0.48 0.060 245);
+  --color-neutral-700: oklch(0.36 0.070 245);
+  --color-neutral-800: oklch(0.25 0.070 245);
+  --color-neutral-900: oklch(0.18 0.060 245);
+  --color-neutral-950: oklch(0.14 0.050 245);
+  /* Canvas: deep midnight. */
+  --canvas-bg: oklch(0.08 0.050 245);
+  --canvas-pattern: oklch(0.21 0.060 245);
+}
+
+[data-theme="magenta"] {
+  /* Accent: fuchsia */
+  --color-emerald-50: var(--color-fuchsia-50);
+  --color-emerald-100: var(--color-fuchsia-100);
+  --color-emerald-200: var(--color-fuchsia-200);
+  --color-emerald-300: var(--color-fuchsia-300);
+  --color-emerald-400: var(--color-fuchsia-400);
+  --color-emerald-500: var(--color-fuchsia-500);
+  --color-emerald-600: var(--color-fuchsia-600);
+  --color-emerald-700: var(--color-fuchsia-700);
+  --color-emerald-800: var(--color-fuchsia-800);
+  --color-emerald-900: var(--color-fuchsia-900);
+  --color-emerald-950: var(--color-fuchsia-950);
+  /* Neutrals tinted toward magenta (hue ≈ 325). */
+  --color-neutral-50:  oklch(0.97 0.005 325);
+  --color-neutral-100: oklch(0.94 0.010 325);
+  --color-neutral-200: oklch(0.88 0.015 325);
+  --color-neutral-300: oklch(0.78 0.020 325);
+  --color-neutral-400: oklch(0.68 0.030 325);
+  --color-neutral-500: oklch(0.58 0.045 325);
+  --color-neutral-600: oklch(0.50 0.060 325);
+  --color-neutral-700: oklch(0.40 0.070 325);
+  --color-neutral-800: oklch(0.28 0.070 325);
+  --color-neutral-900: oklch(0.20 0.060 325);
+  --color-neutral-950: oklch(0.16 0.050 325);
+  /* Canvas: deep aubergine. */
+  --canvas-bg: oklch(0.10 0.050 325);
+  --canvas-pattern: oklch(0.23 0.060 325);
+}
+
+[data-theme="green"] {
+  /* Accent stays at the default emerald — no override needed. */
+  /* Neutrals tinted toward green (hue ≈ 160, low chroma). */
+  --color-neutral-50:  oklch(0.97 0.005 160);
+  --color-neutral-100: oklch(0.94 0.010 160);
+  --color-neutral-200: oklch(0.88 0.015 160);
+  --color-neutral-300: oklch(0.78 0.020 160);
+  --color-neutral-400: oklch(0.68 0.030 160);
+  --color-neutral-500: oklch(0.58 0.040 160);
+  --color-neutral-600: oklch(0.50 0.050 160);
+  --color-neutral-700: oklch(0.38 0.060 160);
+  --color-neutral-800: oklch(0.26 0.060 160);
+  --color-neutral-900: oklch(0.19 0.050 160);
+  --color-neutral-950: oklch(0.15 0.040 160);
+  /* Canvas: deep evergreen. */
+  --canvas-bg: oklch(0.09 0.040 160);
+  --canvas-pattern: oklch(0.22 0.050 160);
+}
+
+[data-theme="light"] {
+  /* Inverted neutral scale, pure grays (no warm tint) and pulled toward a
+     medium-gray page bg — "grayish, not too light" per spec. Code uses
+     bg-neutral-950 / bg-neutral-900 for page/card bg; text-neutral-100 / 200
+     for body text. */
+  --color-neutral-50:  oklch(0.10 0 0);
+  --color-neutral-100: oklch(0.15 0 0);
+  --color-neutral-200: oklch(0.22 0 0);
+  --color-neutral-300: oklch(0.30 0 0);
+  --color-neutral-400: oklch(0.40 0 0);
+  --color-neutral-500: oklch(0.50 0 0);
+  --color-neutral-600: oklch(0.58 0 0);
+  --color-neutral-700: oklch(0.68 0 0);
+  --color-neutral-800: oklch(0.78 0 0);
+  --color-neutral-900: oklch(0.83 0 0);
+  --color-neutral-950: oklch(0.85 0 0);
+  /* Canvas: a touch darker than the page bg so it reads as the "stage". */
+  --canvas-bg: oklch(0.78 0 0);
+  --canvas-pattern: oklch(0.65 0 0);
+}
+
+/* VT323 has weak glyphs at small sizes; bump it up wherever it's used. */
+.font-mono {
+  font-size: 1.05em;
+  letter-spacing: 0;
+}
+
+/* Body text using Pixelify Sans benefits from a slight letter-spacing tweak
+   so that runs of similar-width pixel glyphs are easier to scan. */
+body {
+  font-feature-settings: "kern" 0;
+  letter-spacing: 0.01em;
+}
+
+/* Chunky pixel-art button: hard offset shadow + "press" on click. */
+.btn-pixel {
+  border-radius: 0 !important;
+  box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.55);
+  transition:
+    transform 60ms ease-out,
+    box-shadow 60ms ease-out,
+    background-color 60ms ease-out;
+}
+.btn-pixel:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 0 transparent;
+}
+.btn-pixel:disabled {
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* Theme-aware colors for React Flow internals (canvas bg, controls, dots,
+   selected-edge stroke, handles). Use the bare `--xy-*` vars (not `-default`)
+   so these override any `.dark`-class fallbacks React Flow applies internally
+   — `var(--xy-x, var(--xy-x-default))` will pick our value first. All resolve
+   through Tailwind's --color-* tokens, which are overridden per
+   [data-theme="X"] above — so the canvas re-tints alongside the rest of the UI. */
+.react-flow {
+  --xy-background-color: var(--canvas-bg);
+  --xy-background-pattern-color: var(--canvas-pattern);
+  --xy-edge-stroke: var(--color-neutral-500);
+  --xy-edge-stroke-width: 2;
+  --xy-edge-stroke-selected: var(--color-emerald-400);
+  --xy-handle-background-color: var(--color-emerald-500);
+  --xy-handle-border-color: var(--color-neutral-100);
+  --xy-controls-button-background-color: var(--color-neutral-900);
+  --xy-controls-button-background-color-hover: var(--color-neutral-800);
+  --xy-controls-button-color: var(--color-neutral-300);
+  --xy-controls-button-color-hover: var(--color-neutral-100);
+  --xy-controls-button-border-color: var(--color-neutral-700);
+  --xy-attribution-background-color: transparent;
+  /* Belt-and-suspenders: also enforce the canvas bg directly in case the
+     React Flow stylesheet doesn't read --xy-background-color for some viewport
+     element. */
+  background-color: var(--canvas-bg);
+}
+.react-flow__pane,
+.react-flow__renderer,
+.react-flow__viewport {
+  background-color: transparent;
+}
+
+/* Make selected edges in the dialog graph pop with the theme accent. */
+.react-flow__edge.selected .react-flow__edge-path,
+.react-flow__edge:focus .react-flow__edge-path,
+.react-flow__edge:focus-visible .react-flow__edge-path {
+  stroke: var(--color-emerald-400) !important;
+  stroke-width: 3 !important;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--color-neutral-400);
+}
+
+/* Pixel-perfect node rendering inside React Flow. */
+.react-flow__node {
+  font-family: var(--font-sans);
+}
+.react-flow__edge-text {
+  font-family: var(--font-mono);
+}

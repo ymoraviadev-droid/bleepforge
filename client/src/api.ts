@@ -1,0 +1,145 @@
+import type {
+  DialogSequence,
+  Item,
+  KarmaImpact,
+  Npc,
+  Quest,
+} from "@bleepforge/shared";
+import { refreshCatalog } from "./catalog-bus";
+
+interface ResourceApi<T> {
+  list: () => Promise<T[]>;
+  get: (key: string) => Promise<T | null>;
+  save: (entity: T) => Promise<T>;
+  remove: (key: string) => Promise<void>;
+}
+
+const crud = <T>(name: string, keyOf: (entity: T) => string): ResourceApi<T> => ({
+  list: async () => {
+    const r = await fetch(`/api/${name}`);
+    if (!r.ok) throw new Error(`list ${name} failed: ${r.status}`);
+    return r.json();
+  },
+  get: async (key) => {
+    const r = await fetch(`/api/${name}/${encodeURIComponent(key)}`);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`get ${name} failed: ${r.status}`);
+    return r.json();
+  },
+  save: async (entity) => {
+    const r = await fetch(`/api/${name}/${encodeURIComponent(keyOf(entity))}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(entity),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save ${name} failed: ${r.status} ${body}`);
+    }
+    const data = await r.json();
+    refreshCatalog();
+    return data;
+  },
+  remove: async (key) => {
+    const r = await fetch(`/api/${name}/${encodeURIComponent(key)}`, {
+      method: "DELETE",
+    });
+    if (!r.ok && r.status !== 404) {
+      throw new Error(`delete ${name} failed: ${r.status}`);
+    }
+    refreshCatalog();
+  },
+});
+
+export const assetUrl = (path: string): string =>
+  `/api/asset?path=${encodeURIComponent(path)}`;
+
+export const questsApi = crud<Quest>("quests", (e) => e.Id);
+export const itemsApi = crud<Item>("items", (e) => e.Slug);
+export const karmaApi = crud<KarmaImpact>("karma", (e) => e.Id);
+export const npcsApi = crud<Npc>("npcs", (e) => e.NpcId);
+
+export interface DialogFolderGroup {
+  folder: string;
+  sequences: DialogSequence[];
+}
+
+export interface EdgeStyle {
+  shape: "curved" | "straight";
+  dashed: boolean;
+  waypoints: { x: number; y: number }[];
+}
+
+export interface DialogLayout {
+  nodes: Record<string, { x: number; y: number }>;
+  edges: Record<string, EdgeStyle>;
+}
+
+export const emptyLayout = (): DialogLayout => ({ nodes: {}, edges: {} });
+
+export const dialogsApi = {
+  listFolders: async (): Promise<string[]> => {
+    const r = await fetch("/api/dialogs/folders");
+    if (!r.ok) throw new Error(`listFolders failed: ${r.status}`);
+    return r.json();
+  },
+  listAll: async (): Promise<DialogFolderGroup[]> => {
+    const r = await fetch("/api/dialogs");
+    if (!r.ok) throw new Error(`list dialogs failed: ${r.status}`);
+    return r.json();
+  },
+  listInFolder: async (folder: string): Promise<DialogSequence[]> => {
+    const r = await fetch(`/api/dialogs/${encodeURIComponent(folder)}`);
+    if (!r.ok) throw new Error(`listInFolder failed: ${r.status}`);
+    return r.json();
+  },
+  get: async (folder: string, id: string): Promise<DialogSequence | null> => {
+    const r = await fetch(
+      `/api/dialogs/${encodeURIComponent(folder)}/${encodeURIComponent(id)}`,
+    );
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`get dialog failed: ${r.status}`);
+    return r.json();
+  },
+  save: async (folder: string, sequence: DialogSequence): Promise<DialogSequence> => {
+    const r = await fetch(
+      `/api/dialogs/${encodeURIComponent(folder)}/${encodeURIComponent(sequence.Id)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(sequence),
+      },
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save dialog failed: ${r.status} ${body}`);
+    }
+    const data = await r.json();
+    refreshCatalog();
+    return data;
+  },
+  remove: async (folder: string, id: string): Promise<void> => {
+    const r = await fetch(
+      `/api/dialogs/${encodeURIComponent(folder)}/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok && r.status !== 404) {
+      throw new Error(`remove dialog failed: ${r.status}`);
+    }
+    refreshCatalog();
+  },
+  getLayout: async (folder: string): Promise<DialogLayout> => {
+    const r = await fetch(`/api/dialogs/${encodeURIComponent(folder)}/_layout`);
+    if (!r.ok) throw new Error(`getLayout failed: ${r.status}`);
+    return r.json();
+  },
+  saveLayout: async (folder: string, layout: DialogLayout): Promise<DialogLayout> => {
+    const r = await fetch(`/api/dialogs/${encodeURIComponent(folder)}/_layout`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(layout),
+    });
+    if (!r.ok) throw new Error(`saveLayout failed: ${r.status}`);
+    return r.json();
+  },
+};
