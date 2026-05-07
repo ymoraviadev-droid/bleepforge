@@ -57,6 +57,13 @@ export function listLogs(): LogEntry[] {
   return buffer.slice();
 }
 
+/** Drops every entry. Used by the LogsTab "Clear" action so the user can
+ *  start with a clean slate before reproducing a bug. The capture itself
+ *  stays installed — new console.* calls keep filling the buffer. */
+export function clearLogs(): void {
+  buffer.length = 0;
+}
+
 let installed = false;
 
 /** Idempotent — safe to call multiple times. */

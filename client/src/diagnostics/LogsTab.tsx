@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { logsApi, type LogEntry } from "../api";
 import { Button } from "../Button";
+import { showConfirm } from "../Modal";
 
 // Server-log viewer. Reads from the in-memory ring buffer at /api/logs.
 // v1 is fetch-on-demand (manual refresh button + a fresh fetch every time
@@ -40,6 +41,23 @@ export function LogsTab() {
       setError(String(e));
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const clear = async () => {
+    const ok = await showConfirm({
+      title: "Clear all log entries?",
+      message:
+        "Wipes the in-memory log buffer. New console output keeps being captured normally — this just gives you a clean slate before reproducing a bug.",
+      confirmLabel: "Clear",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await logsApi.clear();
+      setEntries([]);
+    } catch (e) {
+      setError(String(e));
     }
   };
 
@@ -90,6 +108,15 @@ export function LogsTab() {
             disabled={refreshing}
           >
             {refreshing ? "…" : "Refresh"}
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => void clear()}
+            disabled={!entries || entries.length === 0}
+            title="Wipe the in-memory log buffer"
+          >
+            Clear
           </Button>
         </div>
       </div>

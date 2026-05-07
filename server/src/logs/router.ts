@@ -4,10 +4,19 @@
 // cost of SSE + a virtualized live feed. See server/src/logs/buffer.ts.
 
 import { Router } from "express";
-import { listLogs } from "./buffer.js";
+import { clearLogs, listLogs } from "./buffer.js";
 
 export const logsRouter: Router = Router();
 
 logsRouter.get("/", (_req, res) => {
   res.json(listLogs());
+});
+
+// POST /api/logs/clear — wipe the in-memory buffer. The user-facing trigger
+// is the "Clear" button in the Diagnostics → Logs tab; intent is "give me a
+// clean slate before reproducing a bug." Capture stays installed; new
+// console.* calls refill normally.
+logsRouter.post("/clear", (_req, res) => {
+  clearLogs();
+  res.json({ ok: true });
 });

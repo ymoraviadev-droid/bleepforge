@@ -201,6 +201,10 @@ export const logsApi = {
     if (!r.ok) throw new Error(`get logs failed: ${r.status}`);
     return r.json();
   },
+  clear: async (): Promise<void> => {
+    const r = await fetch("/api/logs/clear", { method: "POST" });
+    if (!r.ok) throw new Error(`clear logs failed: ${r.status}`);
+  },
 };
 
 // Singleton-style preferences doc — global themes (color + typography bundles)
