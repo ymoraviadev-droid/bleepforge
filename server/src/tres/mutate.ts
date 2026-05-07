@@ -437,6 +437,51 @@ export function getAttrValue(section: Section, key: string): string | undefined 
   return v;
 }
 
+// Walks the doc and removes any `[ext_resource]` whose id has zero
+// `ExtResource("<id>")` occurrences across every section's property values.
+// Safe to call as a post-pass after edits — pre-existing orphans get
+// cleaned up too, which is an intentional incidental win.
+//
+// Conservative by design: we only declare an ext_resource orphan if its id
+// literally never appears as `ExtResource("<id>")` anywhere in the doc.
+// `metadata/_custom_type_script` uses raw `uid://...` strings (not
+// ExtResource refs) and is therefore correctly NOT counted as a usage —
+// scripts that are ONLY referenced through their UID metadata don't exist
+// in this corpus (every script ext_resource is also referenced as
+// `script = ExtResource(...)` somewhere). If that ever changes the harness
+// would catch it on the next round-trip diff.
+//
+// Returns the ids of the ext_resources that were removed (for logging).
+export function removeOrphanExtResources(doc: Doc): string[] {
+  const allIds = new Set<string>();
+  for (const s of doc.sections) {
+    if (s.kind !== "ext_resource") continue;
+    const id = getAttrValue(s, "id");
+    if (id) allIds.add(id);
+  }
+
+  const referenced = new Set<string>();
+  const re = /ExtResource\("([^"]+)"\)/g;
+  for (const s of doc.sections) {
+    if (s.kind === "ext_resource") continue; // skip the definitions
+    for (const entry of s.body) {
+      if (entry.kind !== "property") continue;
+      re.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = re.exec(entry.rawAfterEquals)) !== null) {
+        referenced.add(m[1]!);
+      }
+    }
+  }
+
+  const removed: string[] = [];
+  for (const id of allIds) {
+    if (referenced.has(id)) continue;
+    if (removeSectionById(doc, "ext_resource", id)) removed.push(id);
+  }
+  return removed;
+}
+
 // Serializes an array of sub_resource ids as Godot's array literal:
 //   [SubResource("X"), SubResource("Y")]
 //

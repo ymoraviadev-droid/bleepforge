@@ -27,6 +27,7 @@ import type {
 } from "@bleepforge/shared";
 import { parseTres } from "./parser.js";
 import { emitTres } from "./emitter.js";
+import { removeOrphanExtResources } from "./mutate.js";
 import { applyItemScalars, type ItemJson } from "./domains/item.js";
 import { applyKarma, type KarmaJson } from "./domains/karma.js";
 import { applyDialog, type DialogApplyContext, type DialogSequenceJson } from "./domains/dialog.js";
@@ -280,6 +281,18 @@ async function runWrite(
   try {
     const doc = parseTres(original);
     warnings = apply(doc);
+    // Final pass: drop any ext_resource that's no longer referenced. Catches
+    // orphans introduced by the apply (e.g. swapping a LootEntry's
+    // PickupScene leaves the previous PackedScene ref unused) AND any
+    // pre-existing orphans on disk — incidental cleanup is intentional.
+    const removedIds = removeOrphanExtResources(doc);
+    if (removedIds.length > 0) {
+      warnings.push(
+        `removed ${removedIds.length} orphan ext_resource${
+          removedIds.length === 1 ? "" : "s"
+        }: ${removedIds.join(", ")}`,
+      );
+    }
     emitted = emitTres(doc);
   } catch (err) {
     return { attempted: true, ok: false, error: `mapper threw: ${(err as Error).message}` };
