@@ -9,6 +9,7 @@ import {
 import { config, folderAbs } from "./config.js";
 import { assetRouter } from "./asset/router.js";
 import { conceptRouter } from "./concept/router.js";
+import { preferencesRouter } from "./preferences/router.js";
 import { dialogRouter } from "./dialog/router.js";
 import { importRouter } from "./import/router.js";
 import { itemIconRouter } from "./item/iconRouter.js";
@@ -47,6 +48,7 @@ app.use("/api/item-icon", itemIconRouter);
 app.use("/api/import", importRouter);
 app.use("/api/sync", syncRouter);
 app.use("/api/concept", conceptRouter);
+app.use("/api/preferences", preferencesRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({

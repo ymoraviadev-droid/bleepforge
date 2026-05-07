@@ -3,6 +3,8 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { App } from "./App";
 import "./Theme"; // applies saved theme on load (sets data-theme on <html>)
+import "./Font"; // applies saved font + UI scale + letter spacing
+import "./GlobalTheme"; // reconciles legacy keys → server-backed preferences
 import "./index.css";
 import { startSyncStream } from "./sync/stream";
 import { refreshCatalog } from "./catalog-bus";

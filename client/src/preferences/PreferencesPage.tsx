@@ -1,14 +1,16 @@
 import { type ReactNode } from "react";
+import { FONT_SIZE, FONTS, LETTER_SPACING, useFont, useFontSize, useLetterSpacing } from "../Font";
 import {
-  FONT_SIZE,
-  FONTS,
-  LETTER_SPACING,
-  useFont,
-  useFontSize,
-  useLetterSpacing,
-  type FontId,
-} from "../Font";
+  DEFAULT_THEME_NAME,
+  setActiveColorTheme,
+  setActiveFont,
+  setActiveFontSize,
+  setActiveLetterSpacing,
+  useGlobalThemes,
+} from "../GlobalTheme";
+import { showConfirm, showPrompt } from "../Modal";
 import { THEMES, useTheme } from "../Theme";
+import { Button } from "../Button";
 import { fieldLabel, textInput } from "../ui";
 import { ImportSection } from "./ImportSection";
 
@@ -18,14 +20,20 @@ export function PreferencesPage() {
       <div>
         <h1 className="text-xl font-semibold">Preferences</h1>
         <p className="mt-1 text-xs text-neutral-400">
-          Editor settings + the import-from-Godot tool. Everything here is
-          local to this browser (theme + typography live in localStorage;
-          import writes JSON files in <span className="font-mono">data/</span>).
+          Editor settings + the import-from-Godot tool. Color theme +
+          typography are bundled into a global theme; the active one is
+          saved to <span className="font-mono">data/preferences.json</span>{" "}
+          and reapplied each session. Import writes JSON files in{" "}
+          <span className="font-mono">data/</span>.
         </p>
       </div>
 
-      <Section title="Theme">
-        <ThemeSection />
+      <Section title="Global theme">
+        <GlobalThemeSection />
+      </Section>
+
+      <Section title="Color theme">
+        <ColorThemeSection />
       </Section>
 
       <Section title="Typography">
@@ -50,15 +58,93 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-function ThemeSection() {
-  const { theme, setTheme } = useTheme();
+function GlobalThemeSection() {
+  const { themes, activeName, switchTheme, createNew, deleteByName, isDefault } =
+    useGlobalThemes();
+
+  const onNew = async () => {
+    const name = await showPrompt({
+      title: "New global theme",
+      message:
+        "Saves the current color theme + typography under a new name. The new theme becomes active immediately.",
+      placeholder: "e.g. Dark Amber, Reading Mode, Big Type",
+      validate: (v) => {
+        const trimmed = v.trim();
+        if (!trimmed) return "Name is required";
+        if (themes.some((t) => t.name === trimmed)) return "Name already exists";
+        if (trimmed.length > 40) return "Keep it under 40 chars";
+        return null;
+      },
+    });
+    if (!name) return;
+    createNew(name.trim());
+  };
+
+  const onDelete = async () => {
+    if (isDefault) return;
+    const ok = await showConfirm({
+      title: `Delete theme "${activeName}"?`,
+      message:
+        "Switches back to default. The default theme can't be deleted; it's always available as a fallback.",
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    deleteByName(activeName);
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex flex-1 items-center gap-2">
+          <span className={`${fieldLabel} shrink-0`}>Active</span>
+          <select
+            value={activeName}
+            onChange={(e) => switchTheme(e.target.value)}
+            className={`${textInput} mt-0`}
+          >
+            {themes.map((t) => (
+              <option key={t.name} value={t.name}>
+                {t.name === DEFAULT_THEME_NAME ? `${t.name} (built-in)` : t.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Button variant="secondary" size="sm" onClick={onNew}>
+          + New
+        </Button>
+        <Button
+          variant="danger"
+          size="sm"
+          onClick={onDelete}
+          disabled={isDefault}
+          title={
+            isDefault
+              ? "The default theme can't be deleted"
+              : `Delete "${activeName}"`
+          }
+        >
+          Delete
+        </Button>
+      </div>
+      <p className="text-xs text-neutral-500">
+        Color theme and typography changes below save automatically to the
+        active theme. Use <span className="text-neutral-300">+ New</span> to
+        fork the current settings under a different name before tweaking.
+      </p>
+    </div>
+  );
+}
+
+function ColorThemeSection() {
+  const { theme } = useTheme();
   return (
     <div className="space-y-2">
       <span className={fieldLabel}>Accent + canvas tint</span>
       <div
         className="flex flex-wrap gap-3"
         role="radiogroup"
-        aria-label="Theme"
+        aria-label="Color theme"
       >
         {THEMES.map((t) => {
           const active = theme === t.id;
@@ -68,7 +154,7 @@ function ThemeSection() {
               type="button"
               role="radio"
               aria-checked={active}
-              onClick={() => setTheme(t.id)}
+              onClick={() => setActiveColorTheme(t.id)}
               className={`flex items-center gap-2 border-2 px-2 py-1 text-xs transition-colors ${
                 active
                   ? "border-emerald-400 bg-emerald-950/40 text-emerald-100"
@@ -89,9 +175,9 @@ function ThemeSection() {
 }
 
 function TypographySection() {
-  const { font, setFont } = useFont();
-  const { fontSize, setFontSize } = useFontSize();
-  const { letterSpacing, setLetterSpacing } = useLetterSpacing();
+  const { font } = useFont();
+  const { fontSize } = useFontSize();
+  const { letterSpacing } = useLetterSpacing();
   const activeFamily =
     FONTS.find((f) => f.id === font)?.family ?? "system-ui, sans-serif";
   return (
@@ -103,7 +189,7 @@ function TypographySection() {
         </p>
         <select
           value={font}
-          onChange={(e) => setFont(e.target.value as FontId)}
+          onChange={(e) => setActiveFont(e.target.value as typeof font)}
           style={{ fontFamily: activeFamily }}
           className={`${textInput} appearance-none pr-8`}
         >
@@ -122,8 +208,8 @@ function TypographySection() {
         max={FONT_SIZE.max}
         step={FONT_SIZE.step}
         value={fontSize}
-        onChange={setFontSize}
-        onReset={() => setFontSize(FONT_SIZE.default)}
+        onChange={setActiveFontSize}
+        onReset={() => setActiveFontSize(FONT_SIZE.default)}
         hint="Scales the entire UI proportionally (text + padding)."
       />
 
@@ -134,8 +220,8 @@ function TypographySection() {
         max={LETTER_SPACING.max}
         step={LETTER_SPACING.step}
         value={letterSpacing}
-        onChange={setLetterSpacing}
-        onReset={() => setLetterSpacing(LETTER_SPACING.default)}
+        onChange={setActiveLetterSpacing}
+        onReset={() => setActiveLetterSpacing(LETTER_SPACING.default)}
         hint="Tracking on body text. Mono (VT323) keeps its own spacing."
       />
 

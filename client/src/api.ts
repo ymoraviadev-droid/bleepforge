@@ -5,6 +5,7 @@ import type {
   Item,
   KarmaImpact,
   Npc,
+  Preferences,
   Quest,
 } from "@bleepforge/shared";
 import { refreshCatalog } from "./catalog-bus";
@@ -113,6 +114,29 @@ export const itemsApi = crud<Item>("items", (e) => e.Slug);
 export const karmaApi = crud<KarmaImpact>("karma", (e) => e.Id);
 export const npcsApi = crud<Npc>("npcs", (e) => e.NpcId);
 export const factionsApi = crud<FactionData>("factions", (e) => e.Faction);
+
+// Singleton-style preferences doc — global themes (color + typography bundles)
+// and the active one. Lives at data/preferences.json.
+export const preferencesApi = {
+  get: async (): Promise<Preferences> => {
+    const r = await fetch("/api/preferences");
+    if (!r.ok) throw new Error(`get preferences failed: ${r.status}`);
+    return r.json();
+  },
+  save: async (prefs: Preferences): Promise<Preferences> => {
+    const r = await fetch("/api/preferences", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(prefs),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save preferences failed: ${r.status} ${body}`);
+    }
+    const data = await r.json();
+    return unwrapSavedResponse<Preferences>(data, "preferences");
+  },
+};
 
 // Singleton-style document — one concept doc per project. GET returns either
 // the saved doc or an empty default; PUT overwrites.
