@@ -1,4 +1,4 @@
-import type { BodyEntry, Section } from "./types.js";
+import type { BodyEntry, Doc, Section, SectionKind } from "./types.js";
 
 // ---- Property mutation -----------------------------------------------------
 
@@ -146,6 +146,115 @@ export function serializeEnumInt(value: string, mapping: Record<string, number>)
 }
 
 export const quoteString = serializeString;
+
+// ---- Section (sub_resource) manipulation ----------------------------------
+
+// Removes the section matching `kind` AND `id` (sub_resource id attr).
+// Returns true on removal. Does not touch any references to it elsewhere
+// — caller is responsible for cleaning up arrays that pointed at it.
+export function removeSectionById(doc: Doc, kind: SectionKind, id: string): boolean {
+  const idx = doc.sections.findIndex(
+    (s) => s.kind === kind && getAttrValue(s, "id") === id,
+  );
+  if (idx < 0) return false;
+  doc.sections.splice(idx, 1);
+  return true;
+}
+
+// Inserts a new section into doc.sections immediately before `before`.
+// `before` can be either a section kind (e.g. "resource" — inserts before
+// the first such section) or a specific Section reference. If the target
+// isn't found, appends to the end.
+export function insertSectionBefore(
+  doc: Doc,
+  before: SectionKind | Section,
+  newSection: Section,
+): void {
+  let idx: number;
+  if (typeof before === "string") {
+    idx = doc.sections.findIndex((s) => s.kind === before);
+  } else {
+    idx = doc.sections.indexOf(before);
+  }
+  if (idx < 0) doc.sections.push(newSection);
+  else doc.sections.splice(idx, 0, newSection);
+}
+
+// Mints a sub_resource id in Godot's format: `<ClassName>_<5alnum>`.
+// Default ClassName is "Resource" (matching what Godot writes for plain
+// scripted Resource sub_resources). Guarantees no collision with existing
+// sub_resource ids in `doc`.
+export function mintSubResourceId(doc: Doc, className: string = "Resource"): string {
+  const existing = new Set<string>();
+  for (const s of doc.sections) {
+    if (s.kind === "sub_resource") {
+      const id = getAttrValue(s, "id");
+      if (id) existing.add(id);
+    }
+  }
+  for (let attempt = 0; attempt < 1000; attempt++) {
+    const suffix = randomAlnum(5);
+    const candidate = `${className}_${suffix}`;
+    if (!existing.has(candidate)) return candidate;
+  }
+  throw new Error("mintSubResourceId: exhausted attempts (highly unlikely)");
+}
+
+// Builds a `[sub_resource type="..." id="..."]` Section with the given body
+// properties. `properties` is in source-order (the order they should appear);
+// metadata is typically last. Each value is the raw text (already serialized).
+export function buildSubResourceSection(opts: {
+  type: string;
+  id: string;
+  properties: { key: string; rawValue: string }[];
+  eol?: string;
+}): Section {
+  const eol = opts.eol ?? "\n";
+  const headerLine = `[sub_resource type="${opts.type}" id="${opts.id}"]${eol}`;
+  const body: BodyEntry[] = opts.properties.map((p) => ({
+    kind: "property" as const,
+    key: p.key,
+    rawAfterEquals: ` ${p.rawValue}${eol}`,
+    rawLine: `${p.key} = ${p.rawValue}${eol}`,
+  }));
+  // Trailing blank line, matching Godot's between-section convention.
+  body.push({ kind: "blank", raw: eol });
+  return {
+    kind: "sub_resource",
+    rawHeaderLine: headerLine,
+    attrs: [
+      { key: "type", rawValue: `"${opts.type}"` },
+      { key: "id", rawValue: `"${opts.id}"` },
+    ],
+    body,
+  };
+}
+
+export function getAttrValue(section: Section, key: string): string | undefined {
+  const a = section.attrs.find((x) => x.key === key);
+  if (!a) return undefined;
+  const v = a.rawValue;
+  if (v.startsWith('"') && v.endsWith('"')) return v.substring(1, v.length - 1);
+  return v;
+}
+
+// Serializes an array of sub_resource ids as Godot's array literal:
+//   [SubResource("X"), SubResource("Y")]
+// or [] for an empty list.
+export function serializeSubRefArray(ids: readonly string[]): string {
+  if (ids.length === 0) return "[]";
+  return "[" + ids.map((id) => `SubResource("${id}")`).join(", ") + "]";
+}
+
+function randomAlnum(len: number): string {
+  // Godot-style ids use lowercase alnum.
+  const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  for (let i = 0; i < len; i++) {
+    out += chars[Math.floor(Math.random() * chars.length)];
+  }
+  return out;
+}
 
 // ---- Helpers ---------------------------------------------------------------
 

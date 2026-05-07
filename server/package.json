@@ -11,6 +11,8 @@
     "harness": "tsx --env-file=../.env src/tres/harness.ts",
     "canary": "tsx --env-file=../.env src/tres/canary.ts",
     "canary-karma": "tsx --env-file=../.env src/tres/canary-karma.ts",
+    "canary-dialog": "tsx --env-file=../.env src/tres/canary-dialog.ts",
+    "canary-quest": "tsx --env-file=../.env src/tres/canary-quest.ts",
     "test-mutations": "tsx --env-file=../.env src/tres/test-mutations.ts"
   },
   "dependencies": {
