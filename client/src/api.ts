@@ -184,6 +184,25 @@ export const reconcileApi = {
   },
 };
 
+// In-memory server-log buffer (last ~1000 entries). Surfaced in the Logs tab
+// of /diagnostics. v1 is fetch-on-demand — no streaming yet, the user clicks
+// refresh / revisits the tab to see new lines.
+export type LogLevel = "info" | "warning" | "error";
+
+export interface LogEntry {
+  ts: string;
+  level: LogLevel;
+  message: string;
+}
+
+export const logsApi = {
+  list: async (): Promise<LogEntry[]> => {
+    const r = await fetch("/api/logs");
+    if (!r.ok) throw new Error(`get logs failed: ${r.status}`);
+    return r.json();
+  },
+};
+
 // Singleton-style preferences doc — global themes (color + typography bundles)
 // and the active one. Lives at data/preferences.json.
 export const preferencesApi = {

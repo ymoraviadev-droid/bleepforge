@@ -1,3 +1,8 @@
+// Log capture is set up at module load — must be the FIRST import so any
+// console.* calls fired during the rest of the boot sequence get captured
+// and surfaced in the Diagnostics → Logs tab.
+import "./logs/buffer.js";
+
 import express from "express";
 import {
   FactionDataSchema,
@@ -14,6 +19,7 @@ import { preferencesRouter } from "./preferences/router.js";
 import { dialogRouter } from "./dialog/router.js";
 import { godotProjectRouter } from "./godotProject/router.js";
 import { runImport } from "./import/orchestrator.js";
+import { logsRouter } from "./logs/router.js";
 import { reconcileRouter, setReconcileStatus } from "./reconcile/router.js";
 import { itemIconRouter } from "./item/iconRouter.js";
 import {
@@ -65,6 +71,7 @@ app.use("/api/preferences", preferencesRouter);
 app.use("/api/pickups", pickupsRouter);
 app.use("/api/godot-project", godotProjectRouter);
 app.use("/api/reconcile", reconcileRouter);
+app.use("/api/logs", logsRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({
@@ -142,11 +149,15 @@ app.listen(config.port, async () => {
       segments.push(tags.length === 0 ? `${name}=${c.imported}` : `${name}=${c.imported} (${tags.join(",")})`);
     }
     console.log(`[bleepforge/server] reconcile ok in ${durationMs}ms — ${segments.join(" ")}`);
+    // Per-file detail lines: use console.error / console.warn so the log
+    // buffer tags them correctly (Diagnostics → Logs filters by level).
+    // The Reconcile tab is the canonical surface for these — Logs is just
+    // the aggregated stream.
     for (const e of errorDetails) {
-      console.log(`[bleepforge/server]   error: ${e.domain} ${e.file} — ${e.error}`);
+      console.error(`[bleepforge/server]   error: ${e.domain} ${e.file} — ${e.error}`);
     }
     for (const s of skippedDetails) {
-      console.log(`[bleepforge/server]   skipped: ${s.domain} ${s.file} — ${s.reason}`);
+      console.warn(`[bleepforge/server]   skipped: ${s.domain} ${s.file} — ${s.reason}`);
     }
   } catch (err) {
     const message = (err as Error).message;

@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { reconcileApi, type ReconcileStatus } from "../api";
+import {
+  logsApi,
+  reconcileApi,
+  type LogEntry,
+  type ReconcileStatus,
+} from "../api";
 import { computeIssues } from "../integrity/issues";
 import { useCatalog } from "../useCatalog";
 
@@ -12,7 +17,7 @@ import { useCatalog } from "../useCatalog";
 // `severity` is the worst-of any tab. "error" = red, "warning" = amber,
 // "clean" = emerald, "loading" = nothing yet.
 
-export type DiagnosticsTabId = "integrity" | "reconcile";
+export type DiagnosticsTabId = "integrity" | "reconcile" | "logs";
 
 export interface TabSignal {
   id: DiagnosticsTabId;
@@ -29,6 +34,7 @@ export interface DiagnosticsStatus {
   worstTab: DiagnosticsTabId;
   tabs: TabSignal[];
   reconcile: ReconcileStatus | null | undefined;
+  logs: LogEntry[] | null | undefined;
   /** Sum of counts across all tabs — drives the numeric badge on the
    *  header icon. */
   totalCount: number;
@@ -61,6 +67,27 @@ export function useDiagnostics(): DiagnosticsStatus {
       })
       .catch(() => {
         if (!cancelled) setReconcile(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Logs — same one-shot pattern. The Logs tab itself manages its own
+  // refresh-on-demand state for the live view; this hook just needs enough
+  // signal to drive the header icon's color + badge. New errors after the
+  // initial fetch won't bump the icon until the user reloads — acceptable
+  // tradeoff for v1, see logs/buffer.ts comments.
+  const [logs, setLogs] = useState<LogEntry[] | null | undefined>(undefined);
+  useEffect(() => {
+    let cancelled = false;
+    logsApi
+      .list()
+      .then((l) => {
+        if (!cancelled) setLogs(l);
+      })
+      .catch(() => {
+        if (!cancelled) setLogs(null);
       });
     return () => {
       cancelled = true;
@@ -101,7 +128,19 @@ export function useDiagnostics(): DiagnosticsStatus {
     return { id: "reconcile", label: "Reconcile", severity: "clean", count: 0 };
   })();
 
-  const tabs = [integrityTab, reconcileTab];
+  const logsTab: TabSignal = (() => {
+    if (logs === undefined || logs === null)
+      return { id: "logs", label: "Logs", severity: "loading", count: 0 };
+    const errorCount = logs.filter((l) => l.level === "error").length;
+    const warnCount = logs.filter((l) => l.level === "warning").length;
+    if (errorCount > 0)
+      return { id: "logs", label: "Logs", severity: "error", count: errorCount };
+    if (warnCount > 0)
+      return { id: "logs", label: "Logs", severity: "warning", count: warnCount };
+    return { id: "logs", label: "Logs", severity: "clean", count: 0 };
+  })();
+
+  const tabs = [integrityTab, reconcileTab, logsTab];
   const worstSeverity = tabs.reduce<TabSignal["severity"]>(
     (worst, t) => (SEVERITY_RANK[t.severity] > SEVERITY_RANK[worst] ? t.severity : worst),
     "clean",
@@ -115,6 +154,7 @@ export function useDiagnostics(): DiagnosticsStatus {
     worstTab,
     tabs,
     reconcile,
+    logs,
     totalCount,
   };
 }
