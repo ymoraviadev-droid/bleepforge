@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { assetUrl, itemIconApi, type ItemIconResponse } from "./api";
+import { useSyncRefresh } from "./sync/useSyncRefresh";
 
 interface Props {
   slug: string;
@@ -19,6 +20,17 @@ export function ItemIcon({ slug, size = "md", className = "" }: Props) {
     setIcon(undefined);
     itemIconApi.get(slug).then(setIcon).catch(() => setIcon(null));
   }, [slug]);
+
+  // Re-fetch the icon descriptor when this item's .tres changes — the icon
+  // is read directly from the .tres (atlas region / ext_resource path), so
+  // a Godot-side edit can change which sprite to render.
+  useSyncRefresh({
+    domain: "item",
+    key: slug,
+    onChange: () => {
+      itemIconApi.get(slug).then(setIcon).catch(() => setIcon(null));
+    },
+  });
 
   const target = TARGET_PX[size];
   const boxStyle = { width: target, height: target };

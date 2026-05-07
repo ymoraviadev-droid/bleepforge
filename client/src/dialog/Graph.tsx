@@ -35,6 +35,7 @@ import {
 import { AssetThumb } from "../AssetThumb";
 import { ButtonLink } from "../Button";
 import { showConfirm, showPrompt } from "../Modal";
+import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { useTheme } from "../Theme";
 import { useThemeColors, type ThemeColors } from "../themeColors";
 import { FolderTabs } from "./FolderTabs";
@@ -817,6 +818,18 @@ function DialogGraphInner() {
     const fresh = await dialogsApi.listInFolder(folder);
     setSeqs(fresh);
   }, [folder]);
+
+  // Live-refresh on any dialog change in the current folder (e.g. saved
+  // in Godot while the graph is open).
+  useSyncRefresh({
+    domain: "dialog",
+    onChange: (e) => {
+      if (!folder) return;
+      const [eventFolder] = e.key.split("/");
+      if (eventFolder !== folder) return;
+      void refetch();
+    },
+  });
 
   const onNodeDragStop = useCallback(
     (_e: React.MouseEvent, node: SeqNode) => {

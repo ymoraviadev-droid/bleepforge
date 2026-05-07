@@ -17,6 +17,13 @@ import { isRecentSelfWrite } from "./writer.js";
 
 let watcher: FSWatcher | null = null;
 
+// Per-path debounce timers. Coalesces Godot's atomic-rename burst
+// (typically unlink + add fired in quick succession) into a single
+// reimport. Replaces chokidar's awaitWriteFinish, which has a known
+// stuck-state issue when a saved file's byte size doesn't change.
+const DEBOUNCE_MS = 150;
+const pending = new Map<string, NodeJS.Timeout>();
+
 export function shouldWatchTres(): boolean {
   return process.env.WATCH_TRES === "1" && !!config.godotProjectRoot;
 }
@@ -28,25 +35,29 @@ export function startTresWatcher(): void {
 
   watcher = chokidar.watch(root, {
     ignored: (path: string, stats?: Stats): boolean => {
-      // Ignore the .godot cache anywhere.
       if (path.includes("/.godot/") || path.endsWith("/.godot")) return true;
-      // For files: only watch .tres. (For directories, return false so we
-      // descend into them and find the .tres files inside.)
       if (stats?.isFile() && !path.endsWith(".tres")) return true;
       return false;
     },
-    ignoreInitial: true, // don't fire for files that already exist at startup
-    awaitWriteFinish: {
-      // Godot saves via temp file + rename. Wait for size to stabilize so
-      // the file is fully written before we react.
-      stabilityThreshold: 200,
-      pollInterval: 50,
-    },
+    ignoreInitial: true,
+    // No awaitWriteFinish — relying on our own debounce below.
   });
 
-  watcher.on("add", (path) => void handleEvent(path, "add"));
-  watcher.on("change", (path) => void handleEvent(path, "change"));
-  watcher.on("unlink", (path) => void handleEvent(path, "unlink"));
+  const schedule = (path: string, kind: "add" | "change" | "unlink") => {
+    const existing = pending.get(path);
+    if (existing) clearTimeout(existing);
+    pending.set(
+      path,
+      setTimeout(() => {
+        pending.delete(path);
+        void handleEvent(path, kind);
+      }, DEBOUNCE_MS),
+    );
+  };
+
+  watcher.on("add", (path) => schedule(path, "add"));
+  watcher.on("change", (path) => schedule(path, "change"));
+  watcher.on("unlink", (path) => schedule(path, "unlink"));
   watcher.on("error", (err) => {
     console.error(`[tres-watcher] error: ${(err as Error).message}`);
   });

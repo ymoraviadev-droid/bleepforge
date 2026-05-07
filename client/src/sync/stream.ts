@@ -42,9 +42,8 @@ function connect(): void {
     }
   };
   source.onerror = () => {
-    // EventSource auto-reconnects; just log on transitions.
     if (source && source.readyState === EventSource.CLOSED) {
-      console.log("[sync] connection closed; will retry");
+      console.warn("[sync] connection closed; will retry");
     }
   };
 }
