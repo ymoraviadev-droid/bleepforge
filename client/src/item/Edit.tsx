@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import type { Item, ItemCategory } from "@bleepforge/shared";
 import { itemsApi } from "../api";
 import { AssetPicker } from "../AssetPicker";
+import { ButtonLink } from "../Button";
+import { ItemIcon } from "../ItemIcon";
 import { DL } from "../CatalogDatalists";
 import { showConfirm } from "../Modal";
 import { button, fieldLabel, textInput } from "../ui";
@@ -80,17 +82,17 @@ export function ItemEdit() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        to="/items"
-        className="inline-flex items-center text-xs text-neutral-400 hover:text-neutral-200"
-      >
-        ← Back to Items
-      </Link>
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">
-          {isNew ? "New item" : item.Slug || "(unnamed)"}
-        </h1>
+        <div className="flex items-center gap-3">
+          {!isNew && item.Slug && <ItemIcon slug={item.Slug} size="lg" />}
+          <h1 className="text-xl font-semibold">
+            {isNew ? "New item" : item.Slug || "(unnamed)"}
+          </h1>
+        </div>
         <div className="flex gap-2">
+          <ButtonLink to="/items" variant="secondary">
+            ← Back
+          </ButtonLink>
           {!isNew && (
             <button
               onClick={remove}

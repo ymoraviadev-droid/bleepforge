@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
+import { ButtonLink } from "../Button";
 import type { DialogChoice, DialogLine, DialogSequence } from "@bleepforge/shared";
 import { dialogsApi } from "../api";
 import { AssetPicker } from "../AssetPicker";
@@ -131,17 +132,14 @@ export function DialogEdit() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        to={backTarget}
-        className="inline-flex items-center text-xs text-neutral-400 hover:text-neutral-200"
-      >
-        ← Back to graph{folder ? ` (${folder})` : ""}
-      </Link>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">
           {isNew ? "New sequence" : seq.Id || "(unnamed)"}
         </h1>
         <div className="flex gap-2">
+          <ButtonLink to={backTarget} variant="secondary">
+            ← Back{folder ? ` to ${folder}` : ""}
+          </ButtonLink>
           {!isNew && (
             <button
               onClick={remove}

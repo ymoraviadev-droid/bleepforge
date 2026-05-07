@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
+import { ButtonLink } from "../Button";
 import type { Npc } from "@bleepforge/shared";
 import { npcsApi } from "../api";
 import { AssetPicker } from "../AssetPicker";
@@ -64,17 +65,14 @@ export function NpcEdit() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
-      <Link
-        to="/npcs"
-        className="inline-flex items-center text-xs text-neutral-400 hover:text-neutral-200"
-      >
-        ← Back to NPCs
-      </Link>
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">
           {isNew ? "New NPC" : npc.NpcId || "(unnamed)"}
         </h1>
         <div className="flex gap-2">
+          <ButtonLink to="/npcs" variant="secondary">
+            ← Back
+          </ButtonLink>
           {!isNew && (
             <button
               onClick={remove}
