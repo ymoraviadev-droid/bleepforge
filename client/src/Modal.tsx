@@ -97,7 +97,7 @@ function Backdrop({
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70"
+      className="fixed inset-0 z-60 flex items-center justify-center bg-black/70"
       onClick={onClose}
     >
       <div onClick={(e) => e.stopPropagation()}>{children}</div>
@@ -108,7 +108,7 @@ function Backdrop({
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="w-[440px] border-2 border-emerald-700 bg-neutral-900 p-5"
+      className="w-110 border-2 border-emerald-700 bg-neutral-900 p-5"
       style={{ boxShadow: "4px 4px 0 0 rgba(0,0,0,0.6)" }}
     >
       {children}
