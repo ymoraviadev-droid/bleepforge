@@ -207,6 +207,63 @@ export const logsApi = {
   },
 };
 
+// Server process info — Diagnostics → Process tab. Read-only snapshot of
+// what the running server thinks it is.
+export interface ProcessInfo {
+  bleepforgeVersion: string;
+  nodeVersion: string;
+  platform: string;
+  pid: number;
+  port: number;
+  startedAt: string;
+  uptimeMs: number;
+  dataRoot: string;
+  assetRoot: string;
+  godotProjectRoot: string | null;
+  godotProjectRootSource: "preferences" | "env" | null;
+}
+
+export const processApi = {
+  get: async (): Promise<ProcessInfo> => {
+    const r = await fetch("/api/process");
+    if (!r.ok) throw new Error(`get process failed: ${r.status}`);
+    return r.json();
+  },
+};
+
+// Watcher status — Diagnostics → Watcher tab. Combines a liveness check
+// with a small ring of recent .tres events + their outcomes.
+export type WatcherEventKind = "add" | "change" | "unlink";
+export type WatcherEventOutcome =
+  | "reimported"
+  | "deleted"
+  | "ignored-self-write"
+  | "ignored-not-domain"
+  | "failed";
+
+export interface WatcherEvent {
+  ts: string;
+  kind: WatcherEventKind;
+  path: string;
+  outcome: WatcherEventOutcome;
+  detail?: string;
+}
+
+export interface WatcherStatus {
+  active: boolean;
+  root: string | null;
+  watchedFileCount: number;
+  recentEvents: WatcherEvent[];
+}
+
+export const watcherApi = {
+  get: async (): Promise<WatcherStatus> => {
+    const r = await fetch("/api/watcher");
+    if (!r.ok) throw new Error(`get watcher failed: ${r.status}`);
+    return r.json();
+  },
+};
+
 // Singleton-style preferences doc — global themes (color + typography bundles)
 // and the active one. Lives at data/preferences.json.
 export const preferencesApi = {

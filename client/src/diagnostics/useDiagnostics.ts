@@ -17,7 +17,12 @@ import { useCatalog } from "../useCatalog";
 // `severity` is the worst-of any tab. "error" = red, "warning" = amber,
 // "clean" = emerald, "loading" = nothing yet.
 
-export type DiagnosticsTabId = "integrity" | "reconcile" | "logs";
+export type DiagnosticsTabId =
+  | "integrity"
+  | "reconcile"
+  | "logs"
+  | "process"
+  | "watcher";
 
 export interface TabSignal {
   id: DiagnosticsTabId;
@@ -140,7 +145,24 @@ export function useDiagnostics(): DiagnosticsStatus {
     return { id: "logs", label: "Logs", severity: "clean", count: 0 };
   })();
 
-  const tabs = [integrityTab, reconcileTab, logsTab];
+  // Process and Watcher are informational — no severity contribution.
+  // They show up in the tab bar but never bump the header icon. Failed
+  // watcher reimports already surface via the Logs tab (console.error
+  // capture); the Watcher tab just gives a focused view of the same data.
+  const processTab: TabSignal = {
+    id: "process",
+    label: "Process",
+    severity: "clean",
+    count: 0,
+  };
+  const watcherTab: TabSignal = {
+    id: "watcher",
+    label: "Watcher",
+    severity: "clean",
+    count: 0,
+  };
+
+  const tabs = [integrityTab, reconcileTab, logsTab, processTab, watcherTab];
   const worstSeverity = tabs.reduce<TabSignal["severity"]>(
     (worst, t) => (SEVERITY_RANK[t.severity] > SEVERITY_RANK[worst] ? t.severity : worst),
     "clean",

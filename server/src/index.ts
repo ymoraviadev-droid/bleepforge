@@ -20,6 +20,7 @@ import { dialogRouter } from "./dialog/router.js";
 import { godotProjectRouter } from "./godotProject/router.js";
 import { runImport } from "./import/orchestrator.js";
 import { logsRouter } from "./logs/router.js";
+import { processRouter } from "./process/router.js";
 import { reconcileRouter, setReconcileStatus } from "./reconcile/router.js";
 import { itemIconRouter } from "./item/iconRouter.js";
 import {
@@ -30,6 +31,7 @@ import {
   writeQuestTres,
 } from "./tres/writer.js";
 import { startTresWatcher } from "./tres/watcher.js";
+import { watcherRouter } from "./tres/watcherRouter.js";
 import { syncRouter } from "./sync/router.js";
 import { makeCrudRouter, makeJsonStorage } from "./util/jsonCrud.js";
 
@@ -72,6 +74,8 @@ app.use("/api/pickups", pickupsRouter);
 app.use("/api/godot-project", godotProjectRouter);
 app.use("/api/reconcile", reconcileRouter);
 app.use("/api/logs", logsRouter);
+app.use("/api/process", processRouter);
+app.use("/api/watcher", watcherRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({

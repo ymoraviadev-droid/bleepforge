@@ -1,7 +1,9 @@
 import { Navigate, NavLink, Route, Routes, useParams } from "react-router";
 import { IntegrityTab } from "./IntegrityTab";
 import { LogsTab } from "./LogsTab";
+import { ProcessTab } from "./ProcessTab";
 import { ReconcileTab } from "./ReconcileTab";
+import { WatcherTab } from "./WatcherTab";
 import {
   useDiagnostics,
   type DiagnosticsTabId,
@@ -21,7 +23,13 @@ import {
 // The legacy /integrity, /reconcile, and /health routes redirect to
 // /diagnostics/<tab> (see App.tsx) so any old bookmark still lands.
 
-const VALID_TABS: DiagnosticsTabId[] = ["integrity", "reconcile", "logs"];
+const VALID_TABS: DiagnosticsTabId[] = [
+  "integrity",
+  "reconcile",
+  "logs",
+  "process",
+  "watcher",
+];
 
 export function DiagnosticsPage() {
   return (
@@ -65,6 +73,8 @@ function TabbedView() {
         {active === "integrity" && <IntegrityTab />}
         {active === "reconcile" && <ReconcileTab />}
         {active === "logs" && <LogsTab />}
+        {active === "process" && <ProcessTab />}
+        {active === "watcher" && <WatcherTab />}
       </div>
     </div>
   );
