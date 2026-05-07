@@ -4,6 +4,8 @@ export const Faction = z.enum(["Scavengers", "FreeRobots", "RFF", "Grove"]);
 export type Faction = z.infer<typeof Faction>;
 
 export const KarmaDeltaSchema = z.object({
+  // Stable identity tag (e.g. "Resource_puxjg"). See DialogLineSchema for shape.
+  _subId: z.string().optional(),
   Faction: Faction.default("Scavengers"),
   Amount: z.number().int().default(0),
 });

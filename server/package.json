@@ -13,7 +13,8 @@
     "canary-karma": "tsx --env-file=../.env src/tres/canary-karma.ts",
     "canary-dialog": "tsx --env-file=../.env src/tres/canary-dialog.ts",
     "canary-quest": "tsx --env-file=../.env src/tres/canary-quest.ts",
-    "test-mutations": "tsx --env-file=../.env src/tres/test-mutations.ts"
+    "test-mutations": "tsx --env-file=../.env src/tres/test-mutations.ts",
+    "migrate-subids": "tsx --env-file=../.env src/tres/migrate-subids.ts"
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",

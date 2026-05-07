@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import { parseTres } from "./parser.js";
 import { emitTres } from "./emitter.js";
-import { applyKarmaScalars, type KarmaJson } from "./domains/karma.js";
+import { applyKarma, type KarmaJson } from "./domains/karma.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -80,11 +80,17 @@ async function main(): Promise<void> {
   console.log(`[canary-karma] matched .tres: ${relPath}`);
 
   // 3. Apply.
-  const result = applyKarmaScalars(matchDoc, json);
+  const result = applyKarma(matchDoc, json);
   for (const a of result.resourceActions) {
     if (a.action !== "noop") console.log(`[canary-karma] resource: ${a.action} ${a.key}`);
   }
-  for (const d of result.deltas) {
+  for (const r of result.deltasRemoved) {
+    console.log(`[canary-karma] removed delta (${r.subId})`);
+  }
+  for (const a of result.deltasAdded) {
+    console.log(`[canary-karma] added delta[${a.index}] (${a.subId})`);
+  }
+  for (const d of result.deltasUpdated) {
     for (const a of d.actions) {
       if (a.action !== "noop") {
         console.log(`[canary-karma] delta[${d.index}] (${d.subId}): ${a.action} ${a.key}`);

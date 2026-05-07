@@ -262,6 +262,117 @@ export function addExtResource(doc: Doc, opts: AddExtResourceOpts): string {
   return newId;
 }
 
+// Locates a `[sub_resource]` by its id attribute. Returns undefined if no
+// such sub_resource exists in the document.
+export function findSubResourceById(doc: Doc, id: string): Section | undefined {
+  return doc.sections.find(
+    (s) => s.kind === "sub_resource" && getAttrValue(s, "id") === id,
+  );
+}
+
+// Reads the SubResource ids referenced by a property's array value, in
+// source order. Value text shape: `[SubResource("X"), SubResource("Y")]`.
+export function extractRefArray(section: Section, key: string): string[] {
+  const entry = section.body.find((e) => e.kind === "property" && e.key === key);
+  if (!entry || entry.kind !== "property") return [];
+  const ids: string[] = [];
+  const re = /SubResource\("([^"]+)"\)/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(entry.rawAfterEquals)) !== null) {
+    ids.push(m[1]!);
+  }
+  return ids;
+}
+
+// Reconciles a JSON array of sub_resource-backed entries with the .tres
+// representation, using `_subId` for stable identity. Handles add, update,
+// remove, AND reorder in one pass:
+//
+//   - For each JSON entry in order:
+//     - If its _subId matches an unclaimed existing sub_resource → reconcile
+//       its scalars.
+//     - Otherwise → build a new sub_resource (mint id).
+//   - .tres sub_resources whose ids weren't claimed → remove (caller can
+//     hook orphan cleanup via onRemove).
+//   - Update the host's `arrayKey` property to reflect the final order.
+//
+// Reorder safety: existing entries reorder by virtue of finalIds being built
+// in JSON order; the sub_resource bodies stay where they are in the file
+// (Godot resolves by id, not position).
+export type ReconcileAction = "updated" | "inserted" | "removed" | "noop";
+
+export interface SubArrayReconcileOps<T extends { _subId?: string }> {
+  reconcileExisting(section: Section, entry: T): { key: string; action: ReconcileAction }[];
+  buildNew(entry: T, subId: string): Section | null; // return null if cannot build (caller warns)
+  insertBefore: SectionKind | Section;
+  onRemove?(subId: string): void;
+}
+
+export interface SubArrayReconcileResult {
+  added: { index: number; subId: string }[];
+  updated: {
+    index: number;
+    subId: string;
+    actions: { key: string; action: ReconcileAction }[];
+  }[];
+  removed: { subId: string }[];
+}
+
+export function reconcileSubResourceArray<T extends { _subId?: string }>(
+  doc: Doc,
+  arrayHostSection: Section,
+  arrayKey: string,
+  arrayFieldOrder: readonly string[],
+  jsonEntries: T[],
+  ops: SubArrayReconcileOps<T>,
+): SubArrayReconcileResult {
+  const originalIds = extractRefArray(arrayHostSection, arrayKey);
+  const originalSet = new Set(originalIds);
+  const consumed = new Set<string>();
+  const finalIds: string[] = [];
+  const added: SubArrayReconcileResult["added"] = [];
+  const updated: SubArrayReconcileResult["updated"] = [];
+  const removed: SubArrayReconcileResult["removed"] = [];
+
+  for (let i = 0; i < jsonEntries.length; i++) {
+    const entry = jsonEntries[i]!;
+    const wantedId = entry._subId;
+    if (wantedId && originalSet.has(wantedId) && !consumed.has(wantedId)) {
+      const section = findSubResourceById(doc, wantedId);
+      if (section) {
+        const actions = ops.reconcileExisting(section, entry);
+        consumed.add(wantedId);
+        finalIds.push(wantedId);
+        updated.push({ index: i, subId: wantedId, actions });
+        continue;
+      }
+    }
+    const subId = mintSubResourceId(doc);
+    const newSection = ops.buildNew(entry, subId);
+    if (newSection) {
+      insertSectionBefore(doc, ops.insertBefore, newSection);
+      finalIds.push(subId);
+      added.push({ index: i, subId });
+    }
+  }
+
+  for (const oid of originalIds) {
+    if (consumed.has(oid)) continue;
+    if (ops.onRemove) ops.onRemove(oid);
+    removeSectionById(doc, "sub_resource", oid);
+    removed.push({ subId: oid });
+  }
+
+  reconcileProperty(
+    arrayHostSection,
+    arrayKey,
+    finalIds.length === 0 ? null : serializeSubRefArray(finalIds),
+    arrayFieldOrder,
+  );
+
+  return { added, updated, removed };
+}
+
 // Mints a sub_resource id in Godot's format: `<ClassName>_<5alnum>`.
 // Default ClassName is "Resource" (matching what Godot writes for plain
 // scripted Resource sub_resources). Guarantees no collision with existing

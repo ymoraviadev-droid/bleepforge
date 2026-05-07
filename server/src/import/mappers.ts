@@ -53,11 +53,12 @@ export function mapKarma(parsed: ParsedTres): KarmaImpact | null {
       const factionIdx = valueAsNumber(sub.props.Faction) ?? 0;
       const amount = valueAsNumber(sub.props.Amount) ?? 0;
       return {
+        _subId: subId,
         Faction: FACTION_BY_INDEX[factionIdx] ?? "Scavengers",
         Amount: amount,
       };
     })
-    .filter((d): d is { Faction: Faction; Amount: number } => d !== null);
+    .filter((d): d is { _subId: string; Faction: Faction; Amount: number } => d !== null);
 
   return { Id: id, Description: description, Deltas };
 }
@@ -133,13 +134,13 @@ export function mapQuest(parsed: ParsedTres, ctx: QuestImportContext): Quest | n
       if (!sub) return null;
       const typeIdx = valueAsNumber(sub.props.Type) ?? 0;
       const Type = OBJECTIVE_TYPE_BY_INDEX[typeIdx] ?? "CollectItem";
-      // TargetItem is an ExtResource pointing at an ItemData .tres
       let TargetItem = "";
       const tiRef = valueAsExtRef(sub.props.TargetItem);
       if (tiRef) {
         TargetItem = ctx.resolveItemSlugByExtRef(parsed, tiRef) ?? "";
       }
       return {
+        _subId: subId,
         Id: valueAsString(sub.props.Id) ?? "",
         Description: valueAsString(sub.props.Description) ?? "",
         Type,
@@ -166,6 +167,7 @@ export function mapQuest(parsed: ParsedTres, ctx: QuestImportContext): Quest | n
         Item = ctx.resolveItemSlugByExtRef(parsed, itemRef) ?? "";
       }
       return {
+        _subId: subId,
         Type,
         Item,
         Quantity: valueAsNumber(sub.props.Quantity) ?? 1,
@@ -203,7 +205,6 @@ export function mapDialogSequence(parsed: ParsedTres): DialogSequence | null {
       const lineSub = parsed.subResources.get(subId);
       if (!lineSub) return null;
 
-      // Portrait is a Texture2D ExtResource — convert res:// → absolute.
       let Portrait = "";
       const portraitVal = lineSub.props.Portrait;
       if (portraitVal?.kind === "ext_ref") {
@@ -220,6 +221,7 @@ export function mapDialogSequence(parsed: ParsedTres): DialogSequence | null {
           const cSub = parsed.subResources.get(cSubId);
           if (!cSub) return null;
           return {
+            _subId: cSubId,
             Text: valueAsString(cSub.props.Text) ?? "",
             NextSequenceId: valueAsString(cSub.props.NextSequenceId) ?? "",
             SetsFlag: valueAsString(cSub.props.SetsFlag) ?? "",
@@ -228,6 +230,7 @@ export function mapDialogSequence(parsed: ParsedTres): DialogSequence | null {
         .filter((c) => c !== null) as DialogSequence["Lines"][number]["Choices"];
 
       return {
+        _subId: subId,
         SpeakerName: valueAsString(lineSub.props.SpeakerName) ?? "",
         Text: valueAsString(lineSub.props.Text) ?? "",
         Portrait,

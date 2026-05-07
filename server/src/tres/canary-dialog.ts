@@ -110,37 +110,34 @@ async function main(): Promise<void> {
     if (a.action !== "noop") console.log(`[canary-dialog] resource: ${a.action} ${a.key}`);
   }
   for (const r of result.linesRemoved) {
-    console.log(
-      `[canary-dialog] removed line[${r.index}] (${r.subId})${r.orphanChoiceIds.length ? ` + orphan choices: ${r.orphanChoiceIds.join(", ")}` : ""}`,
-    );
+    console.log(`[canary-dialog] removed line (${r.subId})`);
   }
   for (const a of result.linesAdded) {
-    console.log(
-      `[canary-dialog] added line[${a.index}] (${a.subId})${a.choiceSubIds.length ? ` + choices: ${a.choiceSubIds.join(", ")}` : ""}`,
-    );
+    console.log(`[canary-dialog] added line[${a.index}] (${a.subId})`);
   }
-  for (const l of result.lines) {
+  for (const l of result.linesUpdated) {
     for (const a of l.actions) {
       if (a.action !== "noop") {
         console.log(`[canary-dialog] line[${l.index}] (${l.subId}): ${a.action} ${a.key}`);
       }
     }
-    for (const r of l.choicesRemoved) {
-      console.log(
-        `[canary-dialog] line[${l.index}]: removed choice[${r.index}] (${r.subId})`,
-      );
-    }
-    for (const a of l.choicesAdded) {
-      console.log(
-        `[canary-dialog] line[${l.index}]: added choice[${a.index}] (${a.subId})`,
-      );
-    }
-    for (const c of l.choices) {
-      for (const a of c.actions) {
-        if (a.action !== "noop") {
-          console.log(
-            `[canary-dialog] line[${l.index}].choice[${c.index}] (${c.subId}): ${a.action} ${a.key}`,
-          );
+    const choicesResult = result.choicesByLine.get(l.subId);
+    if (choicesResult) {
+      for (const r of choicesResult.removed) {
+        console.log(`[canary-dialog] line[${l.index}]: removed choice (${r.subId})`);
+      }
+      for (const a of choicesResult.added) {
+        console.log(
+          `[canary-dialog] line[${l.index}]: added choice[${a.index}] (${a.subId})`,
+        );
+      }
+      for (const c of choicesResult.updated) {
+        for (const a of c.actions) {
+          if (a.action !== "noop") {
+            console.log(
+              `[canary-dialog] line[${l.index}].choice[${c.index}] (${c.subId}): ${a.action} ${a.key}`,
+            );
+          }
         }
       }
     }

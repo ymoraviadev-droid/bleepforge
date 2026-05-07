@@ -13,6 +13,10 @@ export const RewardType = z.enum(["Item", "Flag", "Credits"]);
 export type RewardType = z.infer<typeof RewardType>;
 
 export const QuestObjectiveSchema = z.object({
+  // Stable identity tag mirroring the Godot sub_resource id. Used by the
+  // .tres mapper for reorder-safe matching. Distinct from the user-facing
+  // `Id` field below (which Bleepforge surfaces as the per-quest objective key).
+  _subId: z.string().optional(),
   Id: z.string().default(""),
   Description: z.string().default(""),
   Type: ObjectiveType.default("CollectItem"),
@@ -24,6 +28,7 @@ export const QuestObjectiveSchema = z.object({
 });
 
 export const QuestRewardSchema = z.object({
+  _subId: z.string().optional(),
   Type: RewardType.default("Item"),
   Item: z.string().default(""),
   Quantity: z.number().int().default(1),

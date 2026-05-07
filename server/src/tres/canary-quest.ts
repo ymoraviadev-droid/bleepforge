@@ -113,12 +113,12 @@ async function main(): Promise<void> {
     if (a.action !== "noop") console.log(`[canary-quest] resource: ${a.action} ${a.key}`);
   }
   for (const r of result.objectivesRemoved) {
-    console.log(`[canary-quest] removed objective[${r.index}] (${r.subId})`);
+    console.log(`[canary-quest] removed objective (${r.subId})`);
   }
   for (const a of result.objectivesAdded) {
     console.log(`[canary-quest] added objective[${a.index}] (${a.subId})`);
   }
-  for (const o of result.objectives) {
+  for (const o of result.objectivesUpdated) {
     for (const a of o.actions) {
       if (a.action !== "noop") {
         console.log(`[canary-quest] objective[${o.index}] (${o.subId}): ${a.action} ${a.key}`);
@@ -126,12 +126,12 @@ async function main(): Promise<void> {
     }
   }
   for (const r of result.rewardsRemoved) {
-    console.log(`[canary-quest] removed reward[${r.index}] (${r.subId})`);
+    console.log(`[canary-quest] removed reward (${r.subId})`);
   }
   for (const a of result.rewardsAdded) {
     console.log(`[canary-quest] added reward[${a.index}] (${a.subId})`);
   }
-  for (const r of result.rewards) {
+  for (const r of result.rewardsUpdated) {
     for (const a of r.actions) {
       if (a.action !== "noop") {
         console.log(`[canary-quest] reward[${r.index}] (${r.subId}): ${a.action} ${a.key}`);
