@@ -1,6 +1,6 @@
 # Bleepforge
 
-**A graph-based project organizer / planning tool** for Yonatan's Godot game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name). Visualizes and documents **dialogues** (the headline feature: a graph view), plus **quests**, **items**, **karma impacts**, and **NPCs**.
+**A graph-based project organizer / planning tool** for Yonatan's Godot game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name). Visualizes and documents **dialogues** (the headline feature: a graph view), plus **quests**, **items**, **karma impacts**, **NPCs**, and **factions**. Also serves as the project bible — see [data/concept.json](data/concept.json) for the canonical pitch, acts structure, and faction roles.
 
 **Two-way editor with `.tres` as canonical.** The Godot `.tres` files are what the game runtime loads, so they stay canonical: anything that ships is what's in `astro-man/`. Bleepforge's JSON in `dialoguer/data/` is a working copy. When `WRITE_TRES=1` is set, every save in Bleepforge also pushes the edit into the matching `.tres` (atomic write). The read direction (`.tres` → JSON) is **not** auto-sync — it still runs through the Preferences page's *Import from Godot* section on demand, which doubles as the recovery path if Bleepforge's JSON drifts from Godot.
 
