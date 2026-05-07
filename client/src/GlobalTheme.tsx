@@ -282,11 +282,7 @@ function clamp(v: number, min: number, max: number) {
 // value doesn't take effect on the running server until next restart (config
 // reads preferences.json once at boot, not on each request).
 
-export function getGodotProjectRoot(): string {
-  return godotProjectRoot;
-}
-
-export function setGodotProjectRoot(value: string) {
+function setGodotProjectRoot(value: string) {
   godotProjectRoot = value.trim();
   persist();
   notify();

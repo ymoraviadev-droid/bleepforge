@@ -28,12 +28,6 @@ export interface Discovery {
   npcs: string[];
   /** Bleepforge folder name (parent dir basename) → DialogSequence .tres paths. */
   dialogs: Map<string, string[]>;
-  /**
-   * .tres files we recognized but don't author here (e.g. BalloonLine
-   * resources, Pickup-related .tres if any). Surfaced for diagnostics;
-   * not passed to any mapper.
-   */
-  unrecognized: { path: string; scriptClass: string | null }[];
 }
 
 const SCRIPT_CLASS_RE = /script_class="([^"]+)"/;
@@ -65,7 +59,6 @@ export async function discoverGodotContent(godotRoot: string): Promise<Discovery
     factions: [],
     npcs: [],
     dialogs: new Map(),
-    unrecognized: [],
   };
 
   await walk(godotRoot, out);
@@ -126,6 +119,8 @@ async function walk(dir: string, out: Discovery): Promise<void> {
       continue;
     }
 
-    out.unrecognized.push({ path: full, scriptClass: summary.scriptClass });
+    // Anything else (BalloonLine, inline LootTable, etc.) is intentionally
+    // ignored — not bucketed, not surfaced. Add a case above if a new domain
+    // ever needs authoring.
   }
 }

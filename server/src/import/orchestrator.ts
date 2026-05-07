@@ -24,14 +24,11 @@ import { parseTres, type ParsedTres } from "./tresParser.js";
 
 export interface ImportOptions {
   godotProjectRoot: string;
-  /** When true, parse + report but don't write JSON files. */
-  dryRun?: boolean;
 }
 
 export interface ImportResult {
   ok: boolean;
   godotProjectRoot: string;
-  dryRun: boolean;
   domains: {
     items: DomainResult;
     quests: DomainResult;
@@ -56,7 +53,6 @@ interface DialogDomainResult {
 
 export async function runImport(opts: ImportOptions): Promise<ImportResult> {
   const root = path.resolve(opts.godotProjectRoot);
-  const dryRun = !!opts.dryRun;
 
   // Verify project root exists
   try {
@@ -101,10 +97,8 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
       }
       const validated = ItemSchema.parse(item);
       itemAbsToSlug.set(filePath, validated.Slug);
-      if (!dryRun) {
-        const storage = makeJsonStorage(ItemSchema, folderAbs.item, "Slug");
-        await storage.write(validated);
-      }
+      const storage = makeJsonStorage(ItemSchema, folderAbs.item, "Slug");
+      await storage.write(validated);
       items.imported.push(validated.Slug);
     } catch (err) {
       items.errors.push({ file: filePath, error: String(err) });
@@ -138,10 +132,8 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
         continue;
       }
       const validated = QuestSchema.parse(quest);
-      if (!dryRun) {
-        const storage = makeJsonStorage(QuestSchema, folderAbs.quest, "Id");
-        await storage.write(validated);
-      }
+      const storage = makeJsonStorage(QuestSchema, folderAbs.quest, "Id");
+      await storage.write(validated);
       quests.imported.push(validated.Id);
     } catch (err) {
       quests.errors.push({ file: filePath, error: String(err) });
@@ -167,10 +159,8 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
         continue;
       }
       const validated = KarmaImpactSchema.parse(k);
-      if (!dryRun) {
-        const storage = makeJsonStorage(KarmaImpactSchema, folderAbs.karma, "Id");
-        await storage.write(validated);
-      }
+      const storage = makeJsonStorage(KarmaImpactSchema, folderAbs.karma, "Id");
+      await storage.write(validated);
       karma.imported.push(validated.Id);
     } catch (err) {
       karma.errors.push({ file: filePath, error: String(err) });
@@ -201,10 +191,8 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
       if (f.Icon && f.Icon.startsWith("res://")) f.Icon = resPathToAbs(f.Icon, root);
       if (f.Banner && f.Banner.startsWith("res://")) f.Banner = resPathToAbs(f.Banner, root);
       const validated = FactionDataSchema.parse(f);
-      if (!dryRun) {
-        const storage = makeJsonStorage(FactionDataSchema, folderAbs.faction, "Faction");
-        await storage.write(validated);
-      }
+      const storage = makeJsonStorage(FactionDataSchema, folderAbs.faction, "Faction");
+      await storage.write(validated);
       factions.imported.push(validated.Faction);
     } catch (err) {
       factions.errors.push({ file: filePath, error: String(err) });
@@ -243,9 +231,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
             line.Portrait = resPathToAbs(line.Portrait, root);
           }
         }
-        if (!dryRun) {
-          await dialogStorage.write(bleepforgeFolder, seq);
-        }
+        await dialogStorage.write(bleepforgeFolder, seq);
         dialogs.imported.push({
           folder: bleepforgeFolder,
           id: seq.Id,
@@ -295,10 +281,8 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
         npc.Portrait = resPathToAbs(npc.Portrait, root);
       }
       const validated = NpcSchema.parse(npc);
-      if (!dryRun) {
-        const storage = makeJsonStorage(NpcSchema, folderAbs.npc, "NpcId");
-        await storage.write(validated);
-      }
+      const storage = makeJsonStorage(NpcSchema, folderAbs.npc, "NpcId");
+      await storage.write(validated);
       npcs.imported.push(validated.NpcId);
     } catch (err) {
       npcs.errors.push({ file: filePath, error: String(err) });
@@ -308,7 +292,6 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
   return {
     ok: true,
     godotProjectRoot: root,
-    dryRun,
     domains: { items, quests, karma, factions, dialogs, npcs },
   };
 }
