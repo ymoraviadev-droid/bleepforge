@@ -14,6 +14,21 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 //      applies, no menu appears (right-click becomes a no-op).
 //
 // API mirrors Modal.tsx: imperative show/hide via a module singleton + pub/sub.
+//
+// ── Tauri-readiness notes (for the desktop build):
+//
+//   • Tauri's webview shows the OS context menu on right-click in some configs.
+//     Bind `tauri.conf.json` to disable it at the window level — our preventDefault
+//     gets us most of the way but the OS one can still flash on some platforms.
+//
+//   • Clipboard: today we use the browser Clipboard API with execCommand
+//     fallback. In Tauri it works, but `@tauri-apps/plugin-clipboard-manager`
+//     is more bulletproof (no permission prompts). Swap the read/write calls
+//     in buildDefaultItems when we move to Tauri.
+//
+//   • For now the HTML menu stays — porting to Tauri's native Menu API would
+//     give a more OS-native feel but loses the pixel theme, which is its
+//     whole point.
 
 export interface ContextMenuItem {
   label: string;
@@ -177,7 +192,11 @@ export function ContextMenuHost() {
     return () => document.removeEventListener("contextmenu", onContextMenu);
   }, []);
 
-  // Dismiss on click outside, Escape, scroll, resize.
+  // Dismiss on click outside, Escape, scroll, resize. Listeners use the
+  // capture phase so handlers further down the tree (notably React Flow's
+  // pane, which stops mousedown propagation for its own pan/zoom) can't
+  // swallow them — without `true` on mousedown the click-outside dismiss
+  // silently fails on the dialog graph.
   useEffect(() => {
     if (!active) return;
     const onClick = (e: MouseEvent) => {
@@ -189,20 +208,23 @@ export function ContextMenuHost() {
       if (e.key === "Escape") hideContextMenu();
     };
     const onScroll = () => hideContextMenu();
-    document.addEventListener("mousedown", onClick);
-    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onClick, true);
+    document.addEventListener("keydown", onKey, true);
     document.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", onScroll);
     return () => {
-      document.removeEventListener("mousedown", onClick);
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onClick, true);
+      document.removeEventListener("keydown", onKey, true);
       document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", onScroll);
     };
   });
 
   // Reset measurement state when a new menu request comes in, then measure
-  // and clamp to viewport.
+  // and clamp to viewport. When the cursor is in the bottom 30% of the
+  // viewport, anchor the menu by its bottom edge so it opens *upward* —
+  // matches native OS context menu behavior and means right-clicking near
+  // the bottom never produces a clipped menu.
   useLayoutEffect(() => {
     if (!active) {
       setPos(null);
@@ -215,13 +237,16 @@ export function ContextMenuHost() {
     }
     const rect = el.getBoundingClientRect();
     let x = active.x;
-    let y = active.y;
+    const flipUp = active.y > window.innerHeight * 0.7;
+    let y = flipUp ? active.y - rect.height : active.y;
+
     if (x + rect.width + MENU_PADDING > window.innerWidth) {
       x = Math.max(MENU_PADDING, window.innerWidth - rect.width - MENU_PADDING);
     }
     if (y + rect.height + MENU_PADDING > window.innerHeight) {
       y = Math.max(MENU_PADDING, window.innerHeight - rect.height - MENU_PADDING);
     }
+    if (y < MENU_PADDING) y = MENU_PADDING;
     setPos({ x, y });
   }, [active]);
 
@@ -233,7 +258,7 @@ export function ContextMenuHost() {
     <div
       ref={menuRef}
       role="menu"
-      className="fixed z-[60] min-w-44 border-2 border-neutral-700 bg-neutral-900 py-1 font-mono text-xs text-neutral-100 shadow-[3px_3px_0_0_rgba(0,0,0,0.6)]"
+      className="fixed z-60 min-w-44 border-2 border-neutral-700 bg-neutral-900 py-1 font-mono text-xs text-neutral-100 shadow-[3px_3px_0_0_rgba(0,0,0,0.6)]"
       // Hide while measuring to avoid flicker; opacity → 1 once `pos` is set.
       style={{
         left: renderPos.x,

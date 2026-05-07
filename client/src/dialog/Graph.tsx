@@ -49,7 +49,16 @@ import { useTheme } from "../Theme";
 import { useThemeColors, type ThemeColors } from "../themeColors";
 import { FolderTabs } from "./FolderTabs";
 
-type SeqNodeData = { seq: DialogSequence; ghost?: boolean; portrait?: string };
+type SeqNodeData = {
+  seq: DialogSequence;
+  ghost?: boolean;
+  portrait?: string;
+  // Resolved current folder (DialogGraphInner stamps it onto each node before
+  // setNodes). Lets per-node UI like the right-click menu navigate without
+  // re-deriving folder from search params, which is null when the URL is
+  // /dialogs without ?folder=.
+  folder: string | null;
+};
 type SeqNode = Node<SeqNodeData, "sequence">;
 
 type ChoiceEdgeData = {
@@ -115,8 +124,7 @@ function estimateNodeHeight(seq: DialogSequence): number {
 
 function SequenceNode({ id, data }: NodeProps<SeqNode>) {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const folder = searchParams.get("folder");
+  const folder = data.folder;
 
   if (data.ghost) {
     return (
@@ -757,13 +765,14 @@ function buildGraph(
   layout: DialogLayout,
   speakerPortrait: Map<string, string>,
   colors: ThemeColors,
+  folder: string | null,
 ): { nodes: SeqNode[]; edges: ChoiceEdge[] } {
   const knownIds = new Set(sequences.map((s) => s.Id));
 
   const nodes: SeqNode[] = sequences.map((seq) => ({
     id: seq.Id,
     type: "sequence",
-    data: { seq, portrait: resolvePortrait(seq, speakerPortrait) },
+    data: { seq, portrait: resolvePortrait(seq, speakerPortrait), folder },
     position: { x: 0, y: 0 },
   }));
 
@@ -811,7 +820,7 @@ function buildGraph(
     nodes.push({
       id,
       type: "sequence",
-      data: { seq: { Id: id, Lines: [], SetsFlag: "" }, ghost: true },
+      data: { seq: { Id: id, Lines: [], SetsFlag: "" }, ghost: true, folder },
       position: { x: 0, y: 0 },
     });
   }
@@ -956,10 +965,10 @@ function DialogGraphInner() {
 
   useEffect(() => {
     if (!seqs) return;
-    const built = buildGraph(seqs, layout, speakerPortrait, themeColors);
+    const built = buildGraph(seqs, layout, speakerPortrait, themeColors, folder);
     setNodes(built.nodes);
     setEdges(built.edges);
-  }, [seqs, layout, speakerPortrait, themeColors, setNodes, setEdges]);
+  }, [seqs, layout, speakerPortrait, themeColors, folder, setNodes, setEdges]);
 
   // Apply saved viewport (or fitView for first-visit) once nodes are loaded
   // for the current folder. Tracks the last folder we applied for so that
