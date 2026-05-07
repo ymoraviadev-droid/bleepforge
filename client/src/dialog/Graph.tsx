@@ -1086,15 +1086,17 @@ function DialogGraphInner() {
     [folder, appendChoice, refetch],
   );
 
-  const onConnectEnd = useCallback(
+  // Shared by the drag-to-empty flow and the pane right-click → "Create new"
+  // menu. `wireFrom` is set when the new sequence should also be wired as a
+  // choice from an existing line (drag-to-empty path); omit it when the user
+  // wants a standalone node (right-click path).
+  const createSequenceAtCursor = useCallback(
     async (
-      event: MouseEvent | TouchEvent,
-      connectionState: FinalConnectionState,
+      clientX: number,
+      clientY: number,
+      wireFrom?: { nodeId: string; handleId: string | null | undefined },
     ) => {
-      if (!folder || connectionState.isValid) return;
-      const fromNode = connectionState.fromNode;
-      if (!fromNode) return;
-
+      if (!folder) return;
       const newId = await showPrompt({
         title: "New dialog sequence",
         message: `Will be created in folder "${folder}".`,
@@ -1113,17 +1115,7 @@ function DialogGraphInner() {
       });
       if (!newId) return;
 
-      // Drop position in flow coordinates
-      const clientX =
-        "clientX" in event
-          ? event.clientX
-          : event.changedTouches?.[0]?.clientX ?? 0;
-      const clientY =
-        "clientY" in event
-          ? event.clientY
-          : event.changedTouches?.[0]?.clientY ?? 0;
       const flowPos = screenToFlowPosition({ x: clientX, y: clientY });
-      // Center the node on the cursor, accounting for handle being on right edge.
       const nodePos = { x: flowPos.x - NODE_WIDTH / 2, y: flowPos.y - 40 };
 
       try {
@@ -1132,7 +1124,9 @@ function DialogGraphInner() {
           Lines: [{ SpeakerName: "", Text: "", Portrait: "", Choices: [] }],
           SetsFlag: "",
         });
-        await appendChoice(fromNode.id, connectionState.fromHandle?.id, newId);
+        if (wireFrom) {
+          await appendChoice(wireFrom.nodeId, wireFrom.handleId, newId);
+        }
         const nextLayout: DialogLayout = {
           ...layout,
           nodes: { ...layout.nodes, [newId]: nodePos },
@@ -1145,6 +1139,52 @@ function DialogGraphInner() {
       }
     },
     [folder, appendChoice, layout, refetch, screenToFlowPosition],
+  );
+
+  const onConnectEnd = useCallback(
+    async (
+      event: MouseEvent | TouchEvent,
+      connectionState: FinalConnectionState,
+    ) => {
+      if (!folder || connectionState.isValid) return;
+      const fromNode = connectionState.fromNode;
+      if (!fromNode) return;
+      const clientX =
+        "clientX" in event
+          ? event.clientX
+          : event.changedTouches?.[0]?.clientX ?? 0;
+      const clientY =
+        "clientY" in event
+          ? event.clientY
+          : event.changedTouches?.[0]?.clientY ?? 0;
+      await createSequenceAtCursor(clientX, clientY, {
+        nodeId: fromNode.id,
+        handleId: connectionState.fromHandle?.id,
+      });
+    },
+    [folder, createSequenceAtCursor],
+  );
+
+  const onPaneContextMenu = useCallback(
+    (event: React.MouseEvent | MouseEvent) => {
+      event.preventDefault();
+      // Capture coords now — by the time the prompt closes the cursor might
+      // have moved, and we want the new node placed where the user clicked.
+      const x = event.clientX;
+      const y = event.clientY;
+      showContextMenu({
+        x,
+        y,
+        items: [
+          {
+            label: "Create new sequence",
+            onClick: () => createSequenceAtCursor(x, y),
+            disabled: !folder,
+          },
+        ],
+      });
+    },
+    [folder, createSequenceAtCursor],
   );
 
   const onEdgesDelete = useCallback(
@@ -1424,6 +1464,7 @@ function DialogGraphInner() {
               onNodeDragStop={onNodeDragStop}
               onConnect={onConnect}
               onConnectEnd={onConnectEnd}
+              onPaneContextMenu={onPaneContextMenu}
               onEdgesDelete={onEdgesDelete}
               onNodesDelete={onNodesDelete}
               onBeforeDelete={onBeforeDelete}

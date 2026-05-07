@@ -96,11 +96,11 @@ export function App() {
           <NavLink to="/karma" className={navLinkClass}>
             Karma
           </NavLink>
-          <NavLink to="/items" className={navLinkClass}>
-            Items
-          </NavLink>
           <NavLink to="/dialogs" className={navLinkClass}>
             Dialogs
+          </NavLink>
+          <NavLink to="/items" className={navLinkClass}>
+            Items
           </NavLink>
           <NavLink
             to="/integrity"
