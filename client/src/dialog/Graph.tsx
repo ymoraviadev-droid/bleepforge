@@ -1264,7 +1264,18 @@ function DialogGraphInner() {
       if (!newId) return;
 
       const flowPos = screenToFlowPosition({ x: clientX, y: clientY });
-      const nodePos = { x: flowPos.x - NODE_WIDTH / 2, y: flowPos.y - 40 };
+      // Two anchoring modes:
+      //   - drag-to-empty (wireFrom set): align the new node's first-line
+      //     handle (y ≈ 40) to the drop point so the just-drawn connection
+      //     ends visually at the new node's source handle.
+      //   - right-click on empty pane: center the node body on the cursor
+      //     so the new sequence appears under the cursor as a whole.
+      // Both cases center horizontally on the cursor.
+      const yOffset = wireFrom ? 40 : 60;
+      const nodePos = {
+        x: flowPos.x - NODE_WIDTH / 2,
+        y: flowPos.y - yOffset,
+      };
 
       try {
         await dialogsApi.save(folder, {

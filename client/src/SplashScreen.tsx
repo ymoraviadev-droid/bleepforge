@@ -6,10 +6,10 @@ interface Props {
 }
 
 // Pixel-themed splash that fires on initial mount of the app. The bar fills
-// 0 → 100% over `durationMs` (default 3s), then `onDone` is called and the
+// 0 → 100% over `durationMs` (default 2s), then `onDone` is called and the
 // host hides the splash. Eventually replaced by Tauri's native splash; the
 // React version stays as a fallback for non-Tauri (web/dev) sessions.
-export function SplashScreen({ onDone, durationMs = 3000 }: Props) {
+export function SplashScreen({ onDone, durationMs = 2000 }: Props) {
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {

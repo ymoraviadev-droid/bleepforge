@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router";
 import { CatalogDatalists } from "./CatalogDatalists";
 import { ContextMenuHost } from "./ContextMenu";
@@ -57,6 +57,20 @@ export function App() {
   // location.href = "/" which both reloads AND lands on /concept.
   // Eventually replaced by Tauri's native splash for the desktop build.
   const [showSplash, setShowSplash] = useState(true);
+
+  // Browsers restore a previously-rendered page from the back-forward cache
+  // when you navigate back to it (e.g. Google → click → app, then back ←
+  // forward → app). bfcache restores the React state too, so showSplash is
+  // already `false` and the splash silently skips. Detect via `pageshow`
+  // with `event.persisted === true` and re-trigger the splash so the user
+  // gets the same intro as a real first load.
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setShowSplash(true);
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
   const catalog = useCatalog();
   const issueCount = catalog ? computeIssues(catalog).length : 0;
   const integrityClean = catalog !== null && issueCount === 0;
