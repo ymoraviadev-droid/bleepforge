@@ -1,8 +1,6 @@
 import { NavLink, Navigate, Route, Routes } from "react-router";
 import { CatalogDatalists } from "./CatalogDatalists";
-import { ImportPage } from "./import/ImportPage";
 import { ModalHost } from "./Modal";
-import { ThemeSwitcher } from "./Theme";
 import { DialogList } from "./dialog/List";
 import { DialogEdit } from "./dialog/Edit";
 import { DialogGraph } from "./dialog/Graph";
@@ -15,11 +13,20 @@ import { KarmaList } from "./karma/List";
 import { KarmaEdit } from "./karma/Edit";
 import { NpcList } from "./npc/List";
 import { NpcEdit } from "./npc/Edit";
+import { GearIcon } from "./preferences/GearIcon";
+import { PreferencesPage } from "./preferences/PreferencesPage";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
     isActive
       ? "border-emerald-600 bg-emerald-950/40 text-emerald-200"
+      : "border-transparent text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200"
+  }`;
+
+const prefsNavClass = ({ isActive }: { isActive: boolean }) =>
+  `flex items-center justify-center border-2 p-1.5 transition-colors ${
+    isActive
+      ? "border-emerald-600 bg-emerald-950/40 text-emerald-300"
       : "border-transparent text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200"
   }`;
 
@@ -49,12 +56,16 @@ export function App() {
           <NavLink to="/integrity" className={navLinkClass}>
             Integrity
           </NavLink>
-          <NavLink to="/import" className={navLinkClass}>
-            Import
-          </NavLink>
         </nav>
         <div className="flex-1" />
-        <ThemeSwitcher />
+        <NavLink
+          to="/preferences"
+          className={prefsNavClass}
+          title="Preferences"
+          aria-label="Preferences"
+        >
+          <GearIcon size={20} />
+        </NavLink>
       </header>
       <CatalogDatalists />
       <ModalHost />
@@ -78,7 +89,8 @@ export function App() {
           <Route path="/npcs/new" element={<NpcEdit />} />
           <Route path="/npcs/:npcId" element={<NpcEdit />} />
           <Route path="/integrity" element={<IntegrityPage />} />
-          <Route path="/import" element={<ImportPage />} />
+          <Route path="/preferences" element={<PreferencesPage />} />
+          <Route path="/import" element={<Navigate to="/preferences" replace />} />
         </Routes>
       </main>
     </div>

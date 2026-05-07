@@ -1,9 +1,12 @@
-@import url("https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=VT323&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=DotGothic16&family=Handjet:wght@100..900&family=Jersey+10&family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Sixtyfour&family=Tiny5&family=VT323&family=Workbench&display=swap");
 @import "tailwindcss";
 
 @theme {
-  /* Pixel art font stack. */
-  --font-sans: "Pixelify Sans", "Pixelify Sans Fallback", system-ui, sans-serif;
+  /* Pixel art font stack. The body font is overridable via [data-font="X"] on
+     <html> (see Font.tsx) — the rule below resolves --font-sans through
+     --font-body so that switching themes/fonts re-skins the entire UI. */
+  --font-body: "Pixelify Sans", "Pixelify Sans Fallback", system-ui, sans-serif;
+  --font-sans: var(--font-body);
   --font-mono: "VT323", "VT323 Fallback", ui-monospace, monospace;
   --font-display: "Press Start 2P", "Press Start 2P Fallback", system-ui, sans-serif;
 
@@ -29,11 +32,24 @@
      read as "darkish with tone" (wine / midnight / aubergine), not pure gray. */
 
 /* Per-theme canvas tones — the React Flow canvas area gets a deeper version
-   of the theme tint than the page bg, so it reads as a "stage" the nodes sit
-   on. Defaults below; tinted themes override. */
+   of the theme bg, so it reads as a "stage" the nodes sit on. The default
+   (dark theme) values are below; every other theme overrides them.
+   Invariant: --canvas-bg is always slightly darker than the page bg
+   (bg-neutral-950) so the canvas reads as recessed. */
 :root {
-  --canvas-bg: var(--color-neutral-950);
-  --canvas-pattern: var(--color-neutral-800);
+  --canvas-bg: oklch(0.105 0 0);
+  --canvas-pattern: oklch(0.24 0 0);
+
+  /* Typography knobs — overridden imperatively by Font.tsx. Scaling html
+     font-size proportionally enlarges everything rem-based (text + padding),
+     i.e. a "UI zoom" rather than a text-only resize, which is what users
+     mean when they reach for a font-size slider. */
+  --text-scale: 1;
+  --body-letter-spacing: 0.01em;
+}
+
+html {
+  font-size: calc(16px * var(--text-scale));
 }
 
 [data-theme="red"] {
@@ -145,25 +161,113 @@
   --canvas-pattern: oklch(0.22 0.050 160);
 }
 
+/* ---- Body fonts ----------------------------------------------------------
+   The body font (Tailwind's font-sans token, used everywhere there's no
+   explicit font-mono / font-display class) is overridable per user via a
+   [data-font="X"] attribute on <html>. The display + mono fonts stay fixed
+   (Press Start 2P, VT323) so the visual identity is preserved.
+*/
+[data-font="silkscreen"] {
+  --font-body: "Silkscreen", system-ui, sans-serif;
+}
+[data-font="jersey10"] {
+  --font-body: "Jersey 10", system-ui, sans-serif;
+}
+[data-font="tiny5"] {
+  --font-body: "Tiny5", system-ui, sans-serif;
+}
+[data-font="dotgothic16"] {
+  --font-body: "DotGothic16", system-ui, sans-serif;
+}
+[data-font="handjet"] {
+  --font-body: "Handjet", system-ui, sans-serif;
+}
+[data-font="workbench"] {
+  --font-body: "Workbench", system-ui, sans-serif;
+}
+[data-font="sixtyfour"] {
+  --font-body: "Sixtyfour", system-ui, sans-serif;
+}
+
+[data-theme="amber"] {
+  /* Accent: amber (warm sunset / post-apoc dust). */
+  --color-emerald-50: var(--color-amber-50);
+  --color-emerald-100: var(--color-amber-100);
+  --color-emerald-200: var(--color-amber-200);
+  --color-emerald-300: var(--color-amber-300);
+  --color-emerald-400: var(--color-amber-400);
+  --color-emerald-500: var(--color-amber-500);
+  --color-emerald-600: var(--color-amber-600);
+  --color-emerald-700: var(--color-amber-700);
+  --color-emerald-800: var(--color-amber-800);
+  --color-emerald-900: var(--color-amber-900);
+  --color-emerald-950: var(--color-amber-950);
+  /* Neutrals tinted toward warm yellow (hue ≈ 75). */
+  --color-neutral-50:  oklch(0.97 0.005 75);
+  --color-neutral-100: oklch(0.94 0.010 75);
+  --color-neutral-200: oklch(0.88 0.015 75);
+  --color-neutral-300: oklch(0.78 0.020 75);
+  --color-neutral-400: oklch(0.68 0.030 75);
+  --color-neutral-500: oklch(0.58 0.040 75);
+  --color-neutral-600: oklch(0.50 0.050 75);
+  --color-neutral-700: oklch(0.38 0.060 75);
+  --color-neutral-800: oklch(0.26 0.060 75);
+  --color-neutral-900: oklch(0.19 0.050 75);
+  --color-neutral-950: oklch(0.15 0.040 75);
+  /* Canvas: deep amber dusk. */
+  --canvas-bg: oklch(0.09 0.040 75);
+  --canvas-pattern: oklch(0.22 0.055 75);
+}
+
+[data-theme="cyan"] {
+  /* Accent: cyan (cold CRT / electric / underwater). */
+  --color-emerald-50: var(--color-cyan-50);
+  --color-emerald-100: var(--color-cyan-100);
+  --color-emerald-200: var(--color-cyan-200);
+  --color-emerald-300: var(--color-cyan-300);
+  --color-emerald-400: var(--color-cyan-400);
+  --color-emerald-500: var(--color-cyan-500);
+  --color-emerald-600: var(--color-cyan-600);
+  --color-emerald-700: var(--color-cyan-700);
+  --color-emerald-800: var(--color-cyan-800);
+  --color-emerald-900: var(--color-cyan-900);
+  --color-emerald-950: var(--color-cyan-950);
+  /* Neutrals tinted toward cyan (hue ≈ 200). */
+  --color-neutral-50:  oklch(0.97 0.005 200);
+  --color-neutral-100: oklch(0.94 0.010 200);
+  --color-neutral-200: oklch(0.88 0.015 200);
+  --color-neutral-300: oklch(0.78 0.020 200);
+  --color-neutral-400: oklch(0.68 0.030 200);
+  --color-neutral-500: oklch(0.58 0.040 200);
+  --color-neutral-600: oklch(0.50 0.055 200);
+  --color-neutral-700: oklch(0.38 0.065 200);
+  --color-neutral-800: oklch(0.26 0.060 200);
+  --color-neutral-900: oklch(0.19 0.050 200);
+  --color-neutral-950: oklch(0.15 0.040 200);
+  /* Canvas: deep underwater cyan. */
+  --canvas-bg: oklch(0.09 0.045 200);
+  --canvas-pattern: oklch(0.22 0.060 200);
+}
+
 [data-theme="light"] {
-  /* Inverted neutral scale, pure grays (no warm tint) and pulled toward a
-     medium-gray page bg — "grayish, not too light" per spec. Code uses
-     bg-neutral-950 / bg-neutral-900 for page/card bg; text-neutral-100 / 200
-     for body text. */
+  /* Inverted neutral scale, pure grays. Darkened from the original 0.85 page
+     bg — Yonatan flagged the previous version as "too bright". Now reads as
+     dimmed daylight / soft paper. Code uses bg-neutral-950 / bg-neutral-900
+     for page/card bg; text-neutral-100 / 200 for body text. */
   --color-neutral-50:  oklch(0.10 0 0);
   --color-neutral-100: oklch(0.15 0 0);
   --color-neutral-200: oklch(0.22 0 0);
   --color-neutral-300: oklch(0.30 0 0);
   --color-neutral-400: oklch(0.40 0 0);
   --color-neutral-500: oklch(0.50 0 0);
-  --color-neutral-600: oklch(0.58 0 0);
-  --color-neutral-700: oklch(0.68 0 0);
-  --color-neutral-800: oklch(0.78 0 0);
-  --color-neutral-900: oklch(0.83 0 0);
-  --color-neutral-950: oklch(0.85 0 0);
-  /* Canvas: a touch darker than the page bg so it reads as the "stage". */
-  --canvas-bg: oklch(0.78 0 0);
-  --canvas-pattern: oklch(0.65 0 0);
+  --color-neutral-600: oklch(0.55 0 0);
+  --color-neutral-700: oklch(0.60 0 0);
+  --color-neutral-800: oklch(0.65 0 0);
+  --color-neutral-900: oklch(0.69 0 0);
+  --color-neutral-950: oklch(0.72 0 0);
+  /* Canvas: clearly darker than the new bg so it reads as the "stage". */
+  --canvas-bg: oklch(0.62 0 0);
+  --canvas-pattern: oklch(0.48 0 0);
 }
 
 /* VT323 has weak glyphs at small sizes; bump it up wherever it's used. */
@@ -173,10 +277,11 @@
 }
 
 /* Body text using Pixelify Sans benefits from a slight letter-spacing tweak
-   so that runs of similar-width pixel glyphs are easier to scan. */
+   so that runs of similar-width pixel glyphs are easier to scan. The actual
+   value is a CSS variable so the Preferences slider can tune it live. */
 body {
   font-feature-settings: "kern" 0;
-  letter-spacing: 0.01em;
+  letter-spacing: var(--body-letter-spacing);
 }
 
 /* Chunky pixel-art button: hard offset shadow + "press" on click. */
@@ -246,4 +351,39 @@ body {
 }
 .react-flow__edge-text {
   font-family: var(--font-mono);
+}
+
+/* ---- Scrollbars ----------------------------------------------------------
+   Track + thumb resolve through --color-neutral-* so they re-tint per theme
+   automatically (light themes get a darker thumb on a lighter bg, dark
+   themes the inverse — both directions land naturally). Hover uses the
+   accent (--color-emerald-*, re-pointed per theme) so grabbing the bar
+   gives a theme-colored "lit up" cue. Square edges, pixel aesthetic. */
+html {
+  /* Firefox + Chromium 121+. (No hover state in this spec — Webkit pseudos
+     below carry the accent-on-hover.) */
+  scrollbar-color: var(--color-neutral-700) var(--color-neutral-900);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-neutral-900);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-neutral-700);
+  /* Border same color as track produces a "padded" thumb that doesn't fill
+     the gutter edge-to-edge — reads as chunky pixel widget. */
+  border: 2px solid var(--color-neutral-900);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-emerald-700);
+}
+::-webkit-scrollbar-thumb:active {
+  background: var(--color-emerald-600);
+}
+::-webkit-scrollbar-corner {
+  background: var(--color-neutral-900);
 }

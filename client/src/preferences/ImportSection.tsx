@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "../Button";
 import { refreshCatalog } from "../catalog-bus";
 import { fieldLabel, textInput } from "../ui";
@@ -26,13 +26,27 @@ interface ImportResult {
 }
 
 const DEFAULT_GODOT_ROOT = "/home/ymoravia/Data/Projects/Godot/astro-man";
+const ROOT_STORAGE_KEY = "bleepforge:godotRoot";
 
-export function ImportPage() {
-  const [root, setRoot] = useState(DEFAULT_GODOT_ROOT);
+export function ImportSection() {
+  const [root, setRoot] = useState(() => {
+    if (typeof window === "undefined") return DEFAULT_GODOT_ROOT;
+    try {
+      return window.localStorage.getItem(ROOT_STORAGE_KEY) ?? DEFAULT_GODOT_ROOT;
+    } catch {
+      return DEFAULT_GODOT_ROOT;
+    }
+  });
   const [dryRun, setDryRun] = useState(false);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(ROOT_STORAGE_KEY, root);
+    } catch {}
+  }, [root]);
 
   const run = async () => {
     setRunning(true);
@@ -59,55 +73,52 @@ export function ImportPage() {
   };
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Import from Godot</h1>
-        <p className="mt-1 text-xs text-neutral-400">
-          Read <span className="font-mono">.tres</span> files from your Flock
-          of Bleeps Godot project and write the matching JSON into Bleepforge's
-          <span className="font-mono"> data/</span> folder. Existing JSON files
-          with the same id get overwritten.
-        </p>
-      </div>
+    <div className="space-y-4">
+      <p className="text-xs text-neutral-400">
+        Read <span className="font-mono">.tres</span> files from your Flock of
+        Bleeps Godot project and write the matching JSON into Bleepforge's{" "}
+        <span className="font-mono">data/</span> folder. Existing JSON files
+        with the same id get overwritten.
+      </p>
 
-      <section className="space-y-3 border-2 border-neutral-800 p-4">
-        <label className="block">
-          <span className={fieldLabel}>Godot project root</span>
-          <input
-            value={root}
-            onChange={(e) => setRoot(e.target.value)}
-            placeholder="/path/to/Godot/astro-man"
-            className={`${textInput} font-mono text-sm`}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm text-neutral-200">
-          <input
-            type="checkbox"
-            checked={dryRun}
-            onChange={(e) => setDryRun(e.target.checked)}
-            className="size-4"
-          />
-          <span>
-            Dry run — parse + report what would be imported, don't write JSON
-          </span>
-        </label>
-        <div className="flex justify-end">
-          <Button onClick={run} disabled={running || !root.trim()}>
-            {running ? "Running…" : dryRun ? "Run dry import" : "Run import"}
-          </Button>
+      <label className="block">
+        <span className={fieldLabel}>Godot project root</span>
+        <input
+          value={root}
+          onChange={(e) => setRoot(e.target.value)}
+          placeholder="/path/to/Godot/astro-man"
+          className={`${textInput} font-mono text-sm`}
+        />
+      </label>
+      <label className="flex items-center gap-2 text-sm text-neutral-200">
+        <input
+          type="checkbox"
+          checked={dryRun}
+          onChange={(e) => setDryRun(e.target.checked)}
+          className="size-4"
+        />
+        <span>
+          Dry run — parse + report what would be imported, don't write JSON
+        </span>
+      </label>
+      <div className="flex justify-end">
+        <Button onClick={run} disabled={running || !root.trim()}>
+          {running ? "Running…" : dryRun ? "Run dry import" : "Run import"}
+        </Button>
+      </div>
+      {error && (
+        <div className="border-2 border-red-800 bg-red-950/30 p-3 text-xs text-red-200">
+          {error}
         </div>
-        {error && (
-          <div className="border-2 border-red-800 bg-red-950/30 p-3 text-xs text-red-200">
-            {error}
-          </div>
-        )}
-      </section>
+      )}
 
       {result && (
         <div className="space-y-4">
           <div className="text-xs text-neutral-400">
             {result.dryRun ? "Dry run on " : "Imported from "}
-            <span className="font-mono text-neutral-200">{result.godotProjectRoot}</span>
+            <span className="font-mono text-neutral-200">
+              {result.godotProjectRoot}
+            </span>
           </div>
 
           <DomainCard
@@ -266,7 +277,6 @@ function DialogDomainCard({
   data: DialogDomainResult;
   root: string;
 }) {
-  // Group imported dialogs by folder.
   const byFolder = new Map<string, string[]>();
   for (const x of data.imported) {
     const list = byFolder.get(x.folder) ?? [];
