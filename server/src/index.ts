@@ -1,5 +1,6 @@
 import express from "express";
 import {
+  FactionDataSchema,
   ItemSchema,
   KarmaImpactSchema,
   NpcSchema,
@@ -12,6 +13,7 @@ import { importRouter } from "./import/router.js";
 import { itemIconRouter } from "./item/iconRouter.js";
 import {
   shouldWriteTres,
+  writeFactionTres,
   writeItemTres,
   writeKarmaTres,
   writeQuestTres,
@@ -27,12 +29,17 @@ const questStorage = makeJsonStorage(QuestSchema, folderAbs.quest, "Id");
 const itemStorage = makeJsonStorage(ItemSchema, folderAbs.item, "Slug");
 const karmaStorage = makeJsonStorage(KarmaImpactSchema, folderAbs.karma, "Id");
 const npcStorage = makeJsonStorage(NpcSchema, folderAbs.npc, "NpcId");
+const factionStorage = makeJsonStorage(FactionDataSchema, folderAbs.faction, "Faction");
 
 app.use("/api/dialogs", dialogRouter);
 app.use("/api/quests", makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres));
 app.use("/api/items", makeCrudRouter(ItemSchema, itemStorage, "Slug", writeItemTres));
 app.use("/api/karma", makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id", writeKarmaTres));
 app.use("/api/npcs", makeCrudRouter(NpcSchema, npcStorage, "NpcId"));
+app.use(
+  "/api/factions",
+  makeCrudRouter(FactionDataSchema, factionStorage, "Faction", writeFactionTres),
+);
 app.use("/api/asset", assetRouter);
 app.use("/api/item-icon", itemIconRouter);
 app.use("/api/import", importRouter);

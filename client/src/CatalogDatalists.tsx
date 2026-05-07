@@ -7,6 +7,7 @@ export const DL = {
   questIds: "dlc-quest-ids",
   sequenceIds: "dlc-sequence-ids",
   flags: "dlc-flags",
+  factions: "dlc-factions",
 } as const;
 
 export function CatalogDatalists() {
@@ -49,6 +50,13 @@ export function CatalogDatalists() {
       <datalist id={DL.flags}>
         {catalog.flags.map((f) => (
           <option key={f} value={f} />
+        ))}
+      </datalist>
+      <datalist id={DL.factions}>
+        {catalog.factions.map((f) => (
+          <option key={f.Faction} value={f.Faction}>
+            {f.DisplayName}
+          </option>
         ))}
       </datalist>
     </>

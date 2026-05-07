@@ -1,0 +1,7 @@
+{
+  "Faction": "FreeRobots",
+  "DisplayName": "Free Robots",
+  "Icon": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/factions/free_robots/free_robots_icon.png",
+  "Banner": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/factions/free_robots/free_robots_full.png",
+  "ShortDescription": "A commune of decommissioned units who've decided being abandoned is a personality. Earnest, mutual, occasionally insufferable. They will repair you, feed you optimism, and quietly judge your weapon choices."
+}

@@ -9,10 +9,11 @@ import { dirname, sep } from "node:path";
 import { folderAbs } from "../config.js";
 import { parseTres } from "./parser.js";
 import {
+  mapDialogSequence,
+  mapFaction,
   mapItem,
   mapKarma,
   mapQuest,
-  mapDialogSequence,
 } from "../import/mappers.js";
 import type { ParsedTres } from "../import/tresParser.js";
 // Import the lossy parser used by the import path. We use it because the
@@ -44,6 +45,16 @@ export function detectDomain(absPath: string): {
     /[/\\]shared[/\\]components[/\\]karma[/\\]impacts[/\\]([^/\\]+)\.tres$/,
   );
   if (karmaMatch) return { domain: "karma", key: karmaMatch[1]! };
+
+  // Factions: shared/components/factions/<subfolder>/<file>.tres — there's
+  // exactly one .tres per faction subfolder. The key (Faction enum value)
+  // isn't recoverable from the path; the watcher's reimport flow re-parses
+  // the file to get it. We tag with a placeholder key here that gets replaced
+  // by the actual Faction enum value once the file is parsed.
+  const factionMatch = absPath.match(
+    /[/\\]shared[/\\]components[/\\]factions[/\\]([^/\\]+)[/\\]([^/\\]+)\.tres$/,
+  );
+  if (factionMatch) return { domain: "faction", key: factionMatch[1]! };
 
   // Quests: shared/components/quest/quests/<id>.tres
   const questMatch = absPath.match(
@@ -93,6 +104,15 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
       await writeJson(jsonPath, karma);
       return { ok: true, domain: "karma", key: karma.Id, jsonPath };
     }
+    case "faction": {
+      const faction = mapFaction(parsed);
+      if (!faction) {
+        return { ok: false, error: "mapFaction returned null (script_class mismatch?)" };
+      }
+      const jsonPath = `${folderAbs.faction}${sep}${faction.Faction}.json`;
+      await writeJson(jsonPath, faction);
+      return { ok: true, domain: "faction", key: faction.Faction, jsonPath };
+    }
     case "quest": {
       const quest = mapQuest(parsed, {
         resolveItemSlugByExtRef: (p, id) => {
@@ -133,6 +153,25 @@ export async function deleteJsonFor(absPath: string): Promise<ReimportResult> {
     case "karma":
       jsonPath = `${folderAbs.karma}${sep}${detected.key}.json`;
       break;
+    case "faction": {
+      // detected.key is the subfolder name; map it to the Faction enum value.
+      // Robotek has no enum entry (lore-only) so it has no JSON to delete.
+      const SUBFOLDER_TO_FACTION: Record<string, string> = {
+        scavengers: "Scavengers",
+        free_robots: "FreeRobots",
+        rff: "RFF",
+        grove: "Grove",
+      };
+      const factionKey = SUBFOLDER_TO_FACTION[detected.key];
+      if (!factionKey) {
+        return { ok: true, domain: "faction", key: detected.key };
+      }
+      jsonPath = `${folderAbs.faction}${sep}${factionKey}.json`;
+      // Re-tag the key with the resolved faction so the SSE event matches what
+      // the client actually subscribes to.
+      detected.key = factionKey;
+      break;
+    }
     case "quest":
       jsonPath = `${folderAbs.quest}${sep}${detected.key}.json`;
       break;

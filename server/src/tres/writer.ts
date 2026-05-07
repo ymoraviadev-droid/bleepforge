@@ -19,6 +19,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { config } from "../config.js";
 import type {
   DialogSequence,
+  FactionData,
   Item,
   KarmaImpact,
   Quest,
@@ -28,6 +29,7 @@ import { emitTres } from "./emitter.js";
 import { applyItemScalars, type ItemJson } from "./domains/item.js";
 import { applyKarma, type KarmaJson } from "./domains/karma.js";
 import { applyDialog, type DialogApplyContext, type DialogSequenceJson } from "./domains/dialog.js";
+import { applyFactionScalars, type FactionJson } from "./domains/faction.js";
 import { applyQuest, type QuestApplyContext, type QuestJson } from "./domains/quest.js";
 import {
   findScriptUidInProject,
@@ -95,6 +97,19 @@ export async function writeItemTres(json: Item): Promise<TresWriteResult> {
     if (!resourceSection) return ["no [resource] section"];
     applyItemScalars(resourceSection, json as ItemJson);
     return [];
+  });
+}
+
+export async function writeFactionTres(json: FactionData): Promise<TresWriteResult> {
+  if (!shouldWriteTres()) return NOT_ATTEMPTED;
+  const root = config.godotProjectRoot!;
+  const found = await findFactionTres(root, json.Faction);
+  if (!found) return { attempted: true, ok: false, error: `no .tres for faction "${json.Faction}"` };
+  return runWrite(found.path, (doc) => {
+    const resourceSection = doc.sections.find((s) => s.kind === "resource");
+    if (!resourceSection) return ["no [resource] section"];
+    const result = applyFactionScalars(resourceSection, json as FactionJson);
+    return result.warnings;
   });
 }
 
@@ -245,6 +260,54 @@ async function findKarmaTres(
 ): Promise<{ path: string } | null> {
   const dir = join(godotRoot, "shared", "components", "karma", "impacts");
   return findInDirByContent(dir, (text) => text.includes(`Id = "${id}"`));
+}
+
+async function findFactionTres(
+  godotRoot: string,
+  faction: string,
+): Promise<{ path: string } | null> {
+  // Factions live one-per-subfolder under shared/components/factions/.
+  // Match by Faction enum int (Scavengers omits the line — match script_class).
+  const dir = join(godotRoot, "shared", "components", "factions");
+  const factionInt = (
+    { Scavengers: 0, FreeRobots: 1, RFF: 2, Grove: 3 } as Record<string, number>
+  )[faction];
+  if (factionInt === undefined) return null;
+
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const e of entries) {
+    if (!e.isDirectory()) continue;
+    const sub = join(dir, e.name);
+    let subEntries;
+    try {
+      subEntries = await readdir(sub, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const f of subEntries) {
+      if (!f.isFile() || !f.name.endsWith(".tres")) continue;
+      const abs = join(sub, f.name);
+      let text: string;
+      try {
+        text = await readFile(abs, "utf8");
+      } catch {
+        continue;
+      }
+      if (!text.includes(`script_class="FactionData"`)) continue;
+      // Faction = 0 (Scavengers) is omitted by Godot. For non-zero, match the int.
+      if (factionInt === 0) {
+        if (!/^Faction\s*=\s*\d+/m.test(text)) return { path: abs };
+      } else if (text.includes(`Faction = ${factionInt}`)) {
+        return { path: abs };
+      }
+    }
+  }
+  return null;
 }
 
 async function findQuestTres(

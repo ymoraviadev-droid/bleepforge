@@ -21,6 +21,7 @@ interface ImportResult {
     items: DomainResult;
     quests: DomainResult;
     karma: DomainResult;
+    factions: DomainResult;
     dialogs: DialogDomainResult;
   };
 }
@@ -158,6 +159,22 @@ export function ImportSection() {
               detail: s.reason,
             }))}
             errors={result.domains.karma.errors.map((e) => ({
+              label: relativize(e.file, result.godotProjectRoot),
+              detail: e.error,
+            }))}
+          />
+
+          <DomainCard
+            title="Factions"
+            counts={summarize(result.domains.factions)}
+            imported={result.domains.factions.imported.map((s) => ({
+              label: s,
+            }))}
+            skipped={result.domains.factions.skipped.map((s) => ({
+              label: relativize(s.file, result.godotProjectRoot),
+              detail: s.reason,
+            }))}
+            errors={result.domains.factions.errors.map((e) => ({
               label: relativize(e.file, result.godotProjectRoot),
               detail: e.error,
             }))}

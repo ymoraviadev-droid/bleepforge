@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import type {
   DialogSequence,
+  FactionData,
   Item,
   KarmaImpact,
   Npc,
@@ -8,6 +9,7 @@ import type {
 } from "@bleepforge/shared";
 import {
   dialogsApi,
+  factionsApi,
   itemsApi,
   karmaApi,
   npcsApi,
@@ -23,6 +25,7 @@ export interface Catalog {
   items: Item[];
   quests: Quest[];
   karma: KarmaImpact[];
+  factions: FactionData[];
   dialogs: DialogFolderGroup[];
   sequences: DialogSequence[];
   flags: string[];
@@ -63,13 +66,23 @@ export function useCatalog(): Catalog | null {
       itemsApi.list(),
       questsApi.list(),
       karmaApi.list(),
+      factionsApi.list(),
       dialogsApi.listAll(),
     ])
-      .then(([npcs, items, quests, karma, dialogs]) => {
+      .then(([npcs, items, quests, karma, factions, dialogs]) => {
         if (cancelled) return;
         const sequences = dialogs.flatMap((g) => g.sequences);
         const flags = collectFlags(sequences, quests);
-        setCatalog({ npcs, items, quests, karma, dialogs, sequences, flags });
+        setCatalog({
+          npcs,
+          items,
+          quests,
+          karma,
+          factions,
+          dialogs,
+          sequences,
+          flags,
+        });
       })
       .catch(() => {
         if (!cancelled) setCatalog(null);

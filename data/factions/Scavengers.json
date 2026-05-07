@@ -1,0 +1,7 @@
+{
+  "Faction": "Scavengers",
+  "DisplayName": "Scavengers",
+  "Icon": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/factions/scavengers/scavengers_icon.png",
+  "Banner": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/factions/scavengers/scavengers_full.png",
+  "ShortDescription": "Robots who solve every problem by taking it apart. Will trade with you, work with you, and dismantle you for parts the moment the math stops working in your favor. The math always stops working."
+}

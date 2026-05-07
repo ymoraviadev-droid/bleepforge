@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+  FactionDataSchema,
   ItemSchema,
   KarmaImpactSchema,
   QuestSchema,
@@ -10,6 +11,7 @@ import * as dialogStorage from "../dialog/storage.js";
 import { makeJsonStorage } from "../util/jsonCrud.js";
 import {
   mapDialogSequence,
+  mapFaction,
   mapItem,
   mapKarma,
   mapQuest,
@@ -31,6 +33,7 @@ export interface ImportResult {
     items: DomainResult;
     quests: DomainResult;
     karma: DomainResult;
+    factions: DomainResult;
     dialogs: DialogDomainResult;
   };
 }
@@ -73,6 +76,7 @@ const KNOWN_DIALOG_FOLDERS: { godotPath: string; bleepforgeFolder: string }[] = 
 const ITEMS_GODOT_PATH = "shared/items/data";
 const QUESTS_GODOT_PATH = "shared/components/quest/quests";
 const KARMA_GODOT_PATH = "shared/components/karma/impacts";
+const FACTIONS_GODOT_PATH = "shared/components/factions";
 
 export async function runImport(opts: ImportOptions): Promise<ImportResult> {
   const root = path.resolve(opts.godotProjectRoot);
@@ -194,7 +198,42 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     }
   }
 
-  // 4. Dialogs pass — per folder.
+  // 4. Factions pass — independent. One .tres per Faction enum value, in
+  // per-faction subfolders. The Robotek folder has art only (no .tres) and
+  // is intentionally lore-only — it'll show as zero hits, no errors.
+  const factions: DomainResult = {
+    imported: [],
+    skipped: [],
+    errors: [],
+  };
+  const factionsDir = path.join(root, FACTIONS_GODOT_PATH);
+  for await (const filePath of walkTres(factionsDir)) {
+    try {
+      const text = await fs.readFile(filePath, "utf8");
+      const parsed = parseTres(text);
+      const f = mapFaction(parsed);
+      if (!f) {
+        factions.skipped.push({
+          file: filePath,
+          reason: `script_class is "${parsed.scriptClass ?? "?"}", not FactionData`,
+        });
+        continue;
+      }
+      // Re-resolve Icon/Banner against the actual root.
+      if (f.Icon && f.Icon.startsWith("res://")) f.Icon = resPathToAbs(f.Icon, root);
+      if (f.Banner && f.Banner.startsWith("res://")) f.Banner = resPathToAbs(f.Banner, root);
+      const validated = FactionDataSchema.parse(f);
+      if (!dryRun) {
+        const storage = makeJsonStorage(FactionDataSchema, folderAbs.faction, "Faction");
+        await storage.write(validated);
+      }
+      factions.imported.push(validated.Faction);
+    } catch (err) {
+      factions.errors.push({ file: filePath, error: String(err) });
+    }
+  }
+
+  // 5. Dialogs pass — per folder.
   const dialogs: DialogDomainResult = {
     imported: [],
     skipped: [],
@@ -243,7 +282,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     ok: true,
     godotProjectRoot: root,
     dryRun,
-    domains: { items, quests, karma, dialogs },
+    domains: { items, quests, karma, factions, dialogs },
   };
 }
 

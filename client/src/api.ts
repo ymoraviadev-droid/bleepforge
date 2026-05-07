@@ -1,5 +1,6 @@
 import type {
   DialogSequence,
+  FactionData,
   Item,
   KarmaImpact,
   Npc,
@@ -110,6 +111,7 @@ export const questsApi = crud<Quest>("quests", (e) => e.Id);
 export const itemsApi = crud<Item>("items", (e) => e.Slug);
 export const karmaApi = crud<KarmaImpact>("karma", (e) => e.Id);
 export const npcsApi = crud<Npc>("npcs", (e) => e.NpcId);
+export const factionsApi = crud<FactionData>("factions", (e) => e.Faction);
 
 export interface DialogFolderGroup {
   folder: string;

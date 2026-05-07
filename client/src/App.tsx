@@ -13,6 +13,8 @@ import { KarmaList } from "./karma/List";
 import { KarmaEdit } from "./karma/Edit";
 import { NpcList } from "./npc/List";
 import { NpcEdit } from "./npc/Edit";
+import { FactionList } from "./faction/List";
+import { FactionEdit } from "./faction/Edit";
 import { GearIcon } from "./preferences/GearIcon";
 import { PreferencesPage } from "./preferences/PreferencesPage";
 
@@ -53,6 +55,9 @@ export function App() {
           <NavLink to="/karma" className={navLinkClass}>
             Karma
           </NavLink>
+          <NavLink to="/factions" className={navLinkClass}>
+            Factions
+          </NavLink>
           <NavLink to="/integrity" className={navLinkClass}>
             Integrity
           </NavLink>
@@ -88,6 +93,9 @@ export function App() {
           <Route path="/npcs" element={<NpcList />} />
           <Route path="/npcs/new" element={<NpcEdit />} />
           <Route path="/npcs/:npcId" element={<NpcEdit />} />
+          <Route path="/factions" element={<FactionList />} />
+          <Route path="/factions/new" element={<FactionEdit />} />
+          <Route path="/factions/:faction" element={<FactionEdit />} />
           <Route path="/integrity" element={<IntegrityPage />} />
           <Route path="/preferences" element={<PreferencesPage />} />
           <Route path="/import" element={<Navigate to="/preferences" replace />} />

@@ -24,4 +24,5 @@ export const folderAbs = {
   item: path.join(dataRoot, "items"),
   karma: path.join(dataRoot, "karma"),
   npc: path.join(dataRoot, "npcs"),
+  faction: path.join(dataRoot, "factions"),
 };

@@ -1,4 +1,4 @@
-import type { Faction, Item, ItemCategory, KarmaImpact, ObjectiveType, Quest, RewardType, DialogSequence } from "@bleepforge/shared";
+import type { Faction, FactionData, Item, ItemCategory, KarmaImpact, ObjectiveType, Quest, RewardType, DialogSequence } from "@bleepforge/shared";
 import {
   valueAsArray,
   valueAsBool,
@@ -33,6 +33,42 @@ const ITEM_CATEGORY_BY_INDEX: ItemCategory[] = [
   "Upgrade",
   "Consumable",
 ];
+
+// ---- Factions --------------------------------------------------------------
+
+export function mapFaction(parsed: ParsedTres): FactionData | null {
+  if (parsed.scriptClass !== "FactionData") return null;
+  const props = parsed.resourceProps;
+  // Faction enum index. Godot omits the line when value is 0 (Scavengers).
+  const factionIdx = valueAsNumber(props.Faction) ?? 0;
+  const Faction = FACTION_BY_INDEX[factionIdx] ?? "Scavengers";
+
+  // Icon + Banner are Texture2D ext-resources. Convert res:// → absolute.
+  let Icon = "";
+  const iconVal = props.Icon;
+  if (iconVal?.kind === "ext_ref") {
+    const ext = parsed.extResources.get(iconVal.id);
+    if (ext && ext.type === "Texture2D" && ext.path) {
+      Icon = resPathToAbs(ext.path);
+    }
+  }
+  let Banner = "";
+  const bannerVal = props.Banner;
+  if (bannerVal?.kind === "ext_ref") {
+    const ext = parsed.extResources.get(bannerVal.id);
+    if (ext && ext.type === "Texture2D" && ext.path) {
+      Banner = resPathToAbs(ext.path);
+    }
+  }
+
+  return {
+    Faction,
+    DisplayName: valueAsString(props.DisplayName) ?? "",
+    Icon,
+    Banner,
+    ShortDescription: valueAsString(props.ShortDescription) ?? "",
+  };
+}
 
 // ---- Karma -----------------------------------------------------------------
 

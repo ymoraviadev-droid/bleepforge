@@ -5,7 +5,13 @@
 
 import { EventEmitter } from "node:events";
 
-export type SyncDomain = "item" | "karma" | "quest" | "dialog" | "npc";
+export type SyncDomain =
+  | "item"
+  | "karma"
+  | "quest"
+  | "dialog"
+  | "npc"
+  | "faction";
 
 export interface SyncEvent {
   domain: SyncDomain;

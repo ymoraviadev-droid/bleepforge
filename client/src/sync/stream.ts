@@ -8,7 +8,13 @@
 //
 // EventSource auto-reconnects on network blips with no extra code.
 
-export type SyncDomain = "item" | "karma" | "quest" | "dialog" | "npc";
+export type SyncDomain =
+  | "item"
+  | "karma"
+  | "quest"
+  | "dialog"
+  | "npc"
+  | "faction";
 
 export interface SyncEvent {
   domain: SyncDomain;

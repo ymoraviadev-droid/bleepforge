@@ -20,7 +20,8 @@
 2. Quests (`Quest` / `QuestObjective` / `QuestReward`) — **implemented**
 3. Items (`Item`, `Category="QuestItem"` discriminates `QuestItemData`) — **implemented**
 4. Karma impacts (`KarmaImpact` / `KarmaDelta`) — **implemented**
-5. NPCs (lightweight doc: `NpcId`, `DisplayName`, `Description`) — **implemented**
+5. NPCs — **lightweight stub today; full `NpcData` authoring is Phase 2 (in progress)**
+6. Factions (`FactionData`) — **implemented (Phase 1 of the NPC/Faction refactor)**
 
 **Graph view interactions:**
 
@@ -198,7 +199,26 @@ Runtime-only (editor doesn't write): `KarmaTier` enum, `AppliedImpactRecord`, `K
 
 **Triggering**: karma impacts are applied from game code only — no authored cross-reference from dialogs/quests to `KarmaImpact.Id`. The editor authors `KarmaImpact` files in isolation; no impact-picker is needed in dialog choices or quest rewards.
 
-### Domain 5 — NPCs (lightweight documentation stub)
+### Domain 5 — Factions
+
+Loaded by `FactionRegistry` (Node, scene-instantiated). Walks `res://shared/components/factions/` recursively, picks up every `.tres`, indexes by the `FactionData.Faction` enum value. The registry holds at most one entry per enum value; later wins on duplicates.
+
+```text
+FactionData
+  Faction          : enum { Scavengers, FreeRobots, RFF, Grove }   // primary key (enum value)
+  DisplayName      : string
+  Icon             : Texture2D    // → string resource path in JSON (absolute)
+  Banner           : Texture2D    // → string resource path in JSON (absolute)
+  ShortDescription : string       // multiline
+```
+
+**Folder layout** (Godot side): one `.tres` per faction in its own subfolder — `shared/components/factions/<name>/<name>.tres` (e.g. `scavengers/scavengers.tres`, `free_robots/free_robots.tres`). The `Faction = N` line uses the C# enum int (Scavengers=0 omitted by Godot, FreeRobots=1, RFF=2, Grove=3); the importer maps int→enum string via `FACTION_BY_INDEX`.
+
+**Robotek**: lore-only. The folder `shared/components/factions/robotek/` exists with art (PNGs) but **no `.tres`** — there's no enum entry. Treated as expected absence by the importer; it won't show as a skip or error.
+
+**Bleepforge storage**: `data/factions/<Faction>.json` (one file per enum value: `Scavengers.json`, `FreeRobots.json`, `RFF.json`, `Grove.json`). The `.tres` write-back mapper reconciles `DisplayName` and `ShortDescription` round-trip; `Icon`/`Banner` ext-resource refs are not reconciled (parity with `Item.Icon` — deferred). The locator (`findFactionTres`) walks subfolders and matches `script_class="FactionData"` plus the `Faction = N` int.
+
+### Domain 6 — NPCs (lightweight documentation stub)
 
 ```text
 Npc
