@@ -1,5 +1,6 @@
 import { NavLink, Navigate, Route, Routes } from "react-router";
 import { CatalogDatalists } from "./CatalogDatalists";
+import { ImportPage } from "./import/ImportPage";
 import { ModalHost } from "./Modal";
 import { ThemeSwitcher } from "./Theme";
 import { DialogList } from "./dialog/List";
@@ -48,6 +49,9 @@ export function App() {
           <NavLink to="/integrity" className={navLinkClass}>
             Integrity
           </NavLink>
+          <NavLink to="/import" className={navLinkClass}>
+            Import
+          </NavLink>
         </nav>
         <div className="flex-1" />
         <ThemeSwitcher />
@@ -74,6 +78,7 @@ export function App() {
           <Route path="/npcs/new" element={<NpcEdit />} />
           <Route path="/npcs/:npcId" element={<NpcEdit />} />
           <Route path="/integrity" element={<IntegrityPage />} />
+          <Route path="/import" element={<ImportPage />} />
         </Routes>
       </main>
     </div>

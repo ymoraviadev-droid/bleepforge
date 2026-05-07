@@ -1,0 +1,18 @@
+{
+  "Id": "korjack_killed_unaffiliated",
+  "Description": "Killed Korjack -an RFF recruiter.",
+  "Deltas": [
+    {
+      "Faction": "Scavengers",
+      "Amount": 5
+    },
+    {
+      "Faction": "RFF",
+      "Amount": -15
+    },
+    {
+      "Faction": "FreeRobots",
+      "Amount": -5
+    }
+  ]
+}

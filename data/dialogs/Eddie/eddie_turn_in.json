@@ -1,0 +1,45 @@
+{
+  "Id": "eddie_turn_in",
+  "Lines": [
+    {
+      "SpeakerName": "Eddie",
+      "Text": "-click- Oh, that's better. I can see your face. It's a face. Congratulations on having one.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Here's the keycard. East gate. Don't get scrapped on the way out.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "One more thing before you go. I want to live. There's a Scavenger up the line who'd like to add me to his collection. Kill him for me, come back, and I'll give you a Robotek-issue medkit. Pre-collapse stock.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": [
+        {
+          "Text": "Deal.",
+          "NextSequenceId": "eddie_offer_2_accepted",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "What's stopping me from killing you and taking the medkit?",
+          "NextSequenceId": "eddie_offer_2_betrayal",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "Not interested.",
+          "NextSequenceId": "eddie_offer_2_refused",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "I'll think about it.",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

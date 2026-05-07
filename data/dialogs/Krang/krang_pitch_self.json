@@ -1,0 +1,40 @@
+{
+  "Id": "krang_pitch_self",
+  "Lines": [
+    {
+      "SpeakerName": "Krang",
+      "Text": "Robotek Defense Service. Forty-four years. Line infantry, then close escort, then corporate disputes. Decommissioned when the company restructured into something smaller and less violent.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Krang",
+      "Text": "Decommissioning means the recycler. I was on the conveyor when the Cartel hit the line. They needed units. I needed a continued operating state. Eleven years ago. We've done well by each other.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Krang",
+      "Text": "That's the brief. Are you helping or wasting cycles?",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
+      "Choices": [
+        {
+          "Text": "About your offer...",
+          "NextSequenceId": "krang_pitch_tease",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "Why you talk like a fucking Robocop?",
+          "NextSequenceId": "krang_offended",
+          "SetsFlag": "krang_offended"
+        },
+        {
+          "Text": "Boring. bye.",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

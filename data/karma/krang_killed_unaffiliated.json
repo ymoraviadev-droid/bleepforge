@@ -1,0 +1,14 @@
+{
+  "Id": "krang_killed_unaffiliated",
+  "Description": "Killed Krang.",
+  "Deltas": [
+    {
+      "Faction": "Scavengers",
+      "Amount": -10
+    },
+    {
+      "Faction": "RFF",
+      "Amount": 5
+    }
+  ]
+}

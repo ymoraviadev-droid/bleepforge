@@ -1,0 +1,34 @@
+{
+  "Id": "eddie_offer_2_betrayal",
+  "Lines": [
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Then I'd be dead, Free Robots will know about this, and you'd have a medkit.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Kill the Scavenger instead. Same medkit, fewer regrets, and I'll send word to the Free Robots on your behalf. that will be a good start for you in the wastes.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": [
+        {
+          "Text": "Deal.",
+          "NextSequenceId": "eddie_offer_2_accepted",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "Not interested.",
+          "NextSequenceId": "eddie_offer_2_refused",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "I'll have to think about this.",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

@@ -8,6 +8,7 @@ import {
 import { config, folderAbs } from "./config.js";
 import { assetRouter } from "./asset/router.js";
 import { dialogRouter } from "./dialog/router.js";
+import { importRouter } from "./import/router.js";
 import { makeCrudRouter, makeJsonStorage } from "./util/jsonCrud.js";
 
 const app = express();
@@ -24,6 +25,7 @@ app.use("/api/items", makeCrudRouter(ItemSchema, itemStorage, "Slug"));
 app.use("/api/karma", makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id"));
 app.use("/api/npcs", makeCrudRouter(NpcSchema, npcStorage, "NpcId"));
 app.use("/api/asset", assetRouter);
+app.use("/api/import", importRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({

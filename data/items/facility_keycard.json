@@ -1,0 +1,12 @@
+{
+  "Slug": "facility_keycard",
+  "DisplayName": "Facility Keycard",
+  "Description": "Opens the east gate.",
+  "Icon": "",
+  "IsStackable": false,
+  "MaxStack": 99,
+  "Price": 0,
+  "Category": "Misc",
+  "QuestId": "",
+  "CanDrop": false
+}

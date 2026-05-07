@@ -1,0 +1,28 @@
+{
+  "Id": "welcome_terminal_log_002",
+  "Lines": [
+    {
+      "SpeakerName": "",
+      "Text": "[color=#ffff00]LOG 0411 - foreman gresh:[/color] \"received memo from corporate. we are being 'optimized.' do not know what this means. bringing extra sandwich tomorrow just in case.\"",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "> BACK TO LOGS",
+          "NextSequenceId": "welcome_terminal_logs",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> BACK TO ROOT",
+          "NextSequenceId": "welcome_terminal_intro",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> DISCONNECT",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

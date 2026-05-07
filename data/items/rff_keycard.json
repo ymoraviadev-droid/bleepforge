@@ -1,0 +1,12 @@
+{
+  "Slug": "rff_keycard",
+  "DisplayName": "R.F.F Keycard",
+  "Description": "A Keycard for the R.F.F Head Quarters",
+  "Icon": "",
+  "IsStackable": false,
+  "MaxStack": 99,
+  "Price": 500,
+  "Category": "Misc",
+  "QuestId": "",
+  "CanDrop": false
+}

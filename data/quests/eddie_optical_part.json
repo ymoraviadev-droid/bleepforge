@@ -1,0 +1,37 @@
+{
+  "Id": "eddie_optical_part",
+  "QuestGiverId": "eddie",
+  "Title": "A Robot's Eyes",
+  "Description": "Eddie needs his optical assembly back. Find it east of here.",
+  "Objectives": [
+    {
+      "Id": "find_part",
+      "Description": "Recover Eddie's optical assembly.",
+      "Type": "CollectItem",
+      "TargetItem": "eddie_optical_part",
+      "TargetId": "eddie_optical_part",
+      "EnemyType": "",
+      "RequiredCount": 1,
+      "ConsumeOnTurnIn": true
+    }
+  ],
+  "Rewards": [
+    {
+      "Type": "Item",
+      "Item": "facility_keycard",
+      "Quantity": 1,
+      "FlagName": "",
+      "CreditAmount": 0
+    },
+    {
+      "Type": "Credits",
+      "Item": "",
+      "Quantity": 1,
+      "FlagName": "",
+      "CreditAmount": 25
+    }
+  ],
+  "ActiveFlag": "eddie_quest_active",
+  "CompleteFlag": "eddie_quest_complete",
+  "TurnedInFlag": "eddie_quest_turned_in"
+}

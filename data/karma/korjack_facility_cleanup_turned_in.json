@@ -1,0 +1,14 @@
+{
+  "Id": "korjack_facility_cleanup_turned_in",
+  "Description": "Cleared the facility for the RFF.",
+  "Deltas": [
+    {
+      "Faction": "RFF",
+      "Amount": 10
+    },
+    {
+      "Faction": "Scavengers",
+      "Amount": -5
+    }
+  ]
+}

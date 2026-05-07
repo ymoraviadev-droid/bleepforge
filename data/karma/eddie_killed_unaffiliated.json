@@ -1,0 +1,10 @@
+{
+  "Id": "eddie_killed_unaffiliated",
+  "Description": "Killed Eddie.",
+  "Deltas": [
+    {
+      "Faction": "FreeRobots",
+      "Amount": -10
+    }
+  ]
+}

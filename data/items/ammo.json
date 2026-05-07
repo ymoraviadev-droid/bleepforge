@@ -1,0 +1,12 @@
+{
+  "Slug": "ammo",
+  "DisplayName": "Ammo",
+  "Description": "Laser guns ammo",
+  "Icon": "",
+  "IsStackable": true,
+  "MaxStack": 99,
+  "Price": 5,
+  "Category": "Misc",
+  "QuestId": "",
+  "CanDrop": false
+}

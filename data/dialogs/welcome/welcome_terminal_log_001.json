@@ -1,0 +1,28 @@
+{
+  "Id": "welcome_terminal_log_001",
+  "Lines": [
+    {
+      "SpeakerName": "",
+      "Text": "[color=#ffff00]LOG 0408 - foreman gresh:[/color] \"coffee machine exploded again. third time this week. at this point we're just going to drink the fumes and call it breakfast.\"",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "> BACK TO LOGS",
+          "NextSequenceId": "welcome_terminal_logs",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> BACK TO ROOT",
+          "NextSequenceId": "welcome_terminal_intro",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> DISCONNECT",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

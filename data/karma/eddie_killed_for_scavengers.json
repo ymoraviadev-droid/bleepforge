@@ -1,0 +1,18 @@
+{
+  "Id": "eddie_killed_for_scavengers",
+  "Description": "Killed Eddie at Krang's request.",
+  "Deltas": [
+    {
+      "Faction": "Scavengers",
+      "Amount": 15
+    },
+    {
+      "Faction": "FreeRobots",
+      "Amount": -10
+    },
+    {
+      "Faction": "RFF",
+      "Amount": -5
+    }
+  ]
+}

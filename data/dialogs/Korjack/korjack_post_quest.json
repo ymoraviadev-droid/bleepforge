@@ -1,0 +1,18 @@
+{
+  "Id": "korjack_post_quest",
+  "Lines": [
+    {
+      "SpeakerName": "Korjack",
+      "Text": "Your transit data is current. Settlement vetting is the next step in your trajectory. Korjack remains available for additional procurement should the Front require it.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Korjack",
+      "Text": "A note. The Cartel's interest in you will not diminish because you have chosen otherwise. Be prepared for that conversation to escalate.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
+      "Choices": []
+    }
+  ],
+  "SetsFlag": ""
+}

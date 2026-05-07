@@ -1,0 +1,12 @@
+{
+  "Id": "eddie_offer_2_refused",
+  "Lines": [
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Right. Fuck off you useless pieace of junk.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait3.png",
+      "Choices": []
+    }
+  ],
+  "SetsFlag": ""
+}

@@ -1,0 +1,12 @@
+{
+  "Id": "krang_in_progress",
+  "Lines": [
+    {
+      "SpeakerName": "Krang",
+      "Text": "Eddie's still operational. I'd know if he wasn't. Get it done.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
+      "Choices": []
+    }
+  ],
+  "SetsFlag": ""
+}

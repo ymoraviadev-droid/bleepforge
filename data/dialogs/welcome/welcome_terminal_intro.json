@@ -1,0 +1,33 @@
+{
+  "Id": "welcome_terminal_intro",
+  "Lines": [
+    {
+      "SpeakerName": "",
+      "Text": "      ▒▒▒          [color=#ffff00]R O B O - T E K[/color] ▐▀▪▀▌         ▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪ ▓▓▓         [color=#ffff00]Brighter Tomorrow[/color] ▓▓▓  [color=#00cc00]sector 7 info terminal v1.4[/color] [color=#00cc00]status: SEMI-FUNCTIONAL[/color] [color=#00cc00]archive access: GRANTED[/color]",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "INFO.TXT",
+          "NextSequenceId": "welcome_terminal_info",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "LOGS.TXT",
+          "NextSequenceId": "welcome_terminal_logs",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "NEWS_FEED.TXT",
+          "NextSequenceId": "welcome_terminal_news",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> DISCONNECT",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

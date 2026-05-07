@@ -1,0 +1,23 @@
+{
+  "Id": "welcome_terminal_info",
+  "Lines": [
+    {
+      "SpeakerName": "",
+      "Text": "[color=#ffff00]> INFO.TXT[/color] ---  sector 7 was commissioned [color=#ffff00]411 cycles ago[/color] as an [color=#ffff00]ORGANIC WASTE PROCESSING FACILITY[/color].  three hundred workers staffed it in rotating shifts. human and synthetic, side by side. a model of cooperation.  then management discovered it was cheaper to throw the workers in with the garbage.  efficiency is a virtue.  end of file.",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "> BACK",
+          "NextSequenceId": "welcome_terminal_intro",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> DISCONNECT",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

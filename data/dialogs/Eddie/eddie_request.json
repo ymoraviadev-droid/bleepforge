@@ -3,12 +3,28 @@
   "Lines": [
     {
       "SpeakerName": "Eddie",
-      "Text": "My optical assembly. East. Get it.",
-      "Portrait": "",
+      "Text": "When the scavenger hit me, a piece of my optical assembly went flying east. Way east. End of the facility.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Bring it back and I can see again. Bring it back and I'll give you the keycard out of this dump. Fair?",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
       "Choices": [
         {
-          "Text": "On it.",
+          "Text": "Deal.",
           "NextSequenceId": "eddie_accepted",
+          "SetsFlag": "eddie_quest_accepted"
+        },
+        {
+          "Text": "Fuck you.",
+          "NextSequenceId": "eddie_refused",
+          "SetsFlag": "eddie_offended"
+        },
+        {
+          "Text": "I'll think about it.",
+          "NextSequenceId": "",
           "SetsFlag": ""
         }
       ]

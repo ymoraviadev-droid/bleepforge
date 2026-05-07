@@ -1,0 +1,38 @@
+{
+  "Id": "welcome_terminal_logs",
+  "Lines": [
+    {
+      "SpeakerName": "",
+      "Text": "[color=#ffff00]> LOGS.TXT[/color] [color=#00cc00]last 3 entries before evacuation:[/color]",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "> LOG 0408",
+          "NextSequenceId": "welcome_terminal_log_001",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> LOG 0411",
+          "NextSequenceId": "welcome_terminal_log_002",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> LOG 0412",
+          "NextSequenceId": "welcome_terminal_log_003",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> BACK",
+          "NextSequenceId": "welcome_terminal_intro",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> DISCONNECT",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

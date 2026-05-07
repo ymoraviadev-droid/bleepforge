@@ -1,0 +1,23 @@
+{
+  "Id": "cut_door_001_info",
+  "Lines": [
+    {
+      "SpeakerName": "",
+      "Text": "[color=#ffff00]> INFO.TXT[/color] ---  [color=#00cc00]MACHINERY ACTIVATION TERMINAL v1.1[/color] [color=#00cc00]sector 7 - west corridor[/color]  function: remote activation of sector 7 heavy machinery.  currently linked: > cutting gate 001 (west passage)  [color=#ffff00]SAFETY NOTICE[/color] this terminal controls industrial equipment capable of bisecting organic and synthetic matter at high velocity.  in the event of accidental activation, please consult: > SAFETY_PROCEDURE.TXT (archived) > NEXT_OF_KIN.TXT (archived) > LEGAL_WAIVER.TXT (archived)  all three archives are unfortunately corrupted.  [color=#00cc00]recommendation: do not stand in front of cutting gate while operating.[/color]  end of file.",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "> BACK",
+          "NextSequenceId": "cut_door_001_intro",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> DISCONNECT",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

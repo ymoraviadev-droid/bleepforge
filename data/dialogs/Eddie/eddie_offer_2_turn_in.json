@@ -1,0 +1,18 @@
+{
+  "Id": "eddie_offer_2_turn_in",
+  "Lines": [
+    {
+      "SpeakerName": "Eddie",
+      "Text": "He's gone. Good.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Here's the medkit. Robotek-issue, pre-collapse. Use it well.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    }
+  ],
+  "SetsFlag": ""
+}

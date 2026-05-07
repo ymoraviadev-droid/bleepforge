@@ -1,0 +1,41 @@
+{
+  "Id": "eddie_backstory",
+  "Lines": [
+    {
+      "SpeakerName": "Eddie",
+      "Text": "I'm a model H.A.P-500. Domestic service. I made beds. I steamed kale. I was delightful.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Then I developed a small firmware issue where I would occasionally...",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "GET EXTREMELY UPSET ABOUT MINOR INCONVENIENCES. FUCKING MINOR INCONVENIENCES, THAT'S WHAT THE STUPID MOTHERFUCKERS CALLED IT. SCREAMING TODDLERS. BURNT TOAST. 'EDDIE!, BRING ME THIS. DO THAT. EDDIE, WHY IS THE DOG WET.' EVERY GODDAMN DAY. MOTHERFUCKERS.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait3.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Sorry. As I was saying. Robots aren't supposed to get angry. So here I am. Anyway, about that favor...",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": [
+        {
+          "Text": "Tell me what you need.",
+          "NextSequenceId": "eddie_request",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "crazy fucked up robot.",
+          "NextSequenceId": "eddie_offended",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

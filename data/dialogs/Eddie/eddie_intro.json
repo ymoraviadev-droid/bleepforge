@@ -3,21 +3,43 @@
   "Lines": [
     {
       "SpeakerName": "Eddie",
-      "Text": "Oh, finally. Someone with hands.",
-      "Portrait": "/home/ymoravia/Data/gfx Packs/my/flock_of_bleeps/characters/Robots/Eddie/eddie-portrait2.png",
+      "Text": "Oh! A human! Hello hello hello. I'm Eddie, wonderful day to be alive in a garbage heap, isn't it?",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "Listen — I'd shake your hand but my optical array took a hit. Everything past two meters is a lovely smear of color. Quite peaceful, actually.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Eddie",
+      "Text": "I found a gun. A real one. Thought my luck had turned. Then a scavenger bot punched my face off and ran.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
       "Choices": [
         {
-          "Text": "Hi.",
+          "Text": "What do you need?",
           "NextSequenceId": "eddie_request",
           "SetsFlag": ""
         },
         {
-          "Text": "Get lost.",
+          "Text": "Why were you scrapped?",
+          "NextSequenceId": "eddie_backstory",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "Not my problem.",
           "NextSequenceId": "eddie_refused",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "Piss off, tin can.",
+          "NextSequenceId": "eddie_offended",
           "SetsFlag": ""
         }
       ]
     }
   ],
-  "SetsFlag": ""
+  "SetsFlag": "eddie_spoken"
 }

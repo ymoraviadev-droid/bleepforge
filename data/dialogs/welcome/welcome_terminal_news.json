@@ -1,0 +1,23 @@
+{
+  "Id": "welcome_terminal_news",
+  "Lines": [
+    {
+      "SpeakerName": "",
+      "Text": "[color=#ffff00]> NEWS_FEED.TXT[/color] [color=#00cc00]robo-tek daily - archived[/color] ---  [color=#ffff00]ROBO-TEK UNVEILS NEW SLOGAN[/color]  in a press event held yesterday at corporate headquarters, ROBO-TEK CEO skimley p. wrenchworth announced the company's new motto:  [color=#ffff00]\"a brighter tomorrow.\"[/color]  when asked what this meant, wrenchworth reportedly smiled, gestured vaguely at a nearby plant, and had security escort the journalist out of the building.  the plant was also fired.  end of file.",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "> BACK",
+          "NextSequenceId": "welcome_terminal_intro",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> DISCONNECT",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

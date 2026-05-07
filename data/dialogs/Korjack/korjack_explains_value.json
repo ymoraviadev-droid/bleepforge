@@ -1,0 +1,29 @@
+{
+  "Id": "korjack_explains_value",
+  "Lines": [
+    {
+      "SpeakerName": "Korjack",
+      "Text": "Beyond the immediate exchange: the keycard grants entry to a settlement that does not normally permit unaffiliated traffic. You will be vetted on arrival. Successful vetting establishes a working relationship with the Front.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
+      "Choices": []
+    },
+    {
+      "SpeakerName": "Korjack",
+      "Text": "Working relationships expand access. Equipment. Information. Contracts. The Cartel pays better short-term. The Front pays in continuity.",
+      "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
+      "Choices": [
+        {
+          "Text": "I'll do it.",
+          "NextSequenceId": "korjack_accept",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "I'll think about it.",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

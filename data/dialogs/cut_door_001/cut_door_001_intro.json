@@ -1,0 +1,28 @@
+{
+  "Id": "cut_door_001_intro",
+  "Lines": [
+    {
+      "SpeakerName": "",
+      "Text": "      ▒▒▒          [color=#ffff00]R O B O - T E K[/color] ▐▀▪▀▌         ▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪▪ ▓▓▓         [color=#ffff00]Brighter Tomorrow[/color] ▓▓▓  [color=#00cc00]sector 7 machinery activation terminal v1.1[/color] [color=#00cc00]status: FUNCTIONAL[/color] [color=#00cc00]archive access: GRANTED[/color]",
+      "Portrait": "",
+      "Choices": [
+        {
+          "Text": "INFO.TXT",
+          "NextSequenceId": "cut_door_001_info",
+          "SetsFlag": ""
+        },
+        {
+          "Text": "> ACTIVATE",
+          "NextSequenceId": "",
+          "SetsFlag": "machinery_001.active"
+        },
+        {
+          "Text": "> DISCONNECT",
+          "NextSequenceId": "",
+          "SetsFlag": ""
+        }
+      ]
+    }
+  ],
+  "SetsFlag": ""
+}

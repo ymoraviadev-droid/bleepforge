@@ -1,0 +1,12 @@
+{
+  "Slug": "credits",
+  "DisplayName": "Credits",
+  "Description": "credits",
+  "Icon": "",
+  "IsStackable": true,
+  "MaxStack": 10000000000,
+  "Price": 1,
+  "Category": "Misc",
+  "QuestId": "",
+  "CanDrop": false
+}

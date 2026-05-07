@@ -1,12 +1,12 @@
 {
-  "Id": "eddie_accepted",
+  "Id": "eddie_quest_2_in_progress",
   "Lines": [
     {
       "SpeakerName": "Eddie",
-      "Text": "Excellent. East. All the way. You can't miss it — assuming you have functional eyes, which, lucky you.",
+      "Text": "Still here. Is he?",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
       "Choices": []
     }
   ],
-  "SetsFlag": "eddie_quest_active"
+  "SetsFlag": ""
 }

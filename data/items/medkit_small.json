@@ -1,0 +1,12 @@
+{
+  "Slug": "medkit_small",
+  "DisplayName": "Small Medkit",
+  "Description": "A Small Medkit",
+  "Icon": "",
+  "IsStackable": true,
+  "MaxStack": 99,
+  "Price": 10,
+  "Category": "Consumable",
+  "QuestId": "",
+  "CanDrop": false
+}
