@@ -50,7 +50,7 @@ The `DialogGraph` exported component wraps `DialogGraphInner` in `<ReactFlowProv
 **Out of scope (and not coming back without explicit decision):**
 
 - **Authoring full NPC behavior** (the 25-field `Npc : CharacterBody2D` from Godot, including `Quests : NpcQuestEntry[]`). NPC config lives as per-instance overrides in level scenes; Yonatan keeps editing in Godot's inspector. The NPC entity here is just a documentation stub for cross-reference (so `QuestGiverId` autocompletes, etc.).
-- **Auto-import (Godot → Bleepforge)**: there's no file watcher. If a `.tres` is edited directly in Godot, the user re-runs Import. The two-way wiring at save time only goes Bleepforge → Godot.
+- **Auto-import (Godot → Bleepforge)**: now wired (live-sync via `WATCH_TRES`); see the "Live-sync from Godot" section below. Any `.tres` save in Godot reimports the matching JSON and pushes a `Bleepforge:sync` event over SSE to all open browser tabs.
 
 **Headline next feature: graph view of dialogs.** Each `DialogSequence` is a node, each `DialogChoice.NextSequenceId` is an edge. Pan/zoom, click-for-detail, dagre auto-layout. Likely [React Flow](https://reactflow.dev) (`@xyflow/react`). Scoped per-folder once multi-folder dialog support lands.
 
@@ -272,9 +272,13 @@ Plus `pnpm harness` walks every `.tres` in the project and confirms parser+emitt
 
 **Save-to-Godot wiring (gated by `WRITE_TRES`):** the four save endpoints — `PUT /api/items/:slug`, `/api/karma/:id`, `/api/quests/:id`, `/api/dialogs/:folder/:id` — first write the JSON (always), then optionally call the matching mapper to update the live `.tres` in `GODOT_PROJECT_ROOT`. Atomic write (temp file + rename). Default off; set `WRITE_TRES=1` in `.env` and restart the server to enable. The save response shape is `{ entity, tresWrite }` where `tresWrite` is `{ attempted, ok, path, warnings, error }` — clients can ignore it for now (api.ts logs to console). Server logs every attempt.
 
-**Live-sync from Godot (gated by `WATCH_TRES`):** when set to `1`, the server watches `GODOT_PROJECT_ROOT/**/*.tres` via `node:fs.watch` (recursive). On external change: re-imports that one file via the import mappers, overwrites the matching JSON in `data/`, and publishes a `SyncEvent` (`{ domain, key, action }`) on an in-memory bus. The SSE endpoint `GET /api/sync/events` streams those events to any open browser tab. The client opens an `EventSource` once at app boot ([client/src/sync/stream.ts](client/src/sync/stream.ts)), re-dispatches each event as a `Bleepforge:sync` window CustomEvent, and components register via `useSyncRefresh({ domain, key, onChange })` to refetch when their entity changes. Result: edit a `.tres` in Godot, save it, and any open Bleepforge tab updates without manual refresh.
+**Live-sync from Godot (gated by `WATCH_TRES`):** when set to `1`, the server watches `GODOT_PROJECT_ROOT` via [chokidar](https://github.com/paulmillr/chokidar) (filtered to `.tres` and excluding the `.godot/` cache). On external change: re-imports that one file via the import mappers, overwrites the matching JSON in `data/`, and publishes a `SyncEvent` (`{ domain, key, action }`) on an in-memory bus. The SSE endpoint `GET /api/sync/events` streams those events to any open browser tab. The client opens an `EventSource` once at app boot ([client/src/sync/stream.ts](client/src/sync/stream.ts)), re-dispatches each event as a `Bleepforge:sync` window CustomEvent, and components register via `useSyncRefresh({ domain, key, onChange })` to refetch when their entity changes.
+
+We use a 150 ms per-path debounce we control rather than chokidar's `awaitWriteFinish` — the latter has a stuck-state bug for atomic-rename saves where the new file ends up with the same byte size as the old one (the polling state machine waits forever for a stabilization that never comes). Symptom was reliable: a specific dialog would stop firing watcher events after a save or two and stay silent until the server restarted.
 
 Self-write suppression in [server/src/tres/writer.ts](server/src/tres/writer.ts): every save records the path with a timestamp; the watcher skips events for paths within a 1.5 s window. Without this, a Bleepforge save would trigger our own watcher → re-import → emit event → client refetch (harmless but wasteful).
+
+UI subscribers: every list/edit page wires `useSyncRefresh` for its domain (item, karma, quest, dialog), the dialog graph view subscribes for the active folder, `ItemIcon` re-fetches its descriptor on item events (so a Godot-side icon change shows up live), and `useCatalog` (autocomplete) bridges through the catalog-bus so it also refreshes on any sync event. NPCs are intentionally not subscribed — there's no `.tres` watcher fire for that domain.
 
 **Known limitations (deferred):**
 
