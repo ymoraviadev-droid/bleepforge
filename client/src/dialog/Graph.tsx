@@ -7,6 +7,7 @@ import {
   useState,
 } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { showContextMenu } from "../ContextMenu";
 import {
   BaseEdge,
   Background,
@@ -113,6 +114,10 @@ function estimateNodeHeight(seq: DialogSequence): number {
 }
 
 function SequenceNode({ id, data }: NodeProps<SeqNode>) {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const folder = searchParams.get("folder");
+
   if (data.ghost) {
     return (
       <div
@@ -128,6 +133,35 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
 
   const seq = data.seq;
   const portrait = data.portrait ?? "";
+
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    showContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      items: [
+        {
+          label: "Edit",
+          onClick: () => {
+            if (!folder) return;
+            navigate(
+              `/dialogs/${encodeURIComponent(folder)}/${encodeURIComponent(seq.Id)}`,
+            );
+          },
+          disabled: !folder,
+        },
+        {
+          label: "Copy id",
+          onClick: async () => {
+            try {
+              await navigator.clipboard.writeText(seq.Id);
+            } catch {}
+          },
+        },
+      ],
+    });
+  };
   // If empty, we still render one source handle (anchored to the placeholder
   // text) so the user can drag-to-empty and create the first line.
   const handleCount = Math.max(seq.Lines.length, 1);
@@ -187,6 +221,7 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
   return (
     <div
       ref={containerRef}
+      onContextMenu={onContextMenu}
       className="relative flex flex-col border-2 border-neutral-700 bg-neutral-900 text-xs"
       style={{
         width: NODE_WIDTH,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router";
 import { CatalogDatalists } from "./CatalogDatalists";
+import { ContextMenuHost } from "./ContextMenu";
 import { ModalHost } from "./Modal";
 import { SplashScreen } from "./SplashScreen";
 import { useCatalog } from "./useCatalog";
@@ -137,6 +138,7 @@ export function App() {
       </header>
       <CatalogDatalists />
       <ModalHost />
+      <ContextMenuHost />
       <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <Routes>
           <Route path="/" element={<Navigate to="/concept" replace />} />
