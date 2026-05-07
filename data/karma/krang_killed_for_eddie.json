@@ -3,19 +3,19 @@
   "Description": "Killed Krang at Eddie's request.",
   "Deltas": [
     {
+      "_subId": "Resource_puxjg",
       "Faction": "Scavengers",
-      "Amount": -10,
-      "_subId": "Resource_puxjg"
+      "Amount": -10
     },
     {
+      "_subId": "Resource_7ahyd",
       "Faction": "FreeRobots",
-      "Amount": 10,
-      "_subId": "Resource_7ahyd"
+      "Amount": 10
     },
     {
+      "_subId": "Resource_pxdn3",
       "Faction": "RFF",
-      "Amount": 5,
-      "_subId": "Resource_pxdn3"
+      "Amount": 5
     }
   ]
 }

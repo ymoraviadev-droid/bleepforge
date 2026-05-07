@@ -3,19 +3,19 @@
   "Description": "Killed Korjack -an RFF recruiter.",
   "Deltas": [
     {
+      "_subId": "Resource_qovns",
       "Faction": "Scavengers",
-      "Amount": 5,
-      "_subId": "Resource_qovns"
+      "Amount": 5
     },
     {
+      "_subId": "Resource_a04b4",
       "Faction": "RFF",
-      "Amount": -15,
-      "_subId": "Resource_a04b4"
+      "Amount": -15
     },
     {
+      "_subId": "Resource_ap3ck",
       "Faction": "FreeRobots",
-      "Amount": -5,
-      "_subId": "Resource_ap3ck"
+      "Amount": -5
     }
   ]
 }

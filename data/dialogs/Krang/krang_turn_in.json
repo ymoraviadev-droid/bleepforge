@@ -2,25 +2,25 @@
   "Id": "krang_turn_in",
   "Lines": [
     {
+      "_subId": "Resource_ow6i2",
       "SpeakerName": "Krang",
       "Text": "You have it. Hand it over.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_ow6i2"
+      "Choices": []
     },
     {
+      "_subId": "Resource_ri551",
       "SpeakerName": "Krang",
       "Text": "Good. Hold still, I'm copying the credentials. You keep the original. I keep the duplicate. Both work.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_ri551"
+      "Choices": []
     },
     {
+      "_subId": "Resource_1wmt0",
       "SpeakerName": "Krang",
       "Text": "Here are your credits. As agreed. I've also sent word. The Cartel will recognize your name when you reach the city. Look for a handler in the warehouse district - they hold our contracts there. Tell them Krang sent you.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_1wmt0"
+      "Choices": []
     }
   ],
   "SetsFlag": "krang_can_barter"

@@ -2,11 +2,11 @@
   "Id": "korjack_pitch_dismissive",
   "Lines": [
     {
+      "_subId": "Resource_ia0dn",
       "SpeakerName": "Korjack",
       "Text": "Noted. The Front does not pursue uncooperative assets.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_ia0dn"
+      "Choices": []
     }
   ],
   "SetsFlag": "korjack_offer_declined"

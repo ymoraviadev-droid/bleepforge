@@ -2,11 +2,11 @@
   "Id": "korjack_accept",
   "Lines": [
     {
+      "_subId": "Resource_ppi2w",
       "SpeakerName": "Korjack",
       "Text": "Accepted. Quest registered. Lower facility, all Discards. Return when complete.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_ppi2w"
+      "Choices": []
     }
   ],
   "SetsFlag": ""

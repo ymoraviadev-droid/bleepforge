@@ -2,37 +2,37 @@
   "Id": "eddie_request",
   "Lines": [
     {
+      "_subId": "Resource_d1gjb",
       "SpeakerName": "Eddie",
       "Text": "When the scavenger hit me, a piece of my optical assembly went flying east. Way east. End of the facility.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": [],
-      "_subId": "Resource_d1gjb"
+      "Choices": []
     },
     {
+      "_subId": "Resource_m1ct7",
       "SpeakerName": "Eddie",
       "Text": "Bring it back and I can see again. Bring it back and I'll give you the keycard out of this dump. Fair?",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
       "Choices": [
         {
+          "_subId": "Resource_wmoas",
           "Text": "Deal.",
           "NextSequenceId": "eddie_accepted",
-          "SetsFlag": "eddie_quest_accepted",
-          "_subId": "Resource_wmoas"
+          "SetsFlag": "eddie_quest_accepted"
         },
         {
+          "_subId": "Resource_fph8f",
           "Text": "Fuck you.",
           "NextSequenceId": "eddie_refused",
-          "SetsFlag": "eddie_offended",
-          "_subId": "Resource_fph8f"
+          "SetsFlag": "eddie_offended"
         },
         {
+          "_subId": "Resource_n61kq",
           "Text": "I'll think about it.",
           "NextSequenceId": "",
-          "SetsFlag": "",
-          "_subId": "Resource_n61kq"
+          "SetsFlag": ""
         }
-      ],
-      "_subId": "Resource_m1ct7"
+      ]
     }
   ],
   "SetsFlag": ""

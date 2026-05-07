@@ -2,25 +2,25 @@
   "Id": "krang_quest_accepted",
   "Lines": [
     {
+      "_subId": "Resource_qs16r",
       "SpeakerName": "Krang",
       "Text": "Good. Then you've earned it.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_qs16r"
+      "Choices": []
     },
     {
+      "_subId": "Resource_50dqj",
       "SpeakerName": "Krang",
       "Text": "Climb to the top of the structure. Go west until the catwalk ends. There's a section of wall that doesn't read as a wall to most units. Stand at it and check. Don't walk past it. It will not announce itself.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_50dqj"
+      "Choices": []
     },
     {
+      "_subId": "Resource_86rrs",
       "SpeakerName": "Krang",
       "Text": "Through it there's a hidden teleporter. The Cartel doesn't broadcast its location, for obvious reasons. It leads to a cache. Rifle, ammunition. Use it to kill fucking Eddie, bring me the keycard when it's done.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_86rrs"
+      "Choices": []
     }
   ],
   "SetsFlag": "krang_quest_active"

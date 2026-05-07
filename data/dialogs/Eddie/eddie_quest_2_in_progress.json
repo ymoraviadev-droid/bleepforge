@@ -2,11 +2,11 @@
   "Id": "eddie_quest_2_in_progress",
   "Lines": [
     {
+      "_subId": "Resource_sbsbv",
       "SpeakerName": "Eddie",
       "Text": "Still here. Is he?",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": [],
-      "_subId": "Resource_sbsbv"
+      "Choices": []
     }
   ],
   "SetsFlag": ""

@@ -2,30 +2,30 @@
   "Id": "welcome_terminal_log_001",
   "Lines": [
     {
+      "_subId": "Resource_gl0ph",
       "SpeakerName": "",
       "Text": "[color=#ffff00]LOG 0408 - foreman gresh:[/color] \"coffee machine exploded again. third time this week. at this point we're just going to drink the fumes and call it breakfast.\"",
       "Portrait": "",
       "Choices": [
         {
+          "_subId": "Resource_21vqt",
           "Text": "> BACK TO LOGS",
           "NextSequenceId": "welcome_terminal_logs",
-          "SetsFlag": "",
-          "_subId": "Resource_21vqt"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_juf8g",
           "Text": "> BACK TO ROOT",
           "NextSequenceId": "welcome_terminal_intro",
-          "SetsFlag": "",
-          "_subId": "Resource_juf8g"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_d3g2i",
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": "",
-          "_subId": "Resource_d3g2i"
+          "SetsFlag": ""
         }
-      ],
-      "_subId": "Resource_gl0ph"
+      ]
     }
   ],
   "SetsFlag": ""

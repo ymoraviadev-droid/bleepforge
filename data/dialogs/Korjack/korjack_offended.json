@@ -2,11 +2,11 @@
   "Id": "korjack_offended",
   "Lines": [
     {
+      "_subId": "Resource_fr74b",
       "SpeakerName": "Korjack",
       "Text": "That was a mistake. The Front will be informed. Your designation has been flagged. Settlements will not extend hospitality.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/karng_portrait_angry.png",
-      "Choices": [],
-      "_subId": "Resource_fr74b"
+      "Choices": []
     }
   ],
   "SetsFlag": ""

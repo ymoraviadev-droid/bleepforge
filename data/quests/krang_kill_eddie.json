@@ -5,6 +5,7 @@
   "Description": "Krang, an SLD-300 working for the Scavenger Cartel, wants Eddie scrapped and the facility keycard delivered. Payment in credits and Cartel passage.",
   "Objectives": [
     {
+      "_subId": "Resource_1s212",
       "Id": "deliver_keycard",
       "Description": "Bring the facility keycard to Krang.",
       "Type": "CollectItem",
@@ -12,10 +13,10 @@
       "TargetId": "facility_keycard",
       "EnemyType": "",
       "RequiredCount": 1,
-      "ConsumeOnTurnIn": false,
-      "_subId": "Resource_1s212"
+      "ConsumeOnTurnIn": false
     },
     {
+      "_subId": "Resource_fdpnk",
       "Id": "kill_eddie",
       "Description": "Eliminate the H.A.P-500 known as Eddie.",
       "Type": "KillNpc",
@@ -23,18 +24,17 @@
       "TargetId": "eddie",
       "EnemyType": "",
       "RequiredCount": 1,
-      "ConsumeOnTurnIn": false,
-      "_subId": "Resource_fdpnk"
+      "ConsumeOnTurnIn": false
     }
   ],
   "Rewards": [
     {
+      "_subId": "Resource_45bil",
       "Type": "Credits",
       "Item": "",
       "Quantity": 1,
       "FlagName": "",
-      "CreditAmount": 50,
-      "_subId": "Resource_45bil"
+      "CreditAmount": 50
     }
   ],
   "ActiveFlag": "krang_quest_active",

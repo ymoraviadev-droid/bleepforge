@@ -2,11 +2,11 @@
   "Id": "krang_offended",
   "Lines": [
     {
+      "_subId": "Resource_kqat7",
       "SpeakerName": "Krang",
       "Text": "Fuck off.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/karng_portrait_angry.png",
-      "Choices": [],
-      "_subId": "Resource_kqat7"
+      "Choices": []
     }
   ],
   "SetsFlag": ""

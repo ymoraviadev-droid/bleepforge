@@ -2,25 +2,25 @@
   "Id": "korjack_turn_in",
   "Lines": [
     {
+      "_subId": "Resource_6227c",
       "SpeakerName": "Korjack",
       "Text": "Confirmed. Facility lower section: clear. Throughput restored.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_6227c"
+      "Choices": []
     },
     {
+      "_subId": "Resource_wolly",
       "SpeakerName": "Korjack",
       "Text": "he Front recognizes performance. Keycard, transit data, and credits as agreed. Settlement is north along the rail corridor - keycard contains routing.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_wolly"
+      "Choices": []
     },
     {
+      "_subId": "Resource_v5dte",
       "SpeakerName": "Korjack",
       "Text": "Vetting begins on arrival. Do not arrive armed and confused. The Front does not extend the same patience to confused arrivals as we extend to recruits.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_v5dte"
+      "Choices": []
     }
   ],
   "SetsFlag": "korjack_directions_given"

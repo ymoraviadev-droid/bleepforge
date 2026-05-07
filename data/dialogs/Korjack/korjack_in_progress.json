@@ -2,24 +2,24 @@
   "Id": "korjack_in_progress",
   "Lines": [
     {
+      "_subId": "Resource_pmke3",
       "SpeakerName": "Korjack",
       "Text": "Status?",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
       "Choices": [
         {
+          "_subId": "Resource_2jdlc",
           "Text": "What were the targets again?",
           "NextSequenceId": "korjack_pitch",
-          "SetsFlag": "",
-          "_subId": "Resource_2jdlc"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_w6bxc",
           "Text": "Working on it.",
           "NextSequenceId": "",
-          "SetsFlag": "",
-          "_subId": "Resource_w6bxc"
+          "SetsFlag": ""
         }
-      ],
-      "_subId": "Resource_pmke3"
+      ]
     }
   ],
   "SetsFlag": ""

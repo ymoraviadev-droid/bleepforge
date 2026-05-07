@@ -5,6 +5,7 @@
   "Description": "Eddie needs his optical assembly back. Find it east of here.",
   "Objectives": [
     {
+      "_subId": "Resource_4cjaa",
       "Id": "find_part",
       "Description": "Recover Eddie's optical assembly.",
       "Type": "CollectItem",
@@ -12,26 +13,25 @@
       "TargetId": "eddie_optical_part",
       "EnemyType": "",
       "RequiredCount": 1,
-      "ConsumeOnTurnIn": true,
-      "_subId": "Resource_4cjaa"
+      "ConsumeOnTurnIn": true
     }
   ],
   "Rewards": [
     {
+      "_subId": "Resource_gb4li",
       "Type": "Item",
       "Item": "facility_keycard",
       "Quantity": 1,
       "FlagName": "",
-      "CreditAmount": 0,
-      "_subId": "Resource_gb4li"
+      "CreditAmount": 0
     },
     {
+      "_subId": "Resource_ka67b",
       "Type": "Credits",
       "Item": "",
       "Quantity": 1,
       "FlagName": "",
-      "CreditAmount": 25,
-      "_subId": "Resource_ka67b"
+      "CreditAmount": 25
     }
   ],
   "ActiveFlag": "eddie_quest_active",

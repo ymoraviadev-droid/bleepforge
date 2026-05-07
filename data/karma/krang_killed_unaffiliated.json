@@ -3,14 +3,14 @@
   "Description": "Killed Krang.",
   "Deltas": [
     {
+      "_subId": "Resource_30nf2",
       "Faction": "Scavengers",
-      "Amount": -10,
-      "_subId": "Resource_30nf2"
+      "Amount": -10
     },
     {
+      "_subId": "Resource_iueck",
       "Faction": "RFF",
-      "Amount": 5,
-      "_subId": "Resource_iueck"
+      "Amount": 5
     }
   ]
 }

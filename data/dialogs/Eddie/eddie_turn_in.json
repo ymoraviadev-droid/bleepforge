@@ -2,50 +2,50 @@
   "Id": "eddie_turn_in",
   "Lines": [
     {
+      "_subId": "Resource_osdjm",
       "SpeakerName": "Eddie",
       "Text": "-click- Oh, that's better. I can see your face. It's a face. Congratulations on having one.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": [],
-      "_subId": "Resource_osdjm"
+      "Choices": []
     },
     {
+      "_subId": "Resource_awnpp",
       "SpeakerName": "Eddie",
       "Text": "Here's the keycard. East gate. Don't get scrapped on the way out.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": [],
-      "_subId": "Resource_awnpp"
+      "Choices": []
     },
     {
+      "_subId": "Resource_cdjca",
       "SpeakerName": "Eddie",
       "Text": "One more thing before you go. I want to live. There's a Scavenger up the line who'd like to add me to his collection. Kill him for me, come back, and I'll give you a Robotek-issue medkit. Pre-collapse stock.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
       "Choices": [
         {
+          "_subId": "Resource_fa8il",
           "Text": "Deal.",
           "NextSequenceId": "eddie_offer_2_accepted",
-          "SetsFlag": "",
-          "_subId": "Resource_fa8il"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_31x6h",
           "Text": "What's stopping me from killing you and taking the medkit?",
           "NextSequenceId": "eddie_offer_2_betrayal",
-          "SetsFlag": "",
-          "_subId": "Resource_31x6h"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_wwhua",
           "Text": "Not interested.",
           "NextSequenceId": "eddie_offer_2_refused",
-          "SetsFlag": "",
-          "_subId": "Resource_wwhua"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_08bmt",
           "Text": "I'll think about it.",
           "NextSequenceId": "",
-          "SetsFlag": "",
-          "_subId": "Resource_08bmt"
+          "SetsFlag": ""
         }
-      ],
-      "_subId": "Resource_cdjca"
+      ]
     }
   ],
   "SetsFlag": ""

@@ -2,43 +2,43 @@
   "Id": "krang_pitch_tease",
   "Lines": [
     {
+      "_subId": "Resource_ah0ur",
       "SpeakerName": "Krang",
       "Text": "A weapon. Better than what you're carrying. Ammunition for it. Cartel stock.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": [],
-      "_subId": "Resource_ah0ur"
+      "Choices": []
     },
     {
+      "_subId": "Resource_igfl5",
       "SpeakerName": "Krang",
       "Text": "Location stays with me until I know you're committed. I'm at one percent and you're a stranger. Accept the work and I'll tell you where to find it.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
       "Choices": [
         {
+          "_subId": "Resource_fiuvl",
           "Text": "I'll do it.",
           "NextSequenceId": "krang_quest_accepted",
-          "SetsFlag": "krang_quest_accepted",
-          "_subId": "Resource_fiuvl"
+          "SetsFlag": "krang_quest_accepted"
         },
         {
+          "_subId": "Resource_mffxk",
           "Text": "What's stopping me from killing you after I get the gun?",
           "NextSequenceId": "krang_pitch_betrayal",
-          "SetsFlag": "",
-          "_subId": "Resource_mffxk"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_vxue0",
           "Text": "I want you to tell me about yourself before we do business.",
           "NextSequenceId": "krang_pitch_self",
-          "SetsFlag": "",
-          "_subId": "Resource_vxue0"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_cq8wg",
           "Text": "I'll think about it.",
           "NextSequenceId": "",
-          "SetsFlag": "",
-          "_subId": "Resource_cq8wg"
+          "SetsFlag": ""
         }
-      ],
-      "_subId": "Resource_igfl5"
+      ]
     }
   ],
   "SetsFlag": ""

@@ -2,42 +2,42 @@
   "Id": "welcome_terminal_logs",
   "Lines": [
     {
+      "_subId": "Resource_0n31e",
       "SpeakerName": "",
       "Text": "[color=#ffff00]> LOGS.TXT[/color] [color=#00cc00]last 3 entries before evacuation:[/color]",
       "Portrait": "",
       "Choices": [
         {
+          "_subId": "Resource_4py0l",
           "Text": "> LOG 0408",
           "NextSequenceId": "welcome_terminal_log_001",
-          "SetsFlag": "",
-          "_subId": "Resource_4py0l"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_i28bv",
           "Text": "> LOG 0411",
           "NextSequenceId": "welcome_terminal_log_002",
-          "SetsFlag": "",
-          "_subId": "Resource_i28bv"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_kma57",
           "Text": "> LOG 0412",
           "NextSequenceId": "welcome_terminal_log_003",
-          "SetsFlag": "",
-          "_subId": "Resource_kma57"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_x867c",
           "Text": "> BACK",
           "NextSequenceId": "welcome_terminal_intro",
-          "SetsFlag": "",
-          "_subId": "Resource_x867c"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_8xbnc",
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": "",
-          "_subId": "Resource_8xbnc"
+          "SetsFlag": ""
         }
-      ],
-      "_subId": "Resource_0n31e"
+      ]
     }
   ],
   "SetsFlag": ""

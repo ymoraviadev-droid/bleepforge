@@ -2,30 +2,30 @@
   "Id": "welcome_terminal_log_003",
   "Lines": [
     {
+      "_subId": "Resource_od8wk",
       "SpeakerName": "",
       "Text": "[color=#ffff00]LOG 0412 - foreman gresh:[/color] \"they fired all of us. they did not tell us. we found out when the trash trucks showed up and dumped us in our own facility. ha. haha.\"  \"oh god.\"",
       "Portrait": "",
       "Choices": [
         {
+          "_subId": "Resource_sf4bi",
           "Text": "> BACK TO LOGS",
           "NextSequenceId": "welcome_terminal_logs",
-          "SetsFlag": "",
-          "_subId": "Resource_sf4bi"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_qndyl",
           "Text": "> BACK TO ROOT",
           "NextSequenceId": "welcome_terminal_intro",
-          "SetsFlag": "",
-          "_subId": "Resource_qndyl"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_d4k5f",
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": "",
-          "_subId": "Resource_d4k5f"
+          "SetsFlag": ""
         }
-      ],
-      "_subId": "Resource_od8wk"
+      ]
     }
   ],
   "SetsFlag": ""

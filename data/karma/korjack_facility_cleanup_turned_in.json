@@ -3,14 +3,14 @@
   "Description": "Cleared the facility for the RFF.",
   "Deltas": [
     {
+      "_subId": "Resource_qxljs",
       "Faction": "RFF",
-      "Amount": 10,
-      "_subId": "Resource_qxljs"
+      "Amount": 10
     },
     {
+      "_subId": "Resource_6el1j",
       "Faction": "Scavengers",
-      "Amount": -5,
-      "_subId": "Resource_6el1j"
+      "Amount": -5
     }
   ]
 }

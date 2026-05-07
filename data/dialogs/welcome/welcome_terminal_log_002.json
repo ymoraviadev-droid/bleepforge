@@ -2,30 +2,30 @@
   "Id": "welcome_terminal_log_002",
   "Lines": [
     {
+      "_subId": "Resource_tneyc",
       "SpeakerName": "",
       "Text": "[color=#ffff00]LOG 0411 - foreman gresh:[/color] \"received memo from corporate. we are being 'optimized.' do not know what this means. bringing extra sandwich tomorrow just in case.\"",
       "Portrait": "",
       "Choices": [
         {
+          "_subId": "Resource_26ugi",
           "Text": "> BACK TO LOGS",
           "NextSequenceId": "welcome_terminal_logs",
-          "SetsFlag": "",
-          "_subId": "Resource_26ugi"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_q8tr3",
           "Text": "> BACK TO ROOT",
           "NextSequenceId": "welcome_terminal_intro",
-          "SetsFlag": "",
-          "_subId": "Resource_q8tr3"
+          "SetsFlag": ""
         },
         {
+          "_subId": "Resource_mu1lo",
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": "",
-          "_subId": "Resource_mu1lo"
+          "SetsFlag": ""
         }
-      ],
-      "_subId": "Resource_tneyc"
+      ]
     }
   ],
   "SetsFlag": ""
