@@ -54,6 +54,22 @@ const crud = <T>(name: string, keyOf: (entity: T) => string): ResourceApi<T> => 
 export const assetUrl = (path: string): string =>
   `/api/asset?path=${encodeURIComponent(path)}`;
 
+export type ItemIconResponse =
+  | { kind: "atlas"; atlasPath: string; region: { x: number; y: number; w: number; h: number } }
+  | { kind: "image"; imagePath: string }
+  | null;
+
+export const itemIconApi = {
+  // Reads the Icon directly from the matching .tres in the Godot project.
+  // Bleepforge's JSON Icon field is bypassed for display.
+  get: async (slug: string): Promise<ItemIconResponse> => {
+    const r = await fetch(`/api/item-icon/${encodeURIComponent(slug)}`);
+    if (r.status === 404 || r.status === 503) return null;
+    if (!r.ok) throw new Error(`get item-icon failed: ${r.status}`);
+    return r.json();
+  },
+};
+
 export const questsApi = crud<Quest>("quests", (e) => e.Id);
 export const itemsApi = crud<Item>("items", (e) => e.Slug);
 export const karmaApi = crud<KarmaImpact>("karma", (e) => e.Id);

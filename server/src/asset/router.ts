@@ -16,16 +16,25 @@ const IMAGE_EXTS = new Set([
 ]);
 
 function ensureUnderRoot(absolute: string): string | null {
-  const rel = path.relative(config.assetRoot, absolute);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
-  return absolute;
+  if (isUnder(absolute, config.assetRoot)) return absolute;
+  // Also allow paths under the configured Godot project root so atlas
+  // textures referenced by item .tres files can be served.
+  if (config.godotProjectRoot && isUnder(absolute, config.godotProjectRoot)) {
+    return absolute;
+  }
+  return null;
+}
+
+function isUnder(absolute: string, root: string): boolean {
+  const rel = path.relative(root, absolute);
+  return !rel.startsWith("..") && !path.isAbsolute(rel);
 }
 
 assetRouter.get("/browse", async (req, res) => {
   const requestedDir = req.query.dir ? String(req.query.dir) : config.assetRoot;
   const resolved = path.resolve(requestedDir);
   if (!ensureUnderRoot(resolved)) {
-    res.status(403).json({ error: `path outside ASSET_ROOT (${config.assetRoot})` });
+    res.status(403).json({ error: `path outside allowed roots` });
     return;
   }
   let stat;
@@ -79,7 +88,7 @@ assetRouter.get("/", (req, res) => {
   }
   const resolved = path.resolve(requested);
   if (!ensureUnderRoot(resolved)) {
-    res.status(403).json({ error: `path outside ASSET_ROOT (${config.assetRoot})` });
+    res.status(403).json({ error: `path outside allowed roots` });
     return;
   }
   res.set("Cache-Control", "no-cache, must-revalidate");
