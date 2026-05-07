@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import type { Faction, FactionData } from "@bleepforge/shared";
+import { assetUrl } from "../api";
 import { AssetThumb } from "../AssetThumb";
 
 interface Props {
@@ -52,13 +53,13 @@ export function FactionCard({ faction, className = "" }: Props) {
       )}
 
       {faction.Banner && (
-        <div className="border-t border-neutral-800 pt-2">
-          <AssetThumb
-            path={faction.Banner}
-            size="lg"
-            className="!size-auto !w-full max-h-32 object-cover"
-          />
-        </div>
+        <img
+          src={assetUrl(faction.Banner)}
+          alt=""
+          title={faction.Banner}
+          className="mt-1 block w-full max-h-36 rounded border border-neutral-800 bg-neutral-950 object-contain"
+          style={{ imageRendering: "pixelated" }}
+        />
       )}
     </Link>
   );
