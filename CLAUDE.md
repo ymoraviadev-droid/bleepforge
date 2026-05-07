@@ -20,7 +20,7 @@
 2. Quests (`Quest` / `QuestObjective` / `QuestReward`) — **implemented**
 3. Items (`Item`, `Category="QuestItem"` discriminates `QuestItemData`) — **implemented**
 4. Karma impacts (`KarmaImpact` / `KarmaDelta`) — **implemented**
-5. NPCs (`NpcData` — full authoring; `LootTable` editor implemented, `Quests[]` still round-trip-only) — **implemented**
+5. NPCs (`NpcData` — full authoring; `LootTable` editor + `Quests[]` editor both implemented) — **implemented**
 6. Factions (`FactionData`) — **implemented**
 
 Plus **Game concept** — a single Bleepforge-only doc (`data/concept.json`) used as the app homepage, *not* exported to Godot. Holds title, tagline, description, logo/icon/splash images, genre, setting, status, inspirations, notes. Covered in the "Architecture decisions" section below.
@@ -56,7 +56,7 @@ The `DialogGraph` exported component wraps `DialogGraphInner` in `<ReactFlowProv
 
 **Out of scope (and not coming back without explicit decision):**
 
-- **`NpcQuestEntry` editor** in the NPC form. Round-trip preserved but not authored — Phase 3 of the NPC refactor.
+- ~~**`NpcQuestEntry` editor**~~ — done. Add / remove / edit per-NPC quest entries (QuestId + 2 flag fields + 5 dialog refs) inline on the NPC form, with full `.tres` writeback.
 - **`Pickup` (collectible scene) authoring**. We surface a read-only catalog of `.tscn` files for the LootTable picker (see "Pickups" below) but don't author the scenes themselves — sprite/collision/animation work needs Godot's scene editor.
 - **`BalloonLine` authoring** — `CasualRemark` is an opaque `res://` path to a separate `BalloonLine` `.tres`. Not surfaced for editing.
 - **Auto-import (Godot → Bleepforge)**: wired on two timescales — boot-time reconcile rebuilds the whole JSON cache from `.tres` whenever the server starts, and the live watcher reimports individual files on every Godot save while running. There used to be a manual "rebuild now" button in Preferences; it was removed once the automatic paths were trustworthy. To force a rebuild, restart the server.
@@ -248,7 +248,7 @@ NpcData
   DefaultDialog          : DialogSequence  // → string DialogSequence.Id
   OffendedDialog         : DialogSequence  // → string DialogSequence.Id
   OffendedFlag           : string
-  Quests                 : NpcQuestEntry[] // round-trip only in v1
+  Quests                 : NpcQuestEntry[] // editable in Bleepforge
 
   // Karma
   DeathImpactId          : string         // KarmaImpact.Id
@@ -260,7 +260,7 @@ NpcData
   CasualRemark           : BalloonLine    // → string res:// path (opaque)
   DidSpeakFlag           : string
 
-NpcQuestEntry (sub-resource, round-trip preserved)
+NpcQuestEntry (sub-resource, editable in Bleepforge)
   QuestId                : string
   QuestActiveFlag        : string
   QuestTurnedInFlag      : string
@@ -284,7 +284,7 @@ LootEntry (sub-resource)
 
 **Bleepforge storage**: `data/npcs/<NpcId>.json`.
 
-**Write-back covers scalars + LootTable.** The writer reconciles 7 string fields (`DisplayName`, `MemoryEntryId`, `OffendedFlag`, `DeathImpactId`, `DeathImpactIdContextual`, `ContextualFlag`, `DidSpeakFlag`) plus the entire `LootTable` (handles all four cases: none → none / none → some / some → none / some → some — see `applyNpcLootTable` in [server/src/tres/domains/npc.ts](server/src/tres/domains/npc.ts)). Reference fields (`Portrait`, `DefaultDialog`, `OffendedDialog`, `CasualRemark`) and the `Quests[]` array are still left untouched — round-trip preserved but not authored yet (Phase 3 work). The locator (`findNpcTres`) walks `characters/npcs/<model>/data/` and matches `script_class="NpcData"` plus `NpcId = "<id>"`.
+**Write-back covers scalars + LootTable + Quests.** The writer reconciles 7 string fields (`DisplayName`, `MemoryEntryId`, `OffendedFlag`, `DeathImpactId`, `DeathImpactIdContextual`, `ContextualFlag`, `DidSpeakFlag`), the entire `LootTable` (handles all four cases: none → none / none → some / some → none / some → some — see `applyNpcLootTable` in [server/src/tres/domains/npc.ts](server/src/tres/domains/npc.ts)), and the `Quests[]` array of `NpcQuestEntry` sub-resources (`applyNpcQuests` in the same file — handles add / update / remove). Each entry's 5 dialog refs (`OfferDialog` / `AcceptedDialog` / `InProgressDialog` / `TurnInDialog` / `PostQuestDialog`) are resolved at save time: the writer pre-discovers all DialogSequence `.tres` paths via `discoverGodotContent`, then for each unique sequence Id used by the JSON it scans those candidates with a line-anchored `^Id = "<seq>"` regex (line anchor matters — a substring match would also hit `NextSequenceId = "<seq>"` on Choice rows and resolve to the wrong file). `QuestId` itself is a plain string, not an ext_resource, so we don't have to look up Quest `.tres` UIDs. The script ext_resource for `NpcQuestEntry.cs` is added on demand. Reference fields (`Portrait`, `DefaultDialog`, `OffendedDialog`, `CasualRemark`) are still left untouched — round-trip preserved but not authored yet. The locator (`findNpcTres`) walks `characters/npcs/<model>/data/` and matches `script_class="NpcData"` plus `NpcId = "<id>"`.
 
 **Live-sync flow** (single-file watcher): when the NPC `.tres` is gone (e.g. delete), `detectDomain` tags it with the file basename. For the JSON cleanup heuristic, the watcher strips the `_npc_data` suffix from the basename to recover the NpcId — works for the current naming convention.
 

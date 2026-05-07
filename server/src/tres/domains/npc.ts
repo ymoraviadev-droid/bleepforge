@@ -18,13 +18,18 @@ import {
 //
 // Scalar-only for the seven round-tripped string fields users edit on the
 // Identity / Karma / Misc sections of the NPC form. Reference fields
-// (Portrait, DefaultDialog, OffendedDialog, CasualRemark) and the Quests
-// array are still NOT reconciled — Bleepforge round-trips them but doesn't
-// author them yet (see CLAUDE.md for the Phase 3 plan).
+// (Portrait, DefaultDialog, OffendedDialog, CasualRemark) are still NOT
+// reconciled — Bleepforge round-trips them but doesn't author them yet.
 //
-// LootTable IS reconciled now — see applyNpcLootTable below. It handles all
+// LootTable IS reconciled — see applyNpcLootTable below. It handles all
 // four cases (none → none, none → some, some → none, some → some) so the
 // LootTable editor on the NPC page can save without manual Godot fix-up.
+//
+// Quests[] (NpcQuestEntry sub-resources) IS reconciled — see applyNpcQuests
+// below. Each entry carries a QuestId string + 2 flag strings + 5 dialog
+// refs. The 5 dialogs are the only ext_resources we add (QuestId itself is
+// just a plain string, not an ext_resource ref), plus the
+// NpcQuestEntry.cs script.
 //
 // NpcId is the identity discriminator and isn't reconciled either — changing
 // it would mean a different file.
@@ -65,6 +70,32 @@ const LOOT_ENTRY_FIELD_ORDER: readonly string[] = [
 
 const LOOT_TABLE_SCRIPT_PATH = "res://shared/components/loot/LootTable.cs";
 const LOOT_ENTRY_SCRIPT_PATH = "res://shared/components/loot/LootEntry.cs";
+const NPC_QUEST_ENTRY_SCRIPT_PATH = "res://shared/components/quest/NpcQuestEntry.cs";
+
+const NPC_QUEST_ENTRY_FIELD_ORDER: readonly string[] = [
+  "script",
+  "QuestId",
+  "QuestActiveFlag",
+  "QuestTurnedInFlag",
+  "OfferDialog",
+  "AcceptedDialog",
+  "InProgressDialog",
+  "TurnInDialog",
+  "PostQuestDialog",
+  "metadata/_custom_type_script",
+];
+
+// The 5 dialog ref keys on a NpcQuestEntry — order matters (matches the
+// field order above), used both when reconciling existing rows and when
+// emitting new ones.
+const QUEST_DIALOG_KEYS = [
+  "OfferDialog",
+  "AcceptedDialog",
+  "InProgressDialog",
+  "TurnInDialog",
+  "PostQuestDialog",
+] as const;
+type QuestDialogKey = (typeof QUEST_DIALOG_KEYS)[number];
 
 export interface NpcJson {
   NpcId: string;
@@ -436,6 +467,216 @@ export function applyNpcLootTable(
 
   return { warnings };
 }
+
+// ---- Quests[] reconciler ---------------------------------------------------
+
+export interface NpcQuestEntryJson {
+  _subId?: string;
+  QuestId: string;
+  QuestActiveFlag: string;
+  QuestTurnedInFlag: string;
+  OfferDialog: string;
+  AcceptedDialog: string;
+  InProgressDialog: string;
+  TurnInDialog: string;
+  PostQuestDialog: string;
+}
+
+export interface NpcQuestApplyContext {
+  /** UID of NpcQuestEntry.cs script. Null when the script can't be found in
+   *  any project file — caller warns. */
+  npcQuestEntryScriptUid: string | null;
+  /** Resolves a DialogSequence Id to the .tres ref pieces needed for an
+   *  ext_resource block (path + UID). Null = unknown / sequence missing.
+   *  Pre-resolved per Id by the host so the apply pass is synchronous. */
+  resolveDialogRef(sequenceId: string): { resPath: string; uid: string } | null;
+}
+
+// Find or add an ext_resource of `type="Resource"` at the given res:// path.
+// DialogSequence .tres files surface as type="Resource" because Godot stores
+// the resource type on the script_class header, not the ext_resource line.
+function ensureDialogExt(
+  doc: Doc,
+  resPath: string,
+  uid: string,
+): string {
+  for (const s of doc.sections) {
+    if (s.kind !== "ext_resource") continue;
+    if (getAttrValue(s, "type") !== "Resource") continue;
+    if (getAttrValue(s, "path") !== resPath) continue;
+    const id = getAttrValue(s, "id");
+    if (id) return id;
+  }
+  return addExtResource(doc, { type: "Resource", uid, path: resPath });
+}
+
+// Returns the ExtResource("…") raw value to write for a dialog ref, or null
+// when the JSON value is empty (= omit the line) or when the sequence Id
+// can't be resolved (= skip + warn).
+function resolveDialogValue(
+  doc: Doc,
+  ctx: NpcQuestApplyContext,
+  sequenceId: string,
+  warnings: string[],
+): string | null {
+  if (!sequenceId) return null;
+  const ref = ctx.resolveDialogRef(sequenceId);
+  if (!ref) {
+    warnings.push(
+      `dialog sequence "${sequenceId}" not found — entry's ref left unset`,
+    );
+    return null;
+  }
+  const id = ensureDialogExt(doc, ref.resPath, ref.uid);
+  return `ExtResource("${id}")`;
+}
+
+function reconcileNpcQuestEntryScalars(
+  doc: Doc,
+  section: Section,
+  entry: NpcQuestEntryJson,
+  ctx: NpcQuestApplyContext,
+  warnings: string[],
+): { key: string; action: ReconcileAction }[] {
+  const out: { key: string; action: ReconcileAction }[] = [];
+  out.push({
+    key: "QuestId",
+    action: reconcileProperty(
+      section,
+      "QuestId",
+      entry.QuestId === "" ? null : serializeString(entry.QuestId),
+      NPC_QUEST_ENTRY_FIELD_ORDER,
+    ),
+  });
+  out.push({
+    key: "QuestActiveFlag",
+    action: reconcileProperty(
+      section,
+      "QuestActiveFlag",
+      entry.QuestActiveFlag === "" ? null : serializeString(entry.QuestActiveFlag),
+      NPC_QUEST_ENTRY_FIELD_ORDER,
+    ),
+  });
+  out.push({
+    key: "QuestTurnedInFlag",
+    action: reconcileProperty(
+      section,
+      "QuestTurnedInFlag",
+      entry.QuestTurnedInFlag === ""
+        ? null
+        : serializeString(entry.QuestTurnedInFlag),
+      NPC_QUEST_ENTRY_FIELD_ORDER,
+    ),
+  });
+  for (const key of QUEST_DIALOG_KEYS) {
+    const raw = resolveDialogValue(doc, ctx, entry[key as QuestDialogKey], warnings);
+    out.push({
+      key,
+      action: reconcileProperty(section, key, raw, NPC_QUEST_ENTRY_FIELD_ORDER),
+    });
+  }
+  return out;
+}
+
+function buildNpcQuestEntrySection(
+  doc: Doc,
+  entry: NpcQuestEntryJson,
+  scriptExtId: string,
+  scriptUid: string,
+  subId: string,
+  ctx: NpcQuestApplyContext,
+  warnings: string[],
+): Section {
+  const props: { key: string; rawValue: string }[] = [
+    { key: "script", rawValue: `ExtResource("${scriptExtId}")` },
+  ];
+  if (entry.QuestId !== "") {
+    props.push({ key: "QuestId", rawValue: serializeString(entry.QuestId) });
+  }
+  if (entry.QuestActiveFlag !== "") {
+    props.push({
+      key: "QuestActiveFlag",
+      rawValue: serializeString(entry.QuestActiveFlag),
+    });
+  }
+  if (entry.QuestTurnedInFlag !== "") {
+    props.push({
+      key: "QuestTurnedInFlag",
+      rawValue: serializeString(entry.QuestTurnedInFlag),
+    });
+  }
+  for (const key of QUEST_DIALOG_KEYS) {
+    const raw = resolveDialogValue(doc, ctx, entry[key as QuestDialogKey], warnings);
+    if (raw !== null) props.push({ key, rawValue: raw });
+  }
+  props.push({
+    key: "metadata/_custom_type_script",
+    rawValue: serializeString(scriptUid),
+  });
+  return buildSubResourceSection({ type: "Resource", id: subId, properties: props });
+}
+
+export function applyNpcQuests(
+  doc: Doc,
+  resourceSection: Section,
+  json: NpcQuestEntryJson[],
+  ctx: NpcQuestApplyContext,
+): { warnings: string[] } {
+  const warnings: string[] = [];
+
+  // Resolve the NpcQuestEntry.cs script ext-resource. Only required when we
+  // actually have entries — empty list path (Case A below) doesn't need it.
+  const scriptResult =
+    json.length > 0
+      ? ensureScriptExt(doc, NPC_QUEST_ENTRY_SCRIPT_PATH, ctx.npcQuestEntryScriptUid)
+      : { id: null as string | null, warnings: [] as string[] };
+  warnings.push(...scriptResult.warnings);
+
+  if (json.length === 0) {
+    // Case A: no entries. Drop any existing Quests sub_resources and clear
+    // the property on [resource]. Orphan ext_resource cleanup runs in the
+    // writer's post-pass — we don't have to remove dialog refs by hand.
+    const existingIds = extractRefArray(resourceSection, "Quests");
+    for (const id of existingIds) {
+      removeSectionById(doc, "sub_resource", id);
+    }
+    reconcileProperty(resourceSection, "Quests", null, NPC_FIELD_ORDER);
+    return { warnings };
+  }
+
+  if (!scriptResult.id || !ctx.npcQuestEntryScriptUid) {
+    warnings.push(
+      "cannot add NpcQuestEntry: NpcQuestEntry.cs script not present in this .tres and no UID known",
+    );
+    return { warnings };
+  }
+  const scriptId = scriptResult.id;
+  const scriptUid = ctx.npcQuestEntryScriptUid;
+
+  // Quests is a plain (untyped) array on [resource]: [SubRef, SubRef, ...].
+  // Don't pass typedArrayExtId — that produces the C#-typed-collection form
+  // used by LootTable.Entries, which Godot reserves for `Array<T>` C# fields.
+  reconcileSubResourceArray<NpcQuestEntryJson>(
+    doc,
+    resourceSection,
+    "Quests",
+    NPC_FIELD_ORDER,
+    json,
+    {
+      reconcileExisting: (section, entry) =>
+        reconcileNpcQuestEntryScalars(doc, section, entry, ctx, warnings),
+      buildNew: (entry, subId) =>
+        buildNpcQuestEntrySection(doc, entry, scriptId, scriptUid, subId, ctx, warnings),
+      // Insert new NpcQuestEntry sub_resources right before [resource], the
+      // last section in the file.
+      insertBefore: resourceSection,
+    },
+  );
+
+  return { warnings };
+}
+
+// ---- Sub-resource id minter ------------------------------------------------
 
 // Mints a sub_resource id matching Godot's format `Resource_<5alnum>` and
 // guarantees it doesn't collide with anything already in the doc.

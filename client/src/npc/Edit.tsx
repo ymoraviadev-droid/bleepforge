@@ -253,19 +253,16 @@ export function NpcEdit() {
         </div>
       </Section>
 
-      <QuestsReadOnly entries={npc.Quests} />
+      <QuestsEditor
+        entries={npc.Quests}
+        onChange={(Quests) => update({ Quests })}
+      />
       <LootEditor
         npc={npc}
         pickups={pickups}
         items={items}
         onChange={(LootTable) => update({ LootTable })}
       />
-
-      <p className="text-xs text-neutral-500">
-        <span className="font-mono">Quests[]</span> is still round-trip-only —
-        saving preserves it in the .tres, but the dialog↔quest bridge editor
-        is Phase 3. Use Godot's inspector for now; the watcher syncs back.
-      </p>
     </div>
   );
 }
@@ -305,49 +302,171 @@ function Field({
   );
 }
 
-function QuestsReadOnly({ entries }: { entries: NpcQuestEntry[] }) {
-  if (entries.length === 0) return null;
+// Editable Quests[]. Each entry binds the NPC to a Quest by Id and routes
+// five dialog sequences (offer / accepted / in-progress / turn-in / post-quest)
+// to the appropriate stage. The 2 flag fields duplicate Quest.ActiveFlag /
+// Quest.TurnedInFlag — Godot's design, kept verbatim. Empty values save as
+// omitted lines in the .tres (the writer drops null/empty sub-resource keys).
+function QuestsEditor({
+  entries,
+  onChange,
+}: {
+  entries: NpcQuestEntry[];
+  onChange: (next: NpcQuestEntry[]) => void;
+}) {
+  const addEntry = () => {
+    onChange([
+      ...entries,
+      {
+        QuestId: "",
+        QuestActiveFlag: "",
+        QuestTurnedInFlag: "",
+        OfferDialog: "",
+        AcceptedDialog: "",
+        InProgressDialog: "",
+        TurnInDialog: "",
+        PostQuestDialog: "",
+      },
+    ]);
+  };
+
+  const updateEntry = (idx: number, patch: Partial<NpcQuestEntry>) => {
+    onChange(entries.map((e, i) => (i === idx ? { ...e, ...patch } : e)));
+  };
+
+  const removeEntry = (idx: number) => {
+    onChange(entries.filter((_, i) => i !== idx));
+  };
+
   return (
-    <Section title={`Quests linked (${entries.length}, read-only)`}>
-      <div className="space-y-2">
-        {entries.map((q, i) => (
-          <div
-            key={q._subId ?? i}
-            className="space-y-1 rounded border border-neutral-800 bg-neutral-950/40 p-2 text-xs"
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-emerald-300">{q.QuestId || "(no QuestId)"}</span>
-              <span className="text-neutral-500">·</span>
-              <span className="font-mono text-neutral-500">
-                {q.QuestActiveFlag || "—"}
-              </span>
-              <span className="text-neutral-500">·</span>
-              <span className="font-mono text-neutral-500">
-                {q.QuestTurnedInFlag || "—"}
-              </span>
+    <Section
+      title={entries.length === 0 ? "Quests linked" : `Quests linked (${entries.length})`}
+    >
+      {entries.length === 0 ? (
+        <div className="flex items-center justify-between rounded border border-dashed border-neutral-800 bg-neutral-900/40 p-3 text-xs text-neutral-400">
+          <span>This NPC isn't wired to any quests.</span>
+          <Button variant="secondary" size="sm" onClick={addEntry}>
+            + Add quest
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {entries.map((entry, idx) => (
+            <div
+              key={entry._subId ?? idx}
+              className="space-y-2 rounded border border-neutral-800 bg-neutral-950/40 p-3 text-xs"
+            >
+              <div className="grid grid-cols-12 gap-2">
+                <label className="col-span-10 block">
+                  <span className={fieldLabel}>QuestId</span>
+                  <input
+                    value={entry.QuestId}
+                    onChange={(e) => updateEntry(idx, { QuestId: e.target.value })}
+                    list={DL.questIds}
+                    placeholder="quest_id"
+                    className={`${textInput} mt-0.5 font-mono`}
+                  />
+                </label>
+                <div className="col-span-2 flex items-end justify-end">
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(idx)}
+                    className="text-[10px] text-red-400 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className={fieldLabel}>QuestActiveFlag</span>
+                  <input
+                    value={entry.QuestActiveFlag}
+                    onChange={(e) =>
+                      updateEntry(idx, { QuestActiveFlag: e.target.value })
+                    }
+                    list={DL.flags}
+                    className={`${textInput} mt-0.5 font-mono`}
+                  />
+                </label>
+                <label className="block">
+                  <span className={fieldLabel}>QuestTurnedInFlag</span>
+                  <input
+                    value={entry.QuestTurnedInFlag}
+                    onChange={(e) =>
+                      updateEntry(idx, { QuestTurnedInFlag: e.target.value })
+                    }
+                    list={DL.flags}
+                    className={`${textInput} mt-0.5 font-mono`}
+                  />
+                </label>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <DialogRefField
+                  label="OfferDialog"
+                  value={entry.OfferDialog}
+                  onChange={(OfferDialog) => updateEntry(idx, { OfferDialog })}
+                />
+                <DialogRefField
+                  label="AcceptedDialog"
+                  value={entry.AcceptedDialog}
+                  onChange={(AcceptedDialog) => updateEntry(idx, { AcceptedDialog })}
+                />
+                <DialogRefField
+                  label="InProgressDialog"
+                  value={entry.InProgressDialog}
+                  onChange={(InProgressDialog) =>
+                    updateEntry(idx, { InProgressDialog })
+                  }
+                />
+                <DialogRefField
+                  label="TurnInDialog"
+                  value={entry.TurnInDialog}
+                  onChange={(TurnInDialog) => updateEntry(idx, { TurnInDialog })}
+                />
+                <DialogRefField
+                  label="PostQuestDialog"
+                  value={entry.PostQuestDialog}
+                  onChange={(PostQuestDialog) =>
+                    updateEntry(idx, { PostQuestDialog })
+                  }
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-1 gap-x-4 gap-y-0.5 sm:grid-cols-2 text-[11px]">
-              <DialogRefRow label="Offer" id={q.OfferDialog} />
-              <DialogRefRow label="Accepted" id={q.AcceptedDialog} />
-              <DialogRefRow label="In progress" id={q.InProgressDialog} />
-              <DialogRefRow label="Turn in" id={q.TurnInDialog} />
-              <DialogRefRow label="Post quest" id={q.PostQuestDialog} />
-            </div>
+          ))}
+          <div className="flex justify-start">
+            <Button variant="secondary" size="sm" onClick={addEntry}>
+              + Add quest
+            </Button>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </Section>
   );
 }
 
-function DialogRefRow({ label, id }: { label: string; id: string }) {
+function DialogRefField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
   return (
-    <div className="flex items-baseline gap-2">
-      <span className="w-20 shrink-0 text-neutral-500">{label}</span>
-      <span className={`font-mono ${id ? "text-neutral-200" : "text-neutral-700"}`}>
-        {id || "—"}
-      </span>
-    </div>
+    <label className="block">
+      <span className={fieldLabel}>{label}</span>
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        list={DL.sequenceIds}
+        placeholder="DialogSequence Id"
+        className={`${textInput} mt-0.5 font-mono`}
+      />
+    </label>
   );
 }
 

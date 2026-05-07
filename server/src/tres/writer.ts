@@ -25,6 +25,7 @@ import type {
   Npc,
   Quest,
 } from "@bleepforge/shared";
+import { discoverGodotContent } from "../import/discover.js";
 import { parseTres } from "./parser.js";
 import { emitTres } from "./emitter.js";
 import { removeOrphanExtResources } from "./mutate.js";
@@ -34,10 +35,13 @@ import { applyDialog, type DialogApplyContext, type DialogSequenceJson } from ".
 import { applyFactionScalars, type FactionJson } from "./domains/faction.js";
 import {
   applyNpcLootTable,
+  applyNpcQuests,
   applyNpcScalars,
   type LootTableJson,
   type NpcJson,
   type NpcLootApplyContext,
+  type NpcQuestApplyContext,
+  type NpcQuestEntryJson,
 } from "./domains/npc.js";
 import { applyQuest, type QuestApplyContext, type QuestJson } from "./domains/quest.js";
 import {
@@ -159,6 +163,48 @@ export async function writeNpcTres(json: Npc): Promise<TresWriteResult> {
     resolveSceneUid: (path) => sceneUidCache.get(path) ?? null,
   };
 
+  // Pre-resolve refs for the Quests[] writer:
+  //   - NpcQuestEntry.cs script UID (only needed when entries > 0).
+  //   - For every unique DialogSequence Id mentioned across all 5 ref slots
+  //     of all entries, the matching .tres path + UID. We use boot-time
+  //     discovery to enumerate DialogSequence files (no hardcoded folders),
+  //     then do a content match for `Id = "<seq>"` to find the right one.
+  const npcQuestEntryScriptUid =
+    json.Quests.length > 0
+      ? await findScriptUidInProject(
+          root,
+          "res://shared/components/quest/NpcQuestEntry.cs",
+        )
+      : null;
+  const dialogIds = new Set<string>();
+  for (const e of json.Quests) {
+    for (const id of [
+      e.OfferDialog,
+      e.AcceptedDialog,
+      e.InProgressDialog,
+      e.TurnInDialog,
+      e.PostQuestDialog,
+    ]) {
+      if (id) dialogIds.add(id);
+    }
+  }
+  const dialogRefCache = new Map<
+    string,
+    { resPath: string; uid: string } | null
+  >();
+  if (dialogIds.size > 0) {
+    const discovery = await discoverGodotContent(root);
+    const candidatePaths: string[] = [];
+    for (const paths of discovery.dialogs.values()) candidatePaths.push(...paths);
+    for (const id of dialogIds) {
+      dialogRefCache.set(id, await findDialogRefById(root, candidatePaths, id));
+    }
+  }
+  const questCtx: NpcQuestApplyContext = {
+    npcQuestEntryScriptUid,
+    resolveDialogRef: (id) => dialogRefCache.get(id) ?? null,
+  };
+
   return runWrite(found.path, (doc) => {
     const resourceSection = doc.sections.find((s) => s.kind === "resource");
     if (!resourceSection) return ["no [resource] section"];
@@ -169,8 +215,53 @@ export async function writeNpcTres(json: Npc): Promise<TresWriteResult> {
       json.LootTable as LootTableJson | null,
       lootCtx,
     );
-    return [...scalars.warnings, ...loot.warnings];
+    const quests = applyNpcQuests(
+      doc,
+      resourceSection,
+      json.Quests as NpcQuestEntryJson[],
+      questCtx,
+    );
+    return [...scalars.warnings, ...loot.warnings, ...quests.warnings];
   });
+}
+
+// Looks up a DialogSequence .tres by its `Id = "..."` body field, scanning
+// the candidate paths discovered for the dialogs domain. Returns the res://
+// path + uid needed to declare an ext_resource for the dialog ref. Cheap
+// enough at this corpus size (~50 candidates × small files); cache via
+// `dialogRefCache` in the caller so each unique Id is resolved once per save.
+async function findDialogRefById(
+  godotRoot: string,
+  candidatePaths: string[],
+  sequenceId: string,
+): Promise<{ resPath: string; uid: string } | null> {
+  // Anchor on start-of-line. A naive `Id = "<seq>"` substring also matches
+  // DialogChoice's `NextSequenceId = "<seq>"`, which would let any sequence
+  // referencing <seq> claim to BE <seq> — concretely, this caused
+  // OfferDialog refs to swap to the wrong .tres on save. The line anchor
+  // ensures we only accept the resource-level Id property.
+  const wantBodyRe = new RegExp(`^Id\\s*=\\s*"${escapeRegex(sequenceId)}"\\s*$`, "m");
+  for (const abs of candidatePaths) {
+    let text: string;
+    try {
+      text = await readFile(abs, "utf8");
+    } catch {
+      continue;
+    }
+    if (!wantBodyRe.test(text)) continue;
+    const m = text.match(/^\[gd_resource[^\]]*\buid="([^"]+)"/m);
+    if (!m) continue;
+    const rel = abs.startsWith(godotRoot + "/")
+      ? abs.substring(godotRoot.length + 1)
+      : null;
+    if (!rel) continue;
+    return { resPath: `res://${rel}`, uid: m[1]! };
+  }
+  return null;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export async function writeKarmaTres(json: KarmaImpact): Promise<TresWriteResult> {
