@@ -237,7 +237,16 @@ function reconcileChoicesOnLine(
   ctx: DialogApplyContext | undefined,
   warnings: string[],
 ): SubArrayReconcileResult {
-  const dialogChoiceExt = ensureDialogChoiceExtResource(doc, ctx, warnings);
+  // Lazy-resolve DialogChoice.cs only when a new choice actually needs to
+  // be built. Lines without choice mutations skip the lookup (and any
+  // warning it might emit) entirely.
+  let cached: { id: string; uid: string } | null | undefined = undefined;
+  const ensure = (): { id: string; uid: string } | null => {
+    if (cached === undefined) {
+      cached = ensureDialogChoiceExtResource(doc, ctx, warnings);
+    }
+    return cached;
+  };
   return reconcileSubResourceArray(
     doc,
     lineSection,
@@ -247,8 +256,9 @@ function reconcileChoicesOnLine(
     {
       reconcileExisting: (choiceSection, cj) => reconcileChoiceScalars(choiceSection, cj),
       buildNew: (cj, subId) => {
-        if (!dialogChoiceExt) return null; // already warned
-        return buildChoiceSubResource(cj, dialogChoiceExt.id, dialogChoiceExt.uid, subId);
+        const ext = ensure();
+        if (!ext) return null;
+        return buildChoiceSubResource(cj, ext.id, ext.uid, subId);
       },
       // Choices land before the parent line for topological order.
       insertBefore: lineSection,
