@@ -16,6 +16,7 @@ import {
   writeFactionTres,
   writeItemTres,
   writeKarmaTres,
+  writeNpcTres,
   writeQuestTres,
 } from "./tres/writer.js";
 import { shouldWatchTres, startTresWatcher } from "./tres/watcher.js";
@@ -35,7 +36,7 @@ app.use("/api/dialogs", dialogRouter);
 app.use("/api/quests", makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres));
 app.use("/api/items", makeCrudRouter(ItemSchema, itemStorage, "Slug", writeItemTres));
 app.use("/api/karma", makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id", writeKarmaTres));
-app.use("/api/npcs", makeCrudRouter(NpcSchema, npcStorage, "NpcId"));
+app.use("/api/npcs", makeCrudRouter(NpcSchema, npcStorage, "NpcId", writeNpcTres));
 app.use(
   "/api/factions",
   makeCrudRouter(FactionDataSchema, factionStorage, "Faction", writeFactionTres),

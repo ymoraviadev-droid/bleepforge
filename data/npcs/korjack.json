@@ -1,7 +1,16 @@
 {
   "NpcId": "korjack",
   "DisplayName": "Korjack",
-  "Description": "SLD-300 model (green-tinted variant of Krang scene). Gives a facility cleanup quest.",
-  "Portraits": [],
-  "Sprites": []
+  "MemoryEntryId": "sld_500",
+  "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
+  "DefaultDialog": "korjack_intro",
+  "OffendedDialog": "korjack_offended",
+  "OffendedFlag": "korjack_offended",
+  "Quests": [],
+  "DeathImpactId": "",
+  "DeathImpactIdContextual": "",
+  "ContextualFlag": "",
+  "LootTable": null,
+  "CasualRemark": "",
+  "DidSpeakFlag": "korjack_spoken"
 }

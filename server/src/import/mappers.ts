@@ -1,4 +1,17 @@
-import type { Faction, FactionData, Item, ItemCategory, KarmaImpact, ObjectiveType, Quest, RewardType, DialogSequence } from "@bleepforge/shared";
+import type {
+  Faction,
+  FactionData,
+  Item,
+  ItemCategory,
+  KarmaImpact,
+  Npc,
+  NpcQuestEntry,
+  LootEntry,
+  ObjectiveType,
+  Quest,
+  RewardType,
+  DialogSequence,
+} from "@bleepforge/shared";
 import {
   valueAsArray,
   valueAsBool,
@@ -223,6 +236,116 @@ export function mapQuest(parsed: ParsedTres, ctx: QuestImportContext): Quest | n
     ActiveFlag: valueAsString(props.ActiveFlag) ?? "",
     CompleteFlag: valueAsString(props.CompleteFlag) ?? "",
     TurnedInFlag: valueAsString(props.TurnedInFlag) ?? "",
+  };
+}
+
+// ---- NPCs (NpcData) --------------------------------------------------------
+
+export interface NpcImportContext {
+  /** Resolves an ExtResource id (within the current parsed file) → a
+   *  DialogSequence Id. Used for DefaultDialog / OffendedDialog and for
+   *  the 5 dialog refs inside each NpcQuestEntry. */
+  resolveDialogSequenceId: (parsed: ParsedTres, extId: string) => string | null;
+}
+
+export function mapNpc(parsed: ParsedTres, ctx: NpcImportContext): Npc | null {
+  if (parsed.scriptClass !== "NpcData") return null;
+  const props = parsed.resourceProps;
+  const npcId = valueAsString(props.NpcId) ?? "";
+  if (!npcId) return null;
+
+  // Single ext-resource Texture2D → absolute path.
+  let Portrait = "";
+  const portraitVal = props.Portrait;
+  if (portraitVal?.kind === "ext_ref") {
+    const ext = parsed.extResources.get(portraitVal.id);
+    if (ext && ext.type === "Texture2D" && ext.path) {
+      Portrait = resPathToAbs(ext.path);
+    }
+  }
+
+  // Single ext-resource DialogSequence → DialogSequence Id (or "" if missing).
+  const resolveDialog = (val: TresValue | undefined): string => {
+    if (!val || val.kind !== "ext_ref") return "";
+    return ctx.resolveDialogSequenceId(parsed, val.id) ?? "";
+  };
+
+  const Quests = (valueAsArray(props.Quests) ?? [])
+    .map((ref): NpcQuestEntry | null => {
+      const subId = valueAsSubRef(ref);
+      if (!subId) return null;
+      const sub = parsed.subResources.get(subId);
+      if (!sub) return null;
+      return {
+        _subId: subId,
+        QuestId: valueAsString(sub.props.QuestId) ?? "",
+        QuestActiveFlag: valueAsString(sub.props.QuestActiveFlag) ?? "",
+        QuestTurnedInFlag: valueAsString(sub.props.QuestTurnedInFlag) ?? "",
+        OfferDialog: resolveDialog(sub.props.OfferDialog),
+        AcceptedDialog: resolveDialog(sub.props.AcceptedDialog),
+        InProgressDialog: resolveDialog(sub.props.InProgressDialog),
+        TurnInDialog: resolveDialog(sub.props.TurnInDialog),
+        PostQuestDialog: resolveDialog(sub.props.PostQuestDialog),
+      };
+    })
+    .filter((q): q is NpcQuestEntry => q !== null);
+
+  // LootTable is an inline sub-resource — preserved round-trip but not authored
+  // in v1. Each LootEntry's PickupScene is kept as the original res:// path.
+  let LootTable: Npc["LootTable"] = null;
+  const lootVal = props.LootTable;
+  if (lootVal?.kind === "sub_ref") {
+    const lootSub = parsed.subResources.get(lootVal.id);
+    if (lootSub) {
+      const Entries = (valueAsArray(lootSub.props.Entries) ?? [])
+        .map((eRef): LootEntry | null => {
+          const subId = valueAsSubRef(eRef);
+          if (!subId) return null;
+          const entrySub = parsed.subResources.get(subId);
+          if (!entrySub) return null;
+          let PickupScene = "";
+          const sceneVal = entrySub.props.PickupScene;
+          if (sceneVal?.kind === "ext_ref") {
+            const ext = parsed.extResources.get(sceneVal.id);
+            if (ext && ext.path) PickupScene = ext.path;
+          }
+          return {
+            _subId: subId,
+            PickupScene,
+            Chance: valueAsNumber(entrySub.props.Chance) ?? 1.0,
+            MinAmount: valueAsNumber(entrySub.props.MinAmount) ?? 1,
+            MaxAmount: valueAsNumber(entrySub.props.MaxAmount) ?? 1,
+          };
+        })
+        .filter((e): e is LootEntry => e !== null);
+      LootTable = { _subId: lootVal.id, Entries };
+    }
+  }
+
+  // CasualRemark: ext-resource path to a separate BalloonLine .tres. Kept as
+  // res:// path (no resolution needed — Bleepforge doesn't author balloons).
+  let CasualRemark = "";
+  const remarkVal = props.CasualRemark;
+  if (remarkVal?.kind === "ext_ref") {
+    const ext = parsed.extResources.get(remarkVal.id);
+    if (ext && ext.path) CasualRemark = ext.path;
+  }
+
+  return {
+    NpcId: npcId,
+    DisplayName: valueAsString(props.DisplayName) ?? "",
+    MemoryEntryId: valueAsString(props.MemoryEntryId) ?? "",
+    Portrait,
+    DefaultDialog: resolveDialog(props.DefaultDialog),
+    OffendedDialog: resolveDialog(props.OffendedDialog),
+    OffendedFlag: valueAsString(props.OffendedFlag) ?? "",
+    Quests,
+    DeathImpactId: valueAsString(props.DeathImpactId) ?? "",
+    DeathImpactIdContextual: valueAsString(props.DeathImpactIdContextual) ?? "",
+    ContextualFlag: valueAsString(props.ContextualFlag) ?? "",
+    LootTable,
+    CasualRemark,
+    DidSpeakFlag: valueAsString(props.DidSpeakFlag) ?? "",
   };
 }
 

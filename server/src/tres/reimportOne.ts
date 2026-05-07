@@ -13,6 +13,7 @@ import {
   mapFaction,
   mapItem,
   mapKarma,
+  mapNpc,
   mapQuest,
 } from "../import/mappers.js";
 import type { ParsedTres } from "../import/tresParser.js";
@@ -68,6 +69,15 @@ export function detectDomain(absPath: string): {
     return { domain: "dialog", key: `${dialogMatch[1]}/${dialogMatch[2]}` };
   }
 
+  // NPCs: characters/npcs/<model>/data/<file>.tres — file basename is not
+  // necessarily the NpcId (e.g. eddie_npc_data.tres → NpcId="eddie"), so we
+  // tag with the basename here and let the reimport flow re-parse to recover
+  // the actual NpcId.
+  const npcMatch = absPath.match(
+    /[/\\]characters[/\\]npcs[/\\]([^/\\]+)[/\\]data[/\\]([^/\\]+)\.tres$/,
+  );
+  if (npcMatch) return { domain: "npc", key: npcMatch[2]! };
+
   return null;
 }
 
@@ -112,6 +122,25 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
       const jsonPath = `${folderAbs.faction}${sep}${faction.Faction}.json`;
       await writeJson(jsonPath, faction);
       return { ok: true, domain: "faction", key: faction.Faction, jsonPath };
+    }
+    case "npc": {
+      // Single-file watcher path: no global dialog map. Use the
+      // filename-as-Id heuristic, matching the convention used by Bleepforge's
+      // own `data/dialogs/<folder>/<id>.json` storage and seen consistently in
+      // the Godot project (eddie_intro.tres → "eddie_intro"). Falls back to
+      // empty string if no match — JSON keeps it as "" rather than failing.
+      const npc = mapNpc(parsed, {
+        resolveDialogSequenceId: (p, id) => {
+          const ext = p.extResources.get(id);
+          if (!ext) return null;
+          const m = ext.path.match(/[/\\]([^/\\]+)\.tres$/);
+          return m ? m[1]! : null;
+        },
+      });
+      if (!npc) return { ok: false, error: "mapNpc returned null" };
+      const jsonPath = `${folderAbs.npc}${sep}${npc.NpcId}.json`;
+      await writeJson(jsonPath, npc);
+      return { ok: true, domain: "npc", key: npc.NpcId, jsonPath };
     }
     case "quest": {
       const quest = mapQuest(parsed, {
@@ -170,6 +199,15 @@ export async function deleteJsonFor(absPath: string): Promise<ReimportResult> {
       // Re-tag the key with the resolved faction so the SSE event matches what
       // the client actually subscribes to.
       detected.key = factionKey;
+      break;
+    }
+    case "npc": {
+      // detected.key is the .tres basename (e.g. "eddie_npc_data"). We need
+      // the NpcId for the JSON filename, but the .tres is gone — best-effort
+      // heuristic: strip the `_npc_data` suffix used by the current files.
+      const stripped = detected.key.replace(/_npc_data$/, "");
+      jsonPath = `${folderAbs.npc}${sep}${stripped}.json`;
+      detected.key = stripped;
       break;
     }
     case "quest":

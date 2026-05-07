@@ -4,6 +4,7 @@ import {
   FactionDataSchema,
   ItemSchema,
   KarmaImpactSchema,
+  NpcSchema,
   QuestSchema,
 } from "@bleepforge/shared";
 import { folderAbs } from "../config.js";
@@ -14,6 +15,7 @@ import {
   mapFaction,
   mapItem,
   mapKarma,
+  mapNpc,
   mapQuest,
   resPathToAbs,
 } from "./mappers.js";
@@ -35,6 +37,7 @@ export interface ImportResult {
     karma: DomainResult;
     factions: DomainResult;
     dialogs: DialogDomainResult;
+    npcs: DomainResult;
   };
 }
 
@@ -77,6 +80,7 @@ const ITEMS_GODOT_PATH = "shared/items/data";
 const QUESTS_GODOT_PATH = "shared/components/quest/quests";
 const KARMA_GODOT_PATH = "shared/components/karma/impacts";
 const FACTIONS_GODOT_PATH = "shared/components/factions";
+const NPCS_GODOT_PATH = "characters/npcs";
 
 export async function runImport(opts: ImportOptions): Promise<ImportResult> {
   const root = path.resolve(opts.godotProjectRoot);
@@ -233,12 +237,15 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     }
   }
 
-  // 5. Dialogs pass — per folder.
+  // 5. Dialogs pass — per folder. Also builds a path→Id map for the NPC pass
+  // (NpcData and NpcQuestEntry reference DialogSequence resources by ext-path,
+  // and we need to convert those refs to DialogSequence Ids in JSON).
   const dialogs: DialogDomainResult = {
     imported: [],
     skipped: [],
     errors: [],
   };
+  const dialogAbsToId = new Map<string, string>();
   for (const { godotPath, bleepforgeFolder } of KNOWN_DIALOG_FOLDERS) {
     const dir = path.join(root, godotPath);
     for await (const filePath of walkTres(dir)) {
@@ -254,6 +261,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
           });
           continue;
         }
+        dialogAbsToId.set(filePath, seq.Id);
         // Re-resolve Portrait paths against the actual root (mapper used env var).
         for (const line of seq.Lines) {
           if (line.Portrait && line.Portrait.startsWith("res://")) {
@@ -278,11 +286,57 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     }
   }
 
+  // 6. NPCs pass — uses dialogAbsToId to resolve DialogSequence refs.
+  // Walks `characters/npcs/<model>/data/*.tres` (the new NpcData layout).
+  const npcs: DomainResult = {
+    imported: [],
+    skipped: [],
+    errors: [],
+  };
+  const npcsDir = path.join(root, NPCS_GODOT_PATH);
+  for await (const filePath of walkTres(npcsDir)) {
+    // Only pick up files inside a `data/` subfolder — Godot scenes (.tscn)
+    // and balloon/dialog .tres live elsewhere under characters/npcs/.
+    if (!filePath.includes(`${path.sep}data${path.sep}`)) continue;
+    try {
+      const text = await fs.readFile(filePath, "utf8");
+      const parsed = parseTres(text);
+      const ctx = {
+        resolveDialogSequenceId: (p: ParsedTres, extId: string) => {
+          const ext = p.extResources.get(extId);
+          if (!ext || !ext.path) return null;
+          const targetAbs = resPathToAbs(ext.path, root);
+          return dialogAbsToId.get(targetAbs) ?? null;
+        },
+      };
+      const npc = mapNpc(parsed, ctx);
+      if (!npc) {
+        npcs.skipped.push({
+          file: filePath,
+          reason: `script_class is "${parsed.scriptClass ?? "?"}", not NpcData`,
+        });
+        continue;
+      }
+      // Re-resolve Portrait against the actual root.
+      if (npc.Portrait && npc.Portrait.startsWith("res://")) {
+        npc.Portrait = resPathToAbs(npc.Portrait, root);
+      }
+      const validated = NpcSchema.parse(npc);
+      if (!dryRun) {
+        const storage = makeJsonStorage(NpcSchema, folderAbs.npc, "NpcId");
+        await storage.write(validated);
+      }
+      npcs.imported.push(validated.NpcId);
+    } catch (err) {
+      npcs.errors.push({ file: filePath, error: String(err) });
+    }
+  }
+
   return {
     ok: true,
     godotProjectRoot: root,
     dryRun,
-    domains: { items, quests, karma, factions, dialogs },
+    domains: { items, quests, karma, factions, dialogs, npcs },
   };
 }
 

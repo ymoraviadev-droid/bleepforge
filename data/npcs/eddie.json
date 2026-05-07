@@ -1,9 +1,57 @@
 {
   "NpcId": "eddie",
   "DisplayName": "Eddie",
-  "Description": "Wise-cracking robot stranded by the road. Wants his optical assembly back.",
-  "Portraits": [
-    "/home/ymoravia/Data/gfx Packs/my/flock_of_bleeps/characters/Robots/Eddie/eddie-portrait2.png"
+  "MemoryEntryId": "hap_500",
+  "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
+  "DefaultDialog": "eddie_intro",
+  "OffendedDialog": "eddie_offended",
+  "OffendedFlag": "eddie_offended",
+  "Quests": [
+    {
+      "_subId": "Resource_kanen",
+      "QuestId": "eddie_optical_part",
+      "QuestActiveFlag": "eddie_quest_active",
+      "QuestTurnedInFlag": "eddie_quest_turned_in",
+      "OfferDialog": "eddie_request",
+      "AcceptedDialog": "eddie_accepted",
+      "InProgressDialog": "eddie_accepted",
+      "TurnInDialog": "eddie_turn_in",
+      "PostQuestDialog": "eddie_post_quest"
+    },
+    {
+      "_subId": "Resource_gedif",
+      "QuestId": "eddie_lives",
+      "QuestActiveFlag": "eddie_lives_quest_active",
+      "QuestTurnedInFlag": "eddie_lives_quest_turned_in",
+      "OfferDialog": "",
+      "AcceptedDialog": "eddie_offer_2_accepted",
+      "InProgressDialog": "eddie_quest_2_in_progress",
+      "TurnInDialog": "eddie_offer_2_turn_in",
+      "PostQuestDialog": "eddie_post_quest"
+    }
   ],
-  "Sprites": []
+  "DeathImpactId": "eddie_killed_unaffiliated",
+  "DeathImpactIdContextual": "eddie_killed_for_scavengers",
+  "ContextualFlag": "krang_quest_active",
+  "LootTable": {
+    "_subId": "Resource_4qagd",
+    "Entries": [
+      {
+        "_subId": "Resource_blrjq",
+        "PickupScene": "res://world/collectibles/facility_keycard/facility_keycard.tscn",
+        "Chance": 1,
+        "MinAmount": 1,
+        "MaxAmount": 1
+      },
+      {
+        "_subId": "Resource_eocre",
+        "PickupScene": "res://world/collectibles/blue_credits/blue_credits.tscn",
+        "Chance": 0.5,
+        "MinAmount": 1,
+        "MaxAmount": 1
+      }
+    ]
+  },
+  "CasualRemark": "res://characters/npcs/hap_500/balloons/happy_druid_greetings.tres",
+  "DidSpeakFlag": "eddie_spoken"
 }

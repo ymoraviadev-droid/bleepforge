@@ -22,6 +22,7 @@ import type {
   FactionData,
   Item,
   KarmaImpact,
+  Npc,
   Quest,
 } from "@bleepforge/shared";
 import { parseTres } from "./parser.js";
@@ -30,6 +31,7 @@ import { applyItemScalars, type ItemJson } from "./domains/item.js";
 import { applyKarma, type KarmaJson } from "./domains/karma.js";
 import { applyDialog, type DialogApplyContext, type DialogSequenceJson } from "./domains/dialog.js";
 import { applyFactionScalars, type FactionJson } from "./domains/faction.js";
+import { applyNpcScalars, type NpcJson } from "./domains/npc.js";
 import { applyQuest, type QuestApplyContext, type QuestJson } from "./domains/quest.js";
 import {
   findScriptUidInProject,
@@ -109,6 +111,21 @@ export async function writeFactionTres(json: FactionData): Promise<TresWriteResu
     const resourceSection = doc.sections.find((s) => s.kind === "resource");
     if (!resourceSection) return ["no [resource] section"];
     const result = applyFactionScalars(resourceSection, json as FactionJson);
+    return result.warnings;
+  });
+}
+
+export async function writeNpcTres(json: Npc): Promise<TresWriteResult> {
+  if (!shouldWriteTres()) return NOT_ATTEMPTED;
+  const root = config.godotProjectRoot!;
+  const found = await findNpcTres(root, json.NpcId);
+  if (!found) {
+    return { attempted: true, ok: false, error: `no .tres for npc "${json.NpcId}"` };
+  }
+  return runWrite(found.path, (doc) => {
+    const resourceSection = doc.sections.find((s) => s.kind === "resource");
+    if (!resourceSection) return ["no [resource] section"];
+    const result = applyNpcScalars(resourceSection, json as NpcJson);
     return result.warnings;
   });
 }
@@ -260,6 +277,44 @@ async function findKarmaTres(
 ): Promise<{ path: string } | null> {
   const dir = join(godotRoot, "shared", "components", "karma", "impacts");
   return findInDirByContent(dir, (text) => text.includes(`Id = "${id}"`));
+}
+
+async function findNpcTres(
+  godotRoot: string,
+  npcId: string,
+): Promise<{ path: string } | null> {
+  // NPCs live at characters/npcs/<model>/data/<file>.tres. Walk model
+  // subfolders, look in their data/ folder, match by NpcId content.
+  const dir = join(godotRoot, "characters", "npcs");
+  let modelDirs;
+  try {
+    modelDirs = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const m of modelDirs) {
+    if (!m.isDirectory()) continue;
+    const dataDir = join(dir, m.name, "data");
+    let entries;
+    try {
+      entries = await readdir(dataDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const f of entries) {
+      if (!f.isFile() || !f.name.endsWith(".tres")) continue;
+      const abs = join(dataDir, f.name);
+      let text: string;
+      try {
+        text = await readFile(abs, "utf8");
+      } catch {
+        continue;
+      }
+      if (!text.includes(`script_class="NpcData"`)) continue;
+      if (text.includes(`NpcId = "${npcId}"`)) return { path: abs };
+    }
+  }
+  return null;
 }
 
 async function findFactionTres(

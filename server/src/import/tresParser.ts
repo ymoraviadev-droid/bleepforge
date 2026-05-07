@@ -268,6 +268,10 @@ function parseValue(s: string): TresValue {
     }
   }
   if (s.startsWith("[")) return parseArray(s);
+  // Godot 4 emits typed-array literals as `Array[T](...)`. parseArray strips
+  // the wrapper internally, but parseValue needs to dispatch to it explicitly
+  // since the value doesn't start with `[`.
+  if (s.startsWith("Array[")) return parseArray(s);
   return { kind: "raw", value: s };
 }
 

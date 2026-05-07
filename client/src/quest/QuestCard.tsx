@@ -41,7 +41,7 @@ export function QuestCard({ quest, giver, className = "" }: Props) {
     else if (r.Type === "Flag") flagRewards += 1;
   }
 
-  const giverPortrait = giver?.Portraits[0] ?? "";
+  const giverPortrait = giver?.Portrait ?? "";
   const giverName = giver?.DisplayName || quest.QuestGiverId;
 
   return (

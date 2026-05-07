@@ -1,7 +1,39 @@
 {
   "NpcId": "krang",
   "DisplayName": "Krang",
-  "Description": "SLD-300 model. Hostile-leaning robot, recruits the player to take out Eddie. Located east of the prologue area.",
-  "Portraits": [],
-  "Sprites": []
+  "MemoryEntryId": "sld_300",
+  "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
+  "DefaultDialog": "krang_intro",
+  "OffendedDialog": "krang_offended",
+  "OffendedFlag": "krang_offended",
+  "Quests": [
+    {
+      "_subId": "Resource_gag7s",
+      "QuestId": "krang_kill_eddie",
+      "QuestActiveFlag": "krang_quest_active",
+      "QuestTurnedInFlag": "krang_quest_turned_in",
+      "OfferDialog": "krang_pitch_tease",
+      "AcceptedDialog": "krang_quest_accepted",
+      "InProgressDialog": "krang_in_progress",
+      "TurnInDialog": "krang_turn_in",
+      "PostQuestDialog": "krang_post_quest"
+    }
+  ],
+  "DeathImpactId": "krang_killed_unaffiliated",
+  "DeathImpactIdContextual": "krang_killed_for_eddie",
+  "ContextualFlag": "eddie_lives_quest_active",
+  "LootTable": {
+    "_subId": "Resource_1q1do",
+    "Entries": [
+      {
+        "_subId": "Resource_unbhu",
+        "PickupScene": "res://world/collectibles/blue_credits/blue_credits.tscn",
+        "Chance": 1,
+        "MinAmount": 1,
+        "MaxAmount": 1
+      }
+    ]
+  },
+  "CasualRemark": "res://characters/npcs/sld_300/balloons/krang_greeting.tres",
+  "DidSpeakFlag": "krang_spoken"
 }

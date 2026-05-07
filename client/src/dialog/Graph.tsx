@@ -888,10 +888,10 @@ function DialogGraphInner() {
   const speakerPortrait = useMemo(() => {
     const m = new Map<string, string>();
     for (const n of npcs) {
-      const first = n.Portraits[0];
-      if (!first) continue;
-      if (n.DisplayName) m.set(n.DisplayName.toLowerCase(), first);
-      if (n.NpcId) m.set(n.NpcId.toLowerCase(), first);
+      const portrait = n.Portrait;
+      if (!portrait) continue;
+      if (n.DisplayName) m.set(n.DisplayName.toLowerCase(), portrait);
+      if (n.NpcId) m.set(n.NpcId.toLowerCase(), portrait);
     }
     return m;
   }, [npcs]);

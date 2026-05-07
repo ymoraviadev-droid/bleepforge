@@ -23,6 +23,7 @@ interface ImportResult {
     karma: DomainResult;
     factions: DomainResult;
     dialogs: DialogDomainResult;
+    npcs: DomainResult;
   };
 }
 
@@ -175,6 +176,20 @@ export function ImportSection() {
               detail: s.reason,
             }))}
             errors={result.domains.factions.errors.map((e) => ({
+              label: relativize(e.file, result.godotProjectRoot),
+              detail: e.error,
+            }))}
+          />
+
+          <DomainCard
+            title="NPCs"
+            counts={summarize(result.domains.npcs)}
+            imported={result.domains.npcs.imported.map((s) => ({ label: s }))}
+            skipped={result.domains.npcs.skipped.map((s) => ({
+              label: relativize(s.file, result.godotProjectRoot),
+              detail: s.reason,
+            }))}
+            errors={result.domains.npcs.errors.map((e) => ({
               label: relativize(e.file, result.godotProjectRoot),
               detail: e.error,
             }))}

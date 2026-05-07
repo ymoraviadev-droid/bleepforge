@@ -53,7 +53,9 @@ The `DialogGraph` exported component wraps `DialogGraphInner` in `<ReactFlowProv
 
 **Out of scope (and not coming back without explicit decision):**
 
-- **Authoring full NPC behavior** (the 25-field `Npc : CharacterBody2D` from Godot, including `Quests : NpcQuestEntry[]`). NPC config lives as per-instance overrides in level scenes; Yonatan keeps editing in Godot's inspector. The NPC entity here is just a documentation stub for cross-reference (so `QuestGiverId` autocompletes, etc.).
+- **`NpcQuestEntry` and `LootTable` editors** in the NPC form. Both arrays are **round-trip preserved** but not authored in v1 — Bleepforge surfaces them as read-only summaries. Phase 3 of the NPC refactor will add editors for them.
+- **`LootEntry.PickupScene` authoring** — `.tscn` (PackedScene) refs are kept as opaque `res://` strings. Loot identity isn't keyed on Item slugs, so it can't piggyback on the existing item picker. If we ever want to author loot, it's its own design problem.
+- **`BalloonLine` authoring** — `CasualRemark` is an opaque `res://` path to a separate `BalloonLine` `.tres`. Not surfaced for editing.
 - **Auto-import (Godot → Bleepforge)**: now wired (live-sync via `WATCH_TRES`); see the "Live-sync from Godot" section below. Any `.tres` save in Godot reimports the matching JSON and pushes a `Bleepforge:sync` event over SSE to all open browser tabs.
 
 **Headline next feature: graph view of dialogs.** Each `DialogSequence` is a node, each `DialogChoice.NextSequenceId` is an edge. Pan/zoom, click-for-detail, dagre auto-layout. Likely [React Flow](https://reactflow.dev) (`@xyflow/react`). Scoped per-folder once multi-folder dialog support lands.
@@ -218,24 +220,63 @@ FactionData
 
 **Bleepforge storage**: `data/factions/<Faction>.json` (one file per enum value: `Scavengers.json`, `FreeRobots.json`, `RFF.json`, `Grove.json`). The `.tres` write-back mapper reconciles `DisplayName` and `ShortDescription` round-trip; `Icon`/`Banner` ext-resource refs are not reconciled (parity with `Item.Icon` — deferred). The locator (`findFactionTres`) walks subfolders and matches `script_class="FactionData"` plus the `Faction = N` int.
 
-### Domain 6 — NPCs (lightweight documentation stub)
+### Domain 6 — NPCs
+
+Loaded by Godot at runtime via `NpcData : Resource`. The NPC scene template (`Npc : CharacterBody2D`) holds an exported `NpcData` reference, so per-instance NPC identity is now an authored `.tres` rather than scene-only overrides — which is what made it tractable to author in Bleepforge. The previous lightweight stub (`Description`, `Portraits[]`, `Sprites[]`) was dropped in this refactor; their UI usage was minimal and the canonical Godot `Portrait` is more correct for the consumers (dialog graph speaker portrait, quest-card giver portrait).
 
 ```text
-Npc
-  NpcId       : string    // matches NpcId set on the actual Npc instance in Godot
-  DisplayName : string
-  Description : string    // multiline notes — role, personality, where they appear
-  Portraits   : string[]  // absolute paths to portrait images (aseprite source files, etc.)
-  Sprites     : string[]  // absolute paths to sprite images
+NpcData
+  // Identity
+  NpcId                  : string         // primary key
+  DisplayName            : string
+  MemoryEntryId          : string         // robot model — "hap_500", "sld_300"
+  Portrait               : Texture2D      // → string absolute path in JSON
+
+  // Dialog & Quests
+  DefaultDialog          : DialogSequence  // → string DialogSequence.Id
+  OffendedDialog         : DialogSequence  // → string DialogSequence.Id
+  OffendedFlag           : string
+  Quests                 : NpcQuestEntry[] // round-trip only in v1
+
+  // Karma
+  DeathImpactId          : string         // KarmaImpact.Id
+  DeathImpactIdContextual: string         // KarmaImpact.Id when ContextualFlag is set
+  ContextualFlag         : string
+
+  // Misc
+  LootTable              : LootTable      // inline sub-resource, round-trip only in v1
+  CasualRemark           : BalloonLine    // → string res:// path (opaque)
+  DidSpeakFlag           : string
+
+NpcQuestEntry (sub-resource, round-trip preserved)
+  QuestId                : string
+  QuestActiveFlag        : string
+  QuestTurnedInFlag      : string
+  OfferDialog            : DialogSequence  // → string DialogSequence.Id
+  AcceptedDialog         : DialogSequence
+  InProgressDialog       : DialogSequence
+  TurnInDialog           : DialogSequence
+  PostQuestDialog        : DialogSequence
+
+LootTable (inline sub-resource)
+  Entries                : LootEntry[]
+
+LootEntry (sub-resource)
+  PickupScene            : PackedScene    // → string res:// path (opaque .tscn)
+  Chance                 : float          // 0..1
+  MinAmount              : int
+  MaxAmount              : int
 ```
 
-This is **not** a model of the full Godot `Npc : CharacterBody2D` (~25 exported fields across dialog, quest, karma, barter, loot, balloon, inventory). It's a doc stub: a list of "characters that exist," with attached art references for visual reference, so Bleepforge can autocomplete `QuestGiverId` and serve as a project bible.
+**Folder layout** (Godot side): `characters/npcs/<robot_model>/data/<npc_id>_npc_data.tres`. Multiple NPCs can share a robot model (e.g. Krang and Korjack both use `sld_300`). The importer walks `characters/npcs/` recursively but only picks up files inside a `data/` subfolder — Godot scenes (`.tscn`) and balloon/dialog `.tres` live elsewhere under that tree.
 
-**Image paths are independent of the Godot project** (Yonatan's request). They point at his aseprite source files directly, so edits to those files are reflected live in Bleepforge (no caching, see asset endpoint below).
+**Bleepforge storage**: `data/npcs/<NpcId>.json`.
 
-**Why we don't author full NPCs:** NPC instance config lives as per-instance overrides in level scenes (`areas/prologue/prologue.tscn`), not on the NPC scene templates. Same scene template (`sld_500.tscn`) gets reused for multiple in-game characters (Krang and Korjack) — the "character" identity is at the level placement. Authoring this via JSON would require either parsing scene files (worse than `.tres` parsing) or a Godot-side refactor (extract per-instance data into a Resource). Neither is worth doing while Bleepforge is a documentation tool.
+**v1 write-back is scalar-only.** Mirrors Item's pattern: the writer reconciles 7 string fields (`DisplayName`, `MemoryEntryId`, `OffendedFlag`, `DeathImpactId`, `DeathImpactIdContextual`, `ContextualFlag`, `DidSpeakFlag`). Reference fields (`Portrait`, `DefaultDialog`, `OffendedDialog`, `CasualRemark`) and array fields (`Quests`, `LootTable`) are left untouched in the `.tres` — round-trip preserved but not authored. The locator (`findNpcTres`) walks `characters/npcs/<model>/data/` and matches `script_class="NpcData"` plus `NpcId = "<id>"`.
 
-`NpcQuestEntry` (the dialog↔quest bridge with five dialog refs — `OfferDialog`, `AcceptedDialog`, `InProgressDialog`, `TurnInDialog`, `PostQuestDialog`) lives inside `Npc.Quests[]` — also out of scope. Yonatan edits it in Godot's inspector. Bleepforge's value here is documenting the dialog graph structure that NpcQuestEntry assembles, not the assembly itself.
+**Live-sync flow** (single-file watcher): when the NPC `.tres` is gone (e.g. delete), `detectDomain` tags it with the file basename. For the JSON cleanup heuristic, the watcher strips the `_npc_data` suffix from the basename to recover the NpcId — works for the current naming convention.
+
+**`NpcQuestEntry` dialog refs** (5 per entry) are converted from ext-resource paths to DialogSequence Ids during import. The orchestrator builds a `path → Id` map during the dialog pass and passes it to the NPC pass. The single-file `reimportOne` watcher path uses a filename-as-Id heuristic (`<id>.tres → "<id>"`), since the .tres filename = DialogSequence.Id by convention in this corpus.
 
 ## Cross-cutting concerns
 
