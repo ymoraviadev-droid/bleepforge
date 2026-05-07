@@ -5,13 +5,15 @@
       "SpeakerName": "",
       "Text": "You son of a service bot! Enjoy the recycling facility. The ambiance is unmatched.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait3.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_2yawp"
     },
     {
       "SpeakerName": "Eddie",
       "Text": "we'll see how you will get out of here without the keycard.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_2qtyn"
     }
   ],
   "SetsFlag": ""

@@ -5,7 +5,8 @@
       "SpeakerName": "Eddie",
       "Text": "Still here. Is he?",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_sbsbv"
     }
   ],
   "SetsFlag": ""

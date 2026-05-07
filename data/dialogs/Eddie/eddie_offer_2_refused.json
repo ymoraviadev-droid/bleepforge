@@ -5,7 +5,8 @@
       "SpeakerName": "Eddie",
       "Text": "Right. Fuck off you useless pieace of junk.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait3.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_x3tjw"
     }
   ],
   "SetsFlag": ""

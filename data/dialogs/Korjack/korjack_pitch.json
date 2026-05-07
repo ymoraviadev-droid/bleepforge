@@ -5,13 +5,15 @@
       "SpeakerName": "Korjack",
       "Text": "Direct, then. The lower section of this facility is overrun with units we classify as Discards. F-class facility maintenance bots, original instruction sets corrupted, presently unaffiliated and dangerous to traffic.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_mviyw"
     },
     {
       "SpeakerName": "Korjack",
       "Text": "The Front would prefer they were not. Eliminate them. Confirm completion. In exchange: a keycard granting transit access to the Free Robot settlement north of here, navigation data, and one hundred credits.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/Korjack_portrait.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_8m01w"
     },
     {
       "SpeakerName": "Korjack",
@@ -21,19 +23,23 @@
         {
           "Text": "I'll do it.",
           "NextSequenceId": "korjack_accept",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_nsi24"
         },
         {
           "Text": "What's in it for me beyond the credits?",
           "NextSequenceId": "korjack_explains_value",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_0thvc"
         },
         {
           "Text": "I'll think about it.",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_jhwme"
         }
-      ]
+      ],
+      "_subId": "Resource_gpcmy"
     }
   ],
   "SetsFlag": ""

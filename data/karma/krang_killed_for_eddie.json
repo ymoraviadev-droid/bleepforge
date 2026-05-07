@@ -4,15 +4,18 @@
   "Deltas": [
     {
       "Faction": "Scavengers",
-      "Amount": -10
+      "Amount": -10,
+      "_subId": "Resource_puxjg"
     },
     {
       "Faction": "FreeRobots",
-      "Amount": 10
+      "Amount": 10,
+      "_subId": "Resource_7ahyd"
     },
     {
       "Faction": "RFF",
-      "Amount": 5
+      "Amount": 5,
+      "_subId": "Resource_pxdn3"
     }
   ]
 }

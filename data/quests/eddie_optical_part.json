@@ -12,7 +12,8 @@
       "TargetId": "eddie_optical_part",
       "EnemyType": "",
       "RequiredCount": 1,
-      "ConsumeOnTurnIn": true
+      "ConsumeOnTurnIn": true,
+      "_subId": "Resource_4cjaa"
     }
   ],
   "Rewards": [
@@ -21,14 +22,16 @@
       "Item": "facility_keycard",
       "Quantity": 1,
       "FlagName": "",
-      "CreditAmount": 0
+      "CreditAmount": 0,
+      "_subId": "Resource_gb4li"
     },
     {
       "Type": "Credits",
       "Item": "",
       "Quantity": 1,
       "FlagName": "",
-      "CreditAmount": 25
+      "CreditAmount": 25,
+      "_subId": "Resource_ka67b"
     }
   ],
   "ActiveFlag": "eddie_quest_active",

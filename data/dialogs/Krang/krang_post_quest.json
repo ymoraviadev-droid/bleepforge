@@ -5,7 +5,8 @@
       "SpeakerName": "Krang",
       "Text": "Still here. Still at one percent. The Cartel will retrieve me eventually. Until then: any Medkit you bring me, I will pay above market.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_1c4sm"
     }
   ],
   "SetsFlag": ""

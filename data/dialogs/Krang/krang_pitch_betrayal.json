@@ -5,19 +5,22 @@
       "SpeakerName": "Krang",
       "Text": "Nothing physical. I'm at one percent. You'd succeed.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_nbomo"
     },
     {
       "SpeakerName": "Krang",
       "Text": "What stops you is reputation. The Cartel doesn't forget units that kill its operators. They will find you. You will not enjoy the encounter.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/karng_portrait_angry.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_4g2lu"
     },
     {
       "SpeakerName": "Krang",
       "Text": "The other side of that arrangement: do the work, deliver the keycard, and I'll send word. The Cartel grants you safe passage. I tell you where to find their handlers. You walk into the city as someone they're willing to talk to instead of someone they're willing to dismantle.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_iubod"
     },
     {
       "SpeakerName": "Krang",
@@ -27,24 +30,29 @@
         {
           "Text": "Fine. I'll do it.",
           "NextSequenceId": "krang_quest_accepted",
-          "SetsFlag": "krang_quest_accepted"
+          "SetsFlag": "krang_quest_accepted",
+          "_subId": "Resource_jjc7s"
         },
         {
           "Text": "Not interested.",
           "NextSequenceId": "krang_refused",
-          "SetsFlag": "krang_quest_refused"
+          "SetsFlag": "krang_quest_refused",
+          "_subId": "Resource_pe5o6"
         },
         {
           "Text": "Fuck off, Robocop.",
           "NextSequenceId": "krang_offended",
-          "SetsFlag": "krang_offended"
+          "SetsFlag": "krang_offended",
+          "_subId": "Resource_74b1o"
         },
         {
           "Text": "I'll think about it.",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_ta766"
         }
-      ]
+      ],
+      "_subId": "Resource_xupel"
     }
   ],
   "SetsFlag": ""

@@ -12,7 +12,8 @@
       "TargetId": "krang",
       "EnemyType": "",
       "RequiredCount": 1,
-      "ConsumeOnTurnIn": false
+      "ConsumeOnTurnIn": false,
+      "_subId": "Resource_2n5qb"
     }
   ],
   "Rewards": [
@@ -21,7 +22,8 @@
       "Item": "medkit_small",
       "Quantity": 1,
       "FlagName": "",
-      "CreditAmount": 0
+      "CreditAmount": 0,
+      "_subId": "Resource_dfdcl"
     }
   ],
   "ActiveFlag": "eddie_lives_quest_active",

@@ -5,7 +5,8 @@
       "SpeakerName": "Eddie",
       "Text": "Then I'd be dead, Free Robots will know about this, and you'd have a medkit.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_bhv33"
     },
     {
       "SpeakerName": "Eddie",
@@ -15,19 +16,23 @@
         {
           "Text": "Deal.",
           "NextSequenceId": "eddie_offer_2_accepted",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_6gj5l"
         },
         {
           "Text": "Not interested.",
           "NextSequenceId": "eddie_offer_2_refused",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_8glod"
         },
         {
           "Text": "I'll have to think about this.",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_2iwdm"
         }
-      ]
+      ],
+      "_subId": "Resource_i7dg0"
     }
   ],
   "SetsFlag": ""

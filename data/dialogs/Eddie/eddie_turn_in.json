@@ -5,13 +5,15 @@
       "SpeakerName": "Eddie",
       "Text": "-click- Oh, that's better. I can see your face. It's a face. Congratulations on having one.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_osdjm"
     },
     {
       "SpeakerName": "Eddie",
       "Text": "Here's the keycard. East gate. Don't get scrapped on the way out.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_awnpp"
     },
     {
       "SpeakerName": "Eddie",
@@ -21,24 +23,29 @@
         {
           "Text": "Deal.",
           "NextSequenceId": "eddie_offer_2_accepted",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_fa8il"
         },
         {
           "Text": "What's stopping me from killing you and taking the medkit?",
           "NextSequenceId": "eddie_offer_2_betrayal",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_31x6h"
         },
         {
           "Text": "Not interested.",
           "NextSequenceId": "eddie_offer_2_refused",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_wwhua"
         },
         {
           "Text": "I'll think about it.",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_08bmt"
         }
-      ]
+      ],
+      "_subId": "Resource_cdjca"
     }
   ],
   "SetsFlag": ""

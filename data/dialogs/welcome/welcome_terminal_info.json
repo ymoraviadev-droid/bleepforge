@@ -9,14 +9,17 @@
         {
           "Text": "> BACK",
           "NextSequenceId": "welcome_terminal_intro",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_i0074"
         },
         {
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_1neyn"
         }
-      ]
+      ],
+      "_subId": "Resource_c07w7"
     }
   ],
   "SetsFlag": ""

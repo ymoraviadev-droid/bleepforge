@@ -9,24 +9,29 @@
         {
           "Text": "INFO.TXT",
           "NextSequenceId": "welcome_terminal_info",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_pahva"
         },
         {
           "Text": "LOGS.TXT",
           "NextSequenceId": "welcome_terminal_logs",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_sgv6t"
         },
         {
           "Text": "NEWS_FEED.TXT",
           "NextSequenceId": "welcome_terminal_news",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_mm6e5"
         },
         {
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_pps2o"
         }
-      ]
+      ],
+      "_subId": "Resource_yv651"
     }
   ],
   "SetsFlag": ""

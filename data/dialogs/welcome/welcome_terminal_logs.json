@@ -9,29 +9,35 @@
         {
           "Text": "> LOG 0408",
           "NextSequenceId": "welcome_terminal_log_001",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_4py0l"
         },
         {
           "Text": "> LOG 0411",
           "NextSequenceId": "welcome_terminal_log_002",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_i28bv"
         },
         {
           "Text": "> LOG 0412",
           "NextSequenceId": "welcome_terminal_log_003",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_kma57"
         },
         {
           "Text": "> BACK",
           "NextSequenceId": "welcome_terminal_intro",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_x867c"
         },
         {
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_8xbnc"
         }
-      ]
+      ],
+      "_subId": "Resource_0n31e"
     }
   ],
   "SetsFlag": ""

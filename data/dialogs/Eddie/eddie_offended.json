@@ -5,25 +5,29 @@
       "SpeakerName": "Eddie",
       "Text": "Oh, the son of a service bot is back. The one with the filthy mouth.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_d512r"
     },
     {
       "SpeakerName": "Eddie",
       "Text": "Do you kiss your mama with that mouth?",
       "Portrait": "",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_r0eif"
     },
     {
       "SpeakerName": "ZX-80",
       "Text": "No, I kiss your mama with that mouth.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/player/art/character-portrait.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_gao55"
     },
     {
       "SpeakerName": "Eddie",
       "Text": "Talk all the shit you want, I was going to give you a keycard. Now I'm going to give you nothing. Enjoy walking, you son of a cheap motels service bot.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_8qwj2"
     }
   ],
   "SetsFlag": ""

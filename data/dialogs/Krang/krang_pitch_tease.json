@@ -5,7 +5,8 @@
       "SpeakerName": "Krang",
       "Text": "A weapon. Better than what you're carrying. Ammunition for it. Cartel stock.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/krang_portrait.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_ah0ur"
     },
     {
       "SpeakerName": "Krang",
@@ -15,24 +16,29 @@
         {
           "Text": "I'll do it.",
           "NextSequenceId": "krang_quest_accepted",
-          "SetsFlag": "krang_quest_accepted"
+          "SetsFlag": "krang_quest_accepted",
+          "_subId": "Resource_fiuvl"
         },
         {
           "Text": "What's stopping me from killing you after I get the gun?",
           "NextSequenceId": "krang_pitch_betrayal",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_mffxk"
         },
         {
           "Text": "I want you to tell me about yourself before we do business.",
           "NextSequenceId": "krang_pitch_self",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_vxue0"
         },
         {
           "Text": "I'll think about it.",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_cq8wg"
         }
-      ]
+      ],
+      "_subId": "Resource_igfl5"
     }
   ],
   "SetsFlag": ""

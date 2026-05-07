@@ -9,14 +9,17 @@
         {
           "Text": "> BACK",
           "NextSequenceId": "cut_door_001_intro",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_1nbfm"
         },
         {
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_7fi1j"
         }
-      ]
+      ],
+      "_subId": "Resource_6x38x"
     }
   ],
   "SetsFlag": ""

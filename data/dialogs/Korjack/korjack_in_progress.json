@@ -9,14 +9,17 @@
         {
           "Text": "What were the targets again?",
           "NextSequenceId": "korjack_pitch",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_2jdlc"
         },
         {
           "Text": "Working on it.",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_w6bxc"
         }
-      ]
+      ],
+      "_subId": "Resource_pmke3"
     }
   ],
   "SetsFlag": ""

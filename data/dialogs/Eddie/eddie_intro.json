@@ -5,13 +5,15 @@
       "SpeakerName": "Eddie",
       "Text": "Oh! A human! Hello hello hello. I'm Eddie, wonderful day to be alive in a garbage heap, isn't it?",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_3giyo"
     },
     {
       "SpeakerName": "Eddie",
       "Text": "Listen — I'd shake your hand but my optical array took a hit. Everything past two meters is a lovely smear of color. Quite peaceful, actually.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_1dujr"
     },
     {
       "SpeakerName": "Eddie",
@@ -21,24 +23,29 @@
         {
           "Text": "What do you need?",
           "NextSequenceId": "eddie_request",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_a4mm2"
         },
         {
           "Text": "Why were you scrapped?",
           "NextSequenceId": "eddie_backstory",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_8bx0h"
         },
         {
           "Text": "Not my problem.",
           "NextSequenceId": "eddie_refused",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_7hfjk"
         },
         {
           "Text": "Piss off, tin can.",
           "NextSequenceId": "eddie_offended",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_m7uyx"
         }
-      ]
+      ],
+      "_subId": "Resource_b8vht"
     }
   ],
   "SetsFlag": "eddie_spoken"

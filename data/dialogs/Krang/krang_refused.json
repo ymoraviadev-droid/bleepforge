@@ -5,7 +5,8 @@
       "SpeakerName": "Krang",
       "Text": "Acknowledged. Move along.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/sld_300/art/karng_portrait_angry.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_3ajo2"
     }
   ],
   "SetsFlag": ""

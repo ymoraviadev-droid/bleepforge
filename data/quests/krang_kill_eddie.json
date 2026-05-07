@@ -12,7 +12,8 @@
       "TargetId": "facility_keycard",
       "EnemyType": "",
       "RequiredCount": 1,
-      "ConsumeOnTurnIn": false
+      "ConsumeOnTurnIn": false,
+      "_subId": "Resource_1s212"
     },
     {
       "Id": "kill_eddie",
@@ -22,7 +23,8 @@
       "TargetId": "eddie",
       "EnemyType": "",
       "RequiredCount": 1,
-      "ConsumeOnTurnIn": false
+      "ConsumeOnTurnIn": false,
+      "_subId": "Resource_fdpnk"
     }
   ],
   "Rewards": [
@@ -31,7 +33,8 @@
       "Item": "",
       "Quantity": 1,
       "FlagName": "",
-      "CreditAmount": 50
+      "CreditAmount": 50,
+      "_subId": "Resource_45bil"
     }
   ],
   "ActiveFlag": "krang_quest_active",

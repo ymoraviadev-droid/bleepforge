@@ -4,11 +4,13 @@
   "Deltas": [
     {
       "Faction": "Scavengers",
-      "Amount": -10
+      "Amount": -10,
+      "_subId": "Resource_30nf2"
     },
     {
       "Faction": "RFF",
-      "Amount": 5
+      "Amount": 5,
+      "_subId": "Resource_iueck"
     }
   ]
 }

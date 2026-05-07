@@ -9,19 +9,23 @@
         {
           "Text": "> BACK TO LOGS",
           "NextSequenceId": "welcome_terminal_logs",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_sf4bi"
         },
         {
           "Text": "> BACK TO ROOT",
           "NextSequenceId": "welcome_terminal_intro",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_qndyl"
         },
         {
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_d4k5f"
         }
-      ]
+      ],
+      "_subId": "Resource_od8wk"
     }
   ],
   "SetsFlag": ""

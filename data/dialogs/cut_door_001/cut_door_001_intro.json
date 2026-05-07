@@ -9,19 +9,23 @@
         {
           "Text": "INFO.TXT",
           "NextSequenceId": "cut_door_001_info",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_b1b84"
         },
         {
           "Text": "> ACTIVATE",
           "NextSequenceId": "",
-          "SetsFlag": "machinery_001.active"
+          "SetsFlag": "machinery_001.active",
+          "_subId": "Resource_n8xu1"
         },
         {
           "Text": "> DISCONNECT",
           "NextSequenceId": "",
-          "SetsFlag": ""
+          "SetsFlag": "",
+          "_subId": "Resource_26eap"
         }
-      ]
+      ],
+      "_subId": "Resource_pwfxm"
     }
   ],
   "SetsFlag": ""

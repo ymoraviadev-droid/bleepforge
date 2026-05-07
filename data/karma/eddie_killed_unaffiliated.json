@@ -4,7 +4,8 @@
   "Deltas": [
     {
       "Faction": "FreeRobots",
-      "Amount": -10
+      "Amount": -10,
+      "_subId": "Resource_rle33"
     }
   ]
 }

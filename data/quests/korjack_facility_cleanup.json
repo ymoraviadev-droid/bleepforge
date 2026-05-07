@@ -12,7 +12,8 @@
       "TargetId": "",
       "EnemyType": "facility_bot",
       "RequiredCount": 5,
-      "ConsumeOnTurnIn": false
+      "ConsumeOnTurnIn": false,
+      "_subId": "Resource_0lix2"
     }
   ],
   "Rewards": [
@@ -21,14 +22,16 @@
       "Item": "facility_keycard",
       "Quantity": 1,
       "FlagName": "",
-      "CreditAmount": 0
+      "CreditAmount": 0,
+      "_subId": "Resource_4t7ee"
     },
     {
       "Type": "Credits",
       "Item": "",
       "Quantity": 25,
       "FlagName": "",
-      "CreditAmount": 0
+      "CreditAmount": 0,
+      "_subId": "Resource_fg684"
     }
   ],
   "ActiveFlag": "korjack_facility_cleanup_active",

@@ -5,7 +5,8 @@
       "SpeakerName": "Eddie",
       "Text": "Good. Kill him, come back, medkit's yours.",
       "Portrait": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/npcs/hap_500/art/eddie-portrait2.png",
-      "Choices": []
+      "Choices": [],
+      "_subId": "Resource_wq7vh"
     }
   ],
   "SetsFlag": "eddie_lives_quest_active"
