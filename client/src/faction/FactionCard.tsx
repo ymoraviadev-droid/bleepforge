@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import type { Faction, FactionData } from "@bleepforge/shared";
 import { assetUrl } from "../api";
 import { AssetThumb } from "../AssetThumb";
+import { BannerPlaceholder, IconPlaceholder } from "../PixelPlaceholder";
 
 interface Props {
   faction: FactionData;
@@ -28,9 +29,10 @@ export function FactionCard({ faction, className = "" }: Props) {
         {faction.Icon ? (
           <AssetThumb path={faction.Icon} size="md" />
         ) : (
-          <div className="flex size-14 shrink-0 items-center justify-center rounded border border-dashed border-neutral-700 text-[10px] text-neutral-500">
-            no icon
-          </div>
+          <IconPlaceholder
+            className="size-14"
+            title={`No icon for ${faction.DisplayName || faction.Faction}`}
+          />
         )}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-neutral-100">
@@ -52,13 +54,18 @@ export function FactionCard({ faction, className = "" }: Props) {
         </p>
       )}
 
-      {faction.Banner && (
+      {faction.Banner ? (
         <img
           src={assetUrl(faction.Banner)}
           alt=""
           title={faction.Banner}
           className="mt-1 block w-full max-h-36 rounded border border-neutral-800 bg-neutral-950 object-contain"
           style={{ imageRendering: "pixelated" }}
+        />
+      ) : (
+        <BannerPlaceholder
+          className="mt-1 h-20 w-full"
+          title={`No banner for ${faction.DisplayName || faction.Faction}`}
         />
       )}
     </Link>

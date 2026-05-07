@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import type { Concept } from "@bleepforge/shared";
-import { conceptApi, assetUrl } from "../api";
+import { conceptApi } from "../api";
 import { AssetPicker } from "../AssetPicker";
-import { AssetThumb } from "../AssetThumb";
+import { ButtonLink } from "../Button";
 import { button, fieldLabel, textInput } from "../ui";
 
-// Bleepforge homepage: high-level "what is this game" doc. Single editable
-// page. All fields are optional — empty fields just don't render in the
-// hero/preview area, so you can fill them gradually as the game's pitch
-// crystallizes.
+// Edit form for the singleton concept doc. After save, navigate back to the
+// /concept view so the user sees the result. Cancel = same.
 
-export function ConceptPage() {
+export function ConceptEdit() {
+  const navigate = useNavigate();
   const [concept, setConcept] = useState<Concept | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -30,8 +30,8 @@ export function ConceptPage() {
     setSaving(true);
     setError(null);
     try {
-      const saved = await conceptApi.save(concept);
-      setConcept(saved);
+      await conceptApi.save(concept);
+      navigate("/concept");
     } catch (e) {
       setError(String(e));
     } finally {
@@ -40,72 +40,23 @@ export function ConceptPage() {
   };
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      {/* Hero — only renders when content is present, so the page reads as
-          a real homepage rather than an empty form on first run. */}
-      {concept.SplashImage && (
-        <img
-          src={assetUrl(concept.SplashImage)}
-          alt=""
-          className="block w-full max-h-72 rounded border border-neutral-800 bg-neutral-950 object-contain"
-          style={{ imageRendering: "pixelated" }}
-        />
-      )}
-
-      <header className="flex items-start gap-4">
-        {concept.Logo && <AssetThumb path={concept.Logo} size="lg" />}
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-2xl tracking-wider text-emerald-300">
-            {concept.Title || "Untitled game"}
-          </h1>
-          {concept.Tagline && (
-            <p className="mt-1 text-sm italic text-neutral-300">
-              {concept.Tagline}
-            </p>
-          )}
-          {(concept.Genre || concept.Status || concept.Setting) && (
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-neutral-400">
-              {concept.Genre && (
-                <span>
-                  <span className="text-neutral-600">Genre:</span>{" "}
-                  {concept.Genre}
-                </span>
-              )}
-              {concept.Setting && (
-                <span>
-                  <span className="text-neutral-600">Setting:</span>{" "}
-                  {concept.Setting}
-                </span>
-              )}
-              {concept.Status && (
-                <span>
-                  <span className="text-neutral-600">Status:</span>{" "}
-                  {concept.Status}
-                </span>
-              )}
-            </div>
-          )}
+    <div className="mx-auto max-w-3xl space-y-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-xl font-semibold">Edit game concept</h1>
+        <div className="flex gap-2">
+          <ButtonLink to="/concept" variant="secondary">
+            ← Cancel
+          </ButtonLink>
+          <button
+            onClick={save}
+            disabled={saving}
+            className={`${button} bg-emerald-600 text-white hover:bg-emerald-500`}
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
-        {concept.Icon && <AssetThumb path={concept.Icon} size="md" />}
-        <button
-          onClick={save}
-          disabled={saving}
-          className={`${button} bg-emerald-600 text-white hover:bg-emerald-500`}
-        >
-          {saving ? "Saving…" : "Save"}
-        </button>
-      </header>
+      </div>
 
-      {concept.Description && (
-        <section className="rounded border border-neutral-800 bg-neutral-900/40 p-4">
-          <p className="whitespace-pre-wrap text-sm text-neutral-200">
-            {concept.Description}
-          </p>
-        </section>
-      )}
-
-      {/* Editable form. Lives below the hero so the page reads "preview, then
-          edit" rather than "edit, then preview". */}
       <Section title="Identity">
         <div className="grid grid-cols-2 gap-4">
           <Field label="Title">
@@ -120,7 +71,7 @@ export function ConceptPage() {
             <input
               value={concept.Tagline}
               onChange={(e) => update({ Tagline: e.target.value })}
-              placeholder='e.g. "A robot ARPG where every choice rusts."'
+              placeholder='e.g. "You’re the only one who showed up."'
               className={textInput}
             />
           </Field>
@@ -128,7 +79,7 @@ export function ConceptPage() {
             <input
               value={concept.Genre}
               onChange={(e) => update({ Genre: e.target.value })}
-              placeholder="e.g. ARPG · Top-down · Robot Sim"
+              placeholder="e.g. 2D side-scroller · adventure-platformer · light RPG"
               className={textInput}
             />
           </Field>
@@ -136,7 +87,7 @@ export function ConceptPage() {
             <input
               value={concept.Setting}
               onChange={(e) => update({ Setting: e.target.value })}
-              placeholder="e.g. Post-apocalyptic robot wasteland"
+              placeholder="e.g. Far-future Earth — robots run everything"
               className={textInput}
             />
           </Field>
@@ -155,8 +106,8 @@ export function ConceptPage() {
         <textarea
           value={concept.Description}
           onChange={(e) => update({ Description: e.target.value })}
-          rows={6}
-          placeholder="Elevator pitch, tone, what makes this game it…"
+          rows={8}
+          placeholder="Elevator pitch, premise, tone, what makes this game it…"
           className={textInput}
         />
       </Section>
@@ -177,7 +128,7 @@ export function ConceptPage() {
               placeholder="absolute path to icon"
             />
           </Field>
-          <Field label="Splash image" hint="Wide hero image for this page">
+          <Field label="Splash image" hint="Wide hero image for /concept">
             <AssetPicker
               path={concept.SplashImage}
               onChange={(SplashImage) => update({ SplashImage })}
@@ -201,8 +152,8 @@ export function ConceptPage() {
         <textarea
           value={concept.Notes}
           onChange={(e) => update({ Notes: e.target.value })}
-          rows={4}
-          placeholder="Anything else worth keeping at the top of the project."
+          rows={10}
+          placeholder="Anything else — acts, factions, system specifics, scratch."
           className={textInput}
         />
       </Section>

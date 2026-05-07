@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import type { Npc } from "@bleepforge/shared";
 import { AssetThumb } from "../AssetThumb";
+import { PortraitPlaceholder } from "../PixelPlaceholder";
 
 interface Props {
   npc: Npc;
@@ -20,12 +21,10 @@ export function NpcCard({ npc, className = "" }: Props) {
         {npc.Portrait ? (
           <AssetThumb path={npc.Portrait} size="md" />
         ) : (
-          <div
-            className="flex size-14 shrink-0 items-center justify-center rounded border border-dashed border-neutral-700 text-[10px] text-neutral-500"
-            title="No portrait"
-          >
-            ?
-          </div>
+          <PortraitPlaceholder
+            className="size-14"
+            title={`No portrait for ${npc.NpcId}`}
+          />
         )}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-neutral-100">

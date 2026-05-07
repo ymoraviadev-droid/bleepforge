@@ -4,7 +4,8 @@ import { CatalogDatalists } from "./CatalogDatalists";
 import { ModalHost } from "./Modal";
 import { SplashScreen } from "./SplashScreen";
 import { useCatalog } from "./useCatalog";
-import { ConceptPage } from "./concept/Page";
+import { ConceptView } from "./concept/View";
+import { ConceptEdit } from "./concept/Edit";
 import { DialogList } from "./dialog/List";
 import { DialogEdit } from "./dialog/Edit";
 import { DialogGraph } from "./dialog/Graph";
@@ -139,7 +140,8 @@ export function App() {
       <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <Routes>
           <Route path="/" element={<Navigate to="/concept" replace />} />
-          <Route path="/concept" element={<ConceptPage />} />
+          <Route path="/concept" element={<ConceptView />} />
+          <Route path="/concept/edit" element={<ConceptEdit />} />
           <Route path="/dialogs" element={<DialogGraph />} />
           <Route path="/dialogs/list" element={<DialogList />} />
           <Route path="/dialogs/new" element={<DialogEdit />} />

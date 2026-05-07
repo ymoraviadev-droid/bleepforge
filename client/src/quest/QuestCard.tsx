@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import type { Npc, Quest } from "@bleepforge/shared";
 import { AssetThumb } from "../AssetThumb";
+import { PortraitPlaceholder } from "../PixelPlaceholder";
 
 interface Props {
   quest: Quest;
@@ -53,16 +54,14 @@ export function QuestCard({ quest, giver, className = "" }: Props) {
         {giverPortrait ? (
           <AssetThumb path={giverPortrait} size="sm" />
         ) : (
-          <div
-            className="flex size-10 shrink-0 items-center justify-center rounded border border-dashed border-neutral-800 text-[10px] text-neutral-600"
+          <PortraitPlaceholder
+            className="size-10"
             title={
               quest.QuestGiverId
                 ? `No portrait for ${quest.QuestGiverId}`
                 : "No quest giver"
             }
-          >
-            {quest.QuestGiverId ? "?" : "—"}
-          </div>
+          />
         )}
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-neutral-100">
