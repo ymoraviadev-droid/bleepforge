@@ -1,5 +1,5 @@
 // Canary: take one Bleepforge JSON edit (an Item's DisplayName) and produce
-// a modified .tres in .tres-staging/. Never writes to ASTRO_MAN_ROOT.
+// a modified .tres in .tres-staging/. Never writes to GODOT_PROJECT_ROOT.
 //
 // Usage:
 //   pnpm --filter @bleepforge/server canary <slug>
@@ -39,9 +39,9 @@ async function main(): Promise<void> {
     console.error('Example: pnpm canary rff_keycard \'{"Category":"Weapon","Price":750}\'');
     process.exit(2);
   }
-  const root = process.env.ASTRO_MAN_ROOT;
+  const root = process.env.GODOT_PROJECT_ROOT;
   if (!root) {
-    console.error("ASTRO_MAN_ROOT not set.");
+    console.error("GODOT_PROJECT_ROOT not set.");
     process.exit(2);
   }
   const astroRoot = resolve(root);

@@ -2,7 +2,7 @@
 // change to a known .tres, emits, and verifies the resulting file differs
 // from the original by exactly one line.
 //
-// Read-only against ASTRO_MAN_ROOT. No staged files written — diffs are
+// Read-only against GODOT_PROJECT_ROOT. No staged files written — diffs are
 // computed in memory.
 
 import { readFile } from "node:fs/promises";
@@ -98,9 +98,9 @@ const TESTS: TestCase[] = [
 ];
 
 async function main(): Promise<void> {
-  const root = process.env.ASTRO_MAN_ROOT;
+  const root = process.env.GODOT_PROJECT_ROOT;
   if (!root) {
-    console.error("ASTRO_MAN_ROOT not set.");
+    console.error("GODOT_PROJECT_ROOT not set.");
     process.exit(2);
   }
   const abs = resolve(root, ITEM_REL_PATH);

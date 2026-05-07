@@ -1,9 +1,9 @@
 // Round-trip harness for Godot 4 .tres files.
 //
 // SAFETY CONTRACT (do not weaken without explicit decision):
-//   - This script is READ-ONLY against ASTRO_MAN_ROOT. It opens .tres files
+//   - This script is READ-ONLY against GODOT_PROJECT_ROOT. It opens .tres files
 //     only with fs.readFile. No fs.writeFile / fs.rename / fs.unlink call in
-//     this file targets a path under ASTRO_MAN_ROOT — see assertUnderStaging.
+//     this file targets a path under GODOT_PROJECT_ROOT — see assertUnderStaging.
 //   - All writes go to STAGING_ROOT (dialoguer/.tres-staging/), which is
 //     gitignored and disposable. The path is derived from this file's
 //     location, NOT from any environment variable.
@@ -43,9 +43,9 @@ interface FileResult {
 }
 
 async function main(): Promise<void> {
-  const root = process.env.ASTRO_MAN_ROOT;
+  const root = process.env.GODOT_PROJECT_ROOT;
   if (!root) {
-    console.error("ASTRO_MAN_ROOT not set. Add it to dialoguer/.env.");
+    console.error("GODOT_PROJECT_ROOT not set. Add it to dialoguer/.env.");
     process.exit(2);
   }
   const astroRoot = resolve(root);
@@ -53,12 +53,12 @@ async function main(): Promise<void> {
     const s = await stat(astroRoot);
     if (!s.isDirectory()) throw new Error("not a directory");
   } catch (err) {
-    console.error(`ASTRO_MAN_ROOT does not exist or is unreadable: ${astroRoot}`);
+    console.error(`GODOT_PROJECT_ROOT does not exist or is unreadable: ${astroRoot}`);
     console.error(String(err));
     process.exit(2);
   }
 
-  console.log(`[harness] ASTRO_MAN_ROOT (read-only): ${astroRoot}`);
+  console.log(`[harness] GODOT_PROJECT_ROOT (read-only): ${astroRoot}`);
   console.log(`[harness] STAGING_ROOT (writes): ${STAGING_ROOT}`);
 
   await mkdir(STAGING_ROOT, { recursive: true });
