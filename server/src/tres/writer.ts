@@ -108,11 +108,20 @@ export async function writeItemTres(json: Item): Promise<TresWriteResult> {
   const root = config.godotProjectRoot!;
   const found = await findItemTres(root, json.Slug);
   if (!found) return { attempted: true, ok: false, error: `no .tres for slug "${json.Slug}"` };
+
+  // Pre-resolve the Icon texture UID (if Icon is set) so the apply pass
+  // stays synchronous. readTextureUid reads the .png.import sidecar.
+  const iconUid = json.Icon ? await readTextureUid(json.Icon) : null;
+  const textureCtx = {
+    godotRoot: root,
+    resolveTextureUid: (abs: string) => (abs === json.Icon ? iconUid : null),
+  };
+
   return runWrite(found.path, (doc) => {
     const resourceSection = doc.sections.find((s) => s.kind === "resource");
     if (!resourceSection) return ["no [resource] section"];
-    applyItemScalars(resourceSection, json as ItemJson);
-    return [];
+    const result = applyItemScalars(doc, resourceSection, json as ItemJson, textureCtx);
+    return result.warnings;
   });
 }
 
@@ -121,10 +130,26 @@ export async function writeFactionTres(json: FactionData): Promise<TresWriteResu
   const root = config.godotProjectRoot!;
   const found = await findFactionTres(root, json.Faction);
   if (!found) return { attempted: true, ok: false, error: `no .tres for faction "${json.Faction}"` };
+
+  // Pre-resolve Icon + Banner texture UIDs.
+  const uidCache = new Map<string, string | null>();
+  for (const abs of [json.Icon, json.Banner]) {
+    if (abs && !uidCache.has(abs)) uidCache.set(abs, await readTextureUid(abs));
+  }
+  const textureCtx = {
+    godotRoot: root,
+    resolveTextureUid: (abs: string) => uidCache.get(abs) ?? null,
+  };
+
   return runWrite(found.path, (doc) => {
     const resourceSection = doc.sections.find((s) => s.kind === "resource");
     if (!resourceSection) return ["no [resource] section"];
-    const result = applyFactionScalars(resourceSection, json as FactionJson);
+    const result = applyFactionScalars(
+      doc,
+      resourceSection,
+      json as FactionJson,
+      textureCtx,
+    );
     return result.warnings;
   });
 }

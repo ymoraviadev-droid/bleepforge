@@ -1,16 +1,23 @@
-import type { Section } from "../types.js";
+import type { Doc, Section } from "../types.js";
 import {
   reconcileProperty,
   serializeEnumInt,
   serializeString,
 } from "../mutate.js";
+import {
+  reconcileTextureField,
+  type TextureRefContext,
+} from "../textureRef.js";
 
 // Maps Bleepforge's FactionData JSON onto a parsed `[resource]` section.
-// Scalar-only writes for now; Icon/Banner ext-resources are NOT updated
-// (same approach as Item.Icon — deferred until a structural phase). The
-// Faction enum field is the identity discriminator and is not reconciled
-// either (changing which Faction value a file represents is effectively
-// a different file).
+// Reconciles every scalar plus the Icon and Banner Texture2D refs. The
+// Faction enum is the identity discriminator and is not reconciled (changing
+// which Faction value a file represents is effectively a different file).
+//
+// Icon/Banner go through reconcileTextureField — same path as Item.Icon —
+// which preserves SubResource (AtlasTexture) lines if we ever encounter
+// them. In the current corpus all faction Icons + Banners are Texture2D
+// ExtResources, so the simple swap path is the common one here.
 
 export const FACTION_TO_INT: Record<string, number> = {
   Scavengers: 0,
@@ -38,13 +45,18 @@ export interface FactionJson {
 }
 
 export interface ApplyResult {
-  actions: { key: string; action: "updated" | "inserted" | "removed" | "noop" }[];
+  actions: {
+    key: string;
+    action: "updated" | "inserted" | "removed" | "noop" | "preserved";
+  }[];
   warnings: string[];
 }
 
 export function applyFactionScalars(
+  doc: Doc,
   section: Section,
   json: FactionJson,
+  textureCtx: TextureRefContext,
 ): ApplyResult {
   const actions: ApplyResult["actions"] = [];
   const warnings: string[] = [];
@@ -86,7 +98,21 @@ export function applyFactionScalars(
     ),
   });
 
-  // Icon/Banner ext-resources intentionally not reconciled (parity with Item.Icon).
+  // Icon + Banner — Texture2D ExtResources (with AtlasTexture preservation
+  // for safety, though no current faction uses one).
+  for (const key of ["Icon", "Banner"] as const) {
+    const result = reconcileTextureField(
+      doc,
+      section,
+      key,
+      FACTION_FIELD_ORDER,
+      json[key],
+      textureCtx,
+      `faction "${json.Faction}"`,
+    );
+    actions.push({ key, action: result.action });
+    warnings.push(...result.warnings);
+  }
 
   return { actions, warnings };
 }

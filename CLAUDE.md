@@ -230,7 +230,7 @@ FactionData
 
 **Robotek**: lore-only. The folder `shared/components/factions/robotek/` exists with art (PNGs) but **no `.tres`** — there's no enum entry. Treated as expected absence by the importer; it won't show as a skip or error.
 
-**Bleepforge storage**: `data/factions/<Faction>.json` (one file per enum value: `Scavengers.json`, `FreeRobots.json`, `RFF.json`, `Grove.json`). The `.tres` write-back mapper reconciles `DisplayName` and `ShortDescription` round-trip; `Icon`/`Banner` ext-resource refs are not reconciled (parity with `Item.Icon` — deferred). The locator (`findFactionTres`) walks subfolders and matches `script_class="FactionData"` plus the `Faction = N` int.
+**Bleepforge storage**: `data/factions/<Faction>.json` (one file per enum value: `Scavengers.json`, `FreeRobots.json`, `RFF.json`, `Grove.json`). The `.tres` write-back mapper reconciles `DisplayName`, `ShortDescription`, `Icon`, and `Banner`. Icon/Banner go through the shared `reconcileTextureField` helper, which swaps `Texture2D` ext_resources to whatever absolute path the JSON now holds (with UID looked up from the `.png.import` sidecar) and removes the property line + orphan ext_resource when JSON is cleared. The locator (`findFactionTres`) walks subfolders and matches `script_class="FactionData"` plus the `Faction = N` int.
 
 ### Domain 6 — NPCs
 
@@ -346,8 +346,8 @@ Plus `pnpm harness` walks every `.tres` in the project and confirms parser+emitt
 - Trailing structural add/remove of sub-resources (lines, choices, objectives, rewards) with orphan cleanup. Mints `Resource_<5alnum>` IDs in Godot's format.
 - Ext-resource creation when JSON references something the file doesn't yet point at:
   - Item slugs (TargetItem / Reward.Item) — UID read from `<root>/shared/items/data/<slug>.tres` header.
-  - Texture paths (Portrait) — UID read from `<png>.import` sidecar.
-  - Project scripts (DialogChoice.cs, QuestObjective.cs, QuestReward.cs) — UID found by scanning the project for any other `.tres` that already references the script.
+  - Texture paths (DialogLine.Portrait, Item.Icon, Faction.Icon, Faction.Banner) — UID read from `<png>.import` sidecar via the shared [textureRef.ts](server/src/tres/textureRef.ts) helper. The helper preserves any existing `SubResource` (e.g. `AtlasTexture`) when JSON is empty — Bleepforge doesn't author atlases and shouldn't blow them away on save. When swapping an `AtlasTexture` SubResource for a Texture2D ExtResource, the orphaned AtlasTexture sub_resource is removed so the orphan-ext-resource pass can also clean up its `atlas` ref (the sprite sheet ext_resource).
+  - Project scripts (DialogChoice.cs, QuestObjective.cs, QuestReward.cs, NpcQuestEntry.cs, LootTable.cs, LootEntry.cs) — UID found by scanning the project for any other `.tres` that already references the script.
 
 **Reorder-safe via `_subId`:** every sub-resource-backed JSON entry (DialogLine, DialogChoice, KarmaDelta, QuestObjective, QuestReward) carries an optional `_subId` mirroring the Godot sub_resource id. The importer populates it; mappers use it for stable-identity matching across reorder, add, update, and remove. Existing JSON was migrated via `pnpm --filter @bleepforge/server migrate-subids` (idempotent). New entries authored in Bleepforge UI have no `_subId` until first save, when one is minted.
 

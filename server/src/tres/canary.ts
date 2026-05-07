@@ -15,7 +15,8 @@ import { fileURLToPath } from "node:url";
 import { parseTres } from "./parser.js";
 import { emitTres } from "./emitter.js";
 import { applyItemScalars, type ItemJson } from "./domains/item.js";
-import type { Section } from "./types.js";
+import type { Doc, Section } from "./types.js";
+import { readTextureUid } from "./uidLookup.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -97,10 +98,16 @@ async function main(): Promise<void> {
   // 3. Mutate the AST — reconcile every known scalar field. For each one:
   //    update if value differs, insert if missing-and-non-default, remove
   //    if present-but-now-default, no-op otherwise.
-  const result = applyItemScalars(matchSection, json);
+  const iconUid = json.Icon ? await readTextureUid(json.Icon) : null;
+  const textureCtx = {
+    godotRoot: astroRoot,
+    resolveTextureUid: (abs: string) => (abs === json.Icon ? iconUid : null),
+  };
+  const result = applyItemScalars(matchDoc as Doc, matchSection, json, textureCtx);
   for (const a of result.actions) {
     if (a.action !== "noop") console.log(`[canary] ${a.action}: ${a.key}`);
   }
+  for (const w of result.warnings) console.log(`[canary] warning: ${w}`);
 
   // 4. Emit to staging.
   const emitted = emitTres(matchDoc);

@@ -1,4 +1,4 @@
-import type { Section } from "../types.js";
+import type { Doc, Section } from "../types.js";
 import {
   reconcileProperty,
   serializeBool,
@@ -6,11 +6,22 @@ import {
   serializeInt,
   serializeString,
 } from "../mutate.js";
+import {
+  reconcileTextureField,
+  type TextureRefContext,
+} from "../textureRef.js";
 
 // Maps Bleepforge's Item JSON onto a parsed `[resource]` section. Reconciles
 // every scalar field — updates, inserts, or removes the property line based
-// on whether the JSON value matches the C# default. Skips Slug (identity)
-// and Icon (ext-resource — deferred until structural phase).
+// on whether the JSON value matches the C# default. Skips Slug (identity).
+//
+// Icon IS reconciled, with one important caveat: most items in this corpus
+// use AtlasTexture sub_resources (region of a sprite sheet) for their Icon
+// rather than a Texture2D ExtResource. The importer drops AtlasTextures and
+// gives JSON empty Icon. If we naively turned "empty JSON → remove the line"
+// we'd destroy the user's atlas. reconcileTextureField in textureRef.ts
+// inspects the current .tres value and preserves SubResource lines when JSON
+// is empty.
 
 export const ITEM_CATEGORY_TO_INT: Record<string, number> = {
   Misc: 0,
@@ -64,7 +75,7 @@ type FieldRule = {
 const FIELD_RULES: FieldRule[] = [
   { key: "DisplayName", rawOrNull: (j) => (j.DisplayName === "" ? null : serializeString(j.DisplayName)) },
   { key: "Description", rawOrNull: (j) => (j.Description === "" ? null : serializeString(j.Description)) },
-  // Icon (Texture2D ExtResource) — deferred.
+  // Icon — reconciled separately via reconcileTextureField (needs doc + ctx).
   { key: "IsStackable", rawOrNull: (j) => (j.IsStackable === true ? null : serializeBool(j.IsStackable)) },
   { key: "MaxStack", rawOrNull: (j) => (j.MaxStack === 99 ? null : serializeInt(j.MaxStack)) },
   { key: "Price", rawOrNull: (j) => (j.Price === 0 ? null : serializeInt(j.Price)) },
@@ -82,17 +93,41 @@ const QUEST_ITEM_RULES: FieldRule[] = [
 ];
 
 export interface ApplyResult {
-  actions: { key: string; action: "updated" | "inserted" | "removed" | "noop" }[];
+  actions: {
+    key: string;
+    action: "updated" | "inserted" | "removed" | "noop" | "preserved";
+  }[];
+  warnings: string[];
 }
 
-export function applyItemScalars(section: Section, json: ItemJson): ApplyResult {
+export function applyItemScalars(
+  doc: Doc,
+  section: Section,
+  json: ItemJson,
+  textureCtx: TextureRefContext,
+): ApplyResult {
   const actions: ApplyResult["actions"] = [];
+  const warnings: string[] = [];
 
   for (const rule of FIELD_RULES) {
     const raw = rule.rawOrNull(json);
     const action = reconcileProperty(section, rule.key, raw, ITEM_FIELD_ORDER);
     actions.push({ key: rule.key, action });
   }
+
+  // Icon — Texture2D ExtResource (or AtlasTexture SubResource we shouldn't
+  // touch). reconcileTextureField handles both cases.
+  const iconResult = reconcileTextureField(
+    doc,
+    section,
+    "Icon",
+    ITEM_FIELD_ORDER,
+    json.Icon,
+    textureCtx,
+    `item "${json.Slug}"`,
+  );
+  actions.push({ key: "Icon", action: iconResult.action });
+  warnings.push(...iconResult.warnings);
 
   // QuestItemData fields only when this is actually a quest item.
   if (json.Category === "QuestItem") {
@@ -103,5 +138,5 @@ export function applyItemScalars(section: Section, json: ItemJson): ApplyResult 
     }
   }
 
-  return { actions };
+  return { actions, warnings };
 }
