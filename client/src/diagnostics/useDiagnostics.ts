@@ -3,31 +3,35 @@ import { reconcileApi, type ReconcileStatus } from "../api";
 import { computeIssues } from "../integrity/issues";
 import { useCatalog } from "../useCatalog";
 
-// Aggregate health signal used by:
-//   - The unified header indicator (one badge instead of two)
-//   - The /health page's "default to the dirtiest tab" routing
+// Aggregate diagnostic signal used by:
+//   - The unified header icon (one indicator instead of two text links)
+//   - The /diagnostics page's "default to the dirtiest tab" routing
 //   - Tab labels (so each tab shows its own count, even when the header
-//     badge surfaces a higher-priority tab's state)
+//     icon surfaces a higher-priority tab's state)
 //
 // `severity` is the worst-of any tab. "error" = red, "warning" = amber,
 // "clean" = emerald, "loading" = nothing yet.
 
-export type HealthTabId = "integrity" | "reconcile";
+export type DiagnosticsTabId = "integrity" | "reconcile";
 
 export interface TabSignal {
-  id: HealthTabId;
+  id: DiagnosticsTabId;
   label: string;
   severity: "loading" | "clean" | "warning" | "error";
   count: number;
 }
 
-export interface HealthStatus {
+export interface DiagnosticsStatus {
   overall: "loading" | "clean" | "warning" | "error";
-  /** Tab to highlight first when the user lands on /health without an explicit
-   *  sub-route. Picks the worst tab; falls back to "integrity" when clean. */
-  worstTab: HealthTabId;
+  /** Tab to highlight first when the user lands on /diagnostics without an
+   *  explicit sub-route. Picks the worst tab; falls back to "integrity"
+   *  when clean. */
+  worstTab: DiagnosticsTabId;
   tabs: TabSignal[];
   reconcile: ReconcileStatus | null | undefined;
+  /** Sum of counts across all tabs — drives the numeric badge on the
+   *  header icon. */
+  totalCount: number;
 }
 
 const SEVERITY_RANK: Record<TabSignal["severity"], number> = {
@@ -37,7 +41,7 @@ const SEVERITY_RANK: Record<TabSignal["severity"], number> = {
   error: 2,
 };
 
-export function useHealthStatus(): HealthStatus {
+export function useDiagnostics(): DiagnosticsStatus {
   // Integrity comes from the catalog (already cached by useCatalog).
   const catalog = useCatalog();
   const issues = catalog ? computeIssues(catalog) : null;
@@ -104,11 +108,13 @@ export function useHealthStatus(): HealthStatus {
   );
   const worstTab =
     tabs.find((t) => t.severity === worstSeverity)?.id ?? "integrity";
+  const totalCount = tabs.reduce((n, t) => n + t.count, 0);
 
   return {
     overall: worstSeverity === "loading" ? "loading" : worstSeverity,
     worstTab,
     tabs,
     reconcile,
+    totalCount,
   };
 }

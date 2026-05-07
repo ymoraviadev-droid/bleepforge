@@ -9,8 +9,9 @@ import { ConceptEdit } from "./concept/Edit";
 import { DialogList } from "./dialog/List";
 import { DialogEdit } from "./dialog/Edit";
 import { DialogGraph } from "./dialog/Graph";
-import { HealthPage } from "./health/HealthPage";
-import { useHealthStatus } from "./health/useHealthStatus";
+import { DiagnosticsIcon } from "./diagnostics/DiagnosticsIcon";
+import { DiagnosticsPage } from "./diagnostics/DiagnosticsPage";
+import { useDiagnostics } from "./diagnostics/useDiagnostics";
 import { QuestList } from "./quest/List";
 import { QuestEdit } from "./quest/Edit";
 import { ItemList } from "./item/List";
@@ -33,35 +34,55 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
       : "border-transparent text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200"
   }`;
 
-// Variant for the Health link, scaled by overall severity. Red on errors
-// (or aborted reconcile), amber on warnings/skips, default on clean. Always
-// visible — the ✓ badge gives positive feedback when everything's healthy
-// and the count gives urgency when not.
-const healthLinkClass = (severity: "loading" | "clean" | "warning" | "error") =>
-  ({ isActive }: { isActive: boolean }) => {
-    if (severity === "error") {
-      return `${NAV_BASE} ${
-        isActive
-          ? "border-red-600 bg-red-950/40 text-red-200"
-          : "border-red-900/60 bg-red-950/20 text-red-300 hover:border-red-700 hover:bg-red-950/40 hover:text-red-200"
-      }`;
-    }
-    if (severity === "warning") {
-      return `${NAV_BASE} ${
-        isActive
-          ? "border-amber-600 bg-amber-950/40 text-amber-200"
-          : "border-amber-900/60 bg-amber-950/20 text-amber-300 hover:border-amber-700 hover:bg-amber-950/40 hover:text-amber-200"
-      }`;
-    }
-    return navLinkClass({ isActive });
-  };
+// Square icon-button class, shared by Diagnostics and Preferences. The two
+// sit together on the right side of the header — both are meta actions
+// (about the app, not the project content), so they share the same shape.
+const iconNavBase =
+  "relative flex items-center justify-center border-2 p-1.5 transition-colors";
 
 const prefsNavClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center justify-center border-2 p-1.5 transition-colors ${
+  `${iconNavBase} ${
     isActive
       ? "border-emerald-600 bg-emerald-950/40 text-emerald-300"
       : "border-transparent text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200"
   }`;
+
+function diagnosticsTitle(
+  severity: "loading" | "clean" | "warning" | "error",
+  count: number,
+): string {
+  if (severity === "error")
+    return `Diagnostics: ${count} issue${count === 1 ? "" : "s"}`;
+  if (severity === "warning")
+    return `Diagnostics: ${count} warning${count === 1 ? "" : "s"}`;
+  if (severity === "clean") return "Diagnostics — all clear";
+  return "Diagnostics";
+}
+
+// Severity-aware variant for the Diagnostics icon. Stroke color tells you
+// instantly whether anything's wrong (red error, amber warning, neutral when
+// clean — emerald reserved for the active-link state, same as the gear).
+const diagNavClass = (
+  severity: "loading" | "clean" | "warning" | "error",
+) =>
+  ({ isActive }: { isActive: boolean }) => {
+    if (severity === "error") {
+      return `${iconNavBase} ${
+        isActive
+          ? "border-red-600 bg-red-950/40 text-red-300"
+          : "border-transparent text-red-400 hover:border-red-700 hover:bg-red-950/30 hover:text-red-300"
+      }`;
+    }
+    if (severity === "warning") {
+      return `${iconNavBase} ${
+        isActive
+          ? "border-amber-600 bg-amber-950/40 text-amber-300"
+          : "border-transparent text-amber-400 hover:border-amber-700 hover:bg-amber-950/30 hover:text-amber-300"
+      }`;
+    }
+    // Clean / loading — same neutral shape as the gear next to it.
+    return prefsNavClass({ isActive });
+  };
 
 export function App() {
   // Splash fires on every fresh mount (i.e. real refresh / first load).
@@ -84,12 +105,12 @@ export function App() {
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
-  // Unified health signal: integrity (authored data) + reconcile (.tres
-  // cache infra) folded into one severity. Single header indicator is
-  // simpler than two and matches the user's actual question — "is anything
-  // wrong?" — instead of forcing them to know data-vs-infra distinctions.
-  const health = useHealthStatus();
-  const healthCount = health.tabs.reduce((n, t) => n + t.count, 0);
+  // Unified diagnostic signal: integrity (authored data) + reconcile (.tres
+  // cache infra) folded into one severity. Single icon on the right side of
+  // the header carries it — square, color-shifted by state, with a small
+  // numeric badge in the corner when there's something to fix. Boring icon
+  // when clean, urgent when not.
+  const diagnostics = useDiagnostics();
 
   if (showSplash) {
     return <SplashScreen onDone={() => setShowSplash(false)} />;
@@ -131,33 +152,28 @@ export function App() {
           <NavLink to="/items" className={navLinkClass}>
             Items
           </NavLink>
-          <NavLink
-            to="/health"
-            className={healthLinkClass(health.overall)}
-            title={
-              health.overall === "error"
-                ? `Health: ${healthCount} issue${healthCount === 1 ? "" : "s"}`
-                : health.overall === "warning"
-                  ? `Health: ${healthCount} warning${healthCount === 1 ? "" : "s"}`
-                  : health.overall === "clean"
-                    ? "Health check is clean"
-                    : "Health"
-            }
-          >
-            Health{" "}
-            {health.overall === "clean" && (
-              <span className="text-emerald-400" aria-label="clean">
-                ✓
-              </span>
-            )}
-            {(health.overall === "error" || health.overall === "warning") && (
-              <span className="ml-0.5 font-mono text-[10px]">
-                ({healthCount})
-              </span>
-            )}
-          </NavLink>
         </nav>
         <div className="flex-1" />
+        <NavLink
+          to="/diagnostics"
+          className={diagNavClass(diagnostics.overall)}
+          title={diagnosticsTitle(diagnostics.overall, diagnostics.totalCount)}
+          aria-label={diagnosticsTitle(diagnostics.overall, diagnostics.totalCount)}
+        >
+          <DiagnosticsIcon size={20} />
+          {diagnostics.totalCount > 0 && (
+            // Small square badge anchored to the icon's top-right corner.
+            // Square (not rounded-full) to match the chunky pixel aesthetic.
+            // Background tracks severity so it reads even at a glance.
+            <span
+              className={`absolute -right-1 -top-1 flex min-w-3.5 items-center justify-center border border-neutral-950 px-0.5 font-mono text-[9px] font-semibold leading-none text-white ${
+                diagnostics.overall === "error" ? "bg-red-600" : "bg-amber-600"
+              }`}
+            >
+              {diagnostics.totalCount > 99 ? "99+" : diagnostics.totalCount}
+            </span>
+          )}
+        </NavLink>
         <NavLink
           to="/preferences"
           className={prefsNavClass}
@@ -194,9 +210,12 @@ export function App() {
           <Route path="/factions" element={<FactionList />} />
           <Route path="/factions/new" element={<FactionEdit />} />
           <Route path="/factions/:faction" element={<FactionEdit />} />
-          <Route path="/health/*" element={<HealthPage />} />
-          <Route path="/integrity" element={<Navigate to="/health/integrity" replace />} />
-          <Route path="/reconcile" element={<Navigate to="/health/reconcile" replace />} />
+          <Route path="/diagnostics/*" element={<DiagnosticsPage />} />
+          <Route path="/health" element={<Navigate to="/diagnostics" replace />} />
+          <Route path="/health/integrity" element={<Navigate to="/diagnostics/integrity" replace />} />
+          <Route path="/health/reconcile" element={<Navigate to="/diagnostics/reconcile" replace />} />
+          <Route path="/integrity" element={<Navigate to="/diagnostics/integrity" replace />} />
+          <Route path="/reconcile" element={<Navigate to="/diagnostics/reconcile" replace />} />
           <Route path="/preferences" element={<PreferencesPage />} />
           <Route path="/import" element={<Navigate to="/preferences" replace />} />
         </Routes>

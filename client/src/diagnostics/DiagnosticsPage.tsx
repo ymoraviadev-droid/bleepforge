@@ -1,7 +1,11 @@
 import { Navigate, NavLink, Route, Routes, useParams } from "react-router";
 import { IntegrityTab } from "./IntegrityTab";
 import { ReconcileTab } from "./ReconcileTab";
-import { useHealthStatus, type HealthTabId, type TabSignal } from "./useHealthStatus";
+import {
+  useDiagnostics,
+  type DiagnosticsTabId,
+  type TabSignal,
+} from "./useDiagnostics";
 
 // Aggregated diagnostic dashboard. Tabs replace what used to be two
 // standalone pages (/integrity, /reconcile). The unified entry point
@@ -9,16 +13,16 @@ import { useHealthStatus, type HealthTabId, type TabSignal } from "./useHealthSt
 // — instead of asking the user to know which kind of "wrong" applies.
 //
 // Routing:
-//   /health              → redirects to the dirtiest tab (or integrity when clean)
-//   /health/integrity    → integrity tab
-//   /health/reconcile    → reconcile tab
+//   /diagnostics              → redirects to the dirtiest tab (or integrity when clean)
+//   /diagnostics/integrity    → integrity tab
+//   /diagnostics/reconcile    → reconcile tab
 //
-// The old /integrity and /reconcile routes redirect to /health/<tab> for
-// back-compat with bookmarks.
+// The legacy /integrity, /reconcile, and /health routes redirect to
+// /diagnostics/<tab> (see App.tsx) so any old bookmark still lands.
 
-const VALID_TABS: HealthTabId[] = ["integrity", "reconcile"];
+const VALID_TABS: DiagnosticsTabId[] = ["integrity", "reconcile"];
 
-export function HealthPage() {
+export function DiagnosticsPage() {
   return (
     <Routes>
       <Route index element={<DefaultRedirect />} />
@@ -28,7 +32,7 @@ export function HealthPage() {
 }
 
 function DefaultRedirect() {
-  const status = useHealthStatus();
+  const status = useDiagnostics();
   // While loading, default to integrity so we don't bounce the user once data
   // settles. Once loaded, route to the worst tab.
   return <Navigate to={status.worstTab} replace />;
@@ -36,17 +40,17 @@ function DefaultRedirect() {
 
 function TabbedView() {
   const { tab } = useParams<{ tab: string }>();
-  const status = useHealthStatus();
-  const active: HealthTabId = VALID_TABS.includes(tab as HealthTabId)
-    ? (tab as HealthTabId)
+  const status = useDiagnostics();
+  const active: DiagnosticsTabId = VALID_TABS.includes(tab as DiagnosticsTabId)
+    ? (tab as DiagnosticsTabId)
     : "integrity";
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Health</h1>
+        <h1 className="text-xl font-semibold">Diagnostics</h1>
         <p className="mt-1 text-xs text-neutral-500">
-          Project diagnostics — authored content + the .tres → JSON cache.
+          Project status — authored content + the .tres → JSON cache.
         </p>
       </div>
 
@@ -76,7 +80,7 @@ function TabLink({ signal, active }: { signal: TabSignal; active: boolean }) {
 
   return (
     <NavLink
-      to={`/health/${signal.id}`}
+      to={`/diagnostics/${signal.id}`}
       className={() =>
         `border-b-2 px-3 py-2 text-sm transition-colors ${
           active
