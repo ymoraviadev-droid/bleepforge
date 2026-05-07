@@ -1,13 +1,14 @@
-// Watches GODOT_PROJECT_ROOT for .tres changes via chokidar (cross-platform,
-// reliable across deep subtrees, handles atomic-rename saves like Godot's).
-// On change: re-import that single file (so Bleepforge's JSON catches up)
-// and publish a sync event for any connected SSE clients to refetch.
+// Watches GODOT_PROJECT_ROOT for .tres changes via chokidar.
+//
+// chokidar v5 dropped glob support — pass the root directory and filter via
+// the `ignored` predicate. We ignore non-.tres files and the .godot cache
+// directory (lots of churn from Godot's import pipeline; nothing we want).
 //
 // Self-write suppression (via writer.ts's recentSelfWrites map) prevents
 // our own save flow from triggering a useless re-import loop.
 
 import chokidar, { type FSWatcher } from "chokidar";
-import { join } from "node:path";
+import type { Stats } from "node:fs";
 
 import { config } from "../config.js";
 import { publishSyncEvent } from "../sync/eventBus.js";
@@ -25,16 +26,19 @@ export function startTresWatcher(): void {
   if (!shouldWatchTres()) return;
   const root = config.godotProjectRoot!;
 
-  // Watch only `.tres` files under the project root, ignoring the .godot
-  // cache directory (lots of churn from Godot's import pipeline; nothing
-  // we care about lives in there).
-  watcher = chokidar.watch(`${root}/**/*.tres`, {
-    ignored: (p) => p.includes(`${root}/.godot/`) || p.includes("/.godot/"),
+  watcher = chokidar.watch(root, {
+    ignored: (path: string, stats?: Stats): boolean => {
+      // Ignore the .godot cache anywhere.
+      if (path.includes("/.godot/") || path.endsWith("/.godot")) return true;
+      // For files: only watch .tres. (For directories, return false so we
+      // descend into them and find the .tres files inside.)
+      if (stats?.isFile() && !path.endsWith(".tres")) return true;
+      return false;
+    },
     ignoreInitial: true, // don't fire for files that already exist at startup
     awaitWriteFinish: {
-      // Godot saves via temp file + rename. Wait for size to stabilize
-      // before treating the file as "ready" — this collapses the noisy
-      // create/rename/change burst into a single event.
+      // Godot saves via temp file + rename. Wait for size to stabilize so
+      // the file is fully written before we react.
       stabilityThreshold: 200,
       pollInterval: 50,
     },
@@ -47,7 +51,16 @@ export function startTresWatcher(): void {
     console.error(`[tres-watcher] error: ${(err as Error).message}`);
   });
   watcher.on("ready", () => {
-    console.log(`[tres-watcher] active on ${root} (chokidar)`);
+    const watched = watcher?.getWatched();
+    let count = 0;
+    if (watched) {
+      for (const dir of Object.keys(watched)) {
+        for (const f of watched[dir]!) {
+          if (f.endsWith(".tres")) count++;
+        }
+      }
+    }
+    console.log(`[tres-watcher] active on ${root} — watching ${count} .tres files`);
   });
 }
 
@@ -59,17 +72,14 @@ export function stopTresWatcher(): void {
 }
 
 async function handleEvent(absPath: string, kind: "add" | "change" | "unlink"): Promise<void> {
-  // Defensive — chokidar's glob already filters but be explicit.
   if (!absPath.endsWith(".tres")) return;
 
   if (isRecentSelfWrite(absPath)) {
-    // Bleepforge wrote this file via WRITE_TRES. Skip — our JSON is
-    // already what we just emitted, no re-import needed.
     return;
   }
 
   const detected = detectDomain(absPath);
-  if (!detected) return; // not an authored domain we track
+  if (!detected) return;
 
   if (kind === "unlink") {
     const result = await deleteJsonFor(absPath);
@@ -100,7 +110,3 @@ async function handleEvent(absPath: string, kind: "add" | "change" | "unlink"): 
     console.log(`[tres-watcher] reimport failed for ${absPath}: ${result.error}`);
   }
 }
-
-// Suppress unused-import warning when join is no longer used (kept for
-// future helpers).
-void join;
