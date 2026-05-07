@@ -1,4 +1,5 @@
 import type {
+  Concept,
   DialogSequence,
   FactionData,
   Item,
@@ -112,6 +113,29 @@ export const itemsApi = crud<Item>("items", (e) => e.Slug);
 export const karmaApi = crud<KarmaImpact>("karma", (e) => e.Id);
 export const npcsApi = crud<Npc>("npcs", (e) => e.NpcId);
 export const factionsApi = crud<FactionData>("factions", (e) => e.Faction);
+
+// Singleton-style document — one concept doc per project. GET returns either
+// the saved doc or an empty default; PUT overwrites.
+export const conceptApi = {
+  get: async (): Promise<Concept> => {
+    const r = await fetch("/api/concept");
+    if (!r.ok) throw new Error(`get concept failed: ${r.status}`);
+    return r.json();
+  },
+  save: async (concept: Concept): Promise<Concept> => {
+    const r = await fetch("/api/concept", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(concept),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save concept failed: ${r.status} ${body}`);
+    }
+    const data = await r.json();
+    return unwrapSavedResponse<Concept>(data, "concept");
+  },
+};
 
 export interface DialogFolderGroup {
   folder: string;

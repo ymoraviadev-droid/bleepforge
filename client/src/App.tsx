@@ -1,7 +1,10 @@
+import { useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router";
 import { CatalogDatalists } from "./CatalogDatalists";
 import { ModalHost } from "./Modal";
+import { SplashScreen } from "./SplashScreen";
 import { useCatalog } from "./useCatalog";
+import { ConceptPage } from "./concept/Page";
 import { DialogList } from "./dialog/List";
 import { DialogEdit } from "./dialog/Edit";
 import { DialogGraph } from "./dialog/Graph";
@@ -46,20 +49,39 @@ const prefsNavClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 export function App() {
+  // Splash fires on every fresh mount (i.e. real refresh / first load).
+  // The current URL is preserved across the splash because the router doesn't
+  // re-mount — F5 on /quests goes splash → /quests; logo click does
+  // location.href = "/" which both reloads AND lands on /concept.
+  // Eventually replaced by Tauri's native splash for the desktop build.
+  const [showSplash, setShowSplash] = useState(true);
   const catalog = useCatalog();
-  // null catalog → don't show stale state. While loading, integrity is unknown
-  // so we render the neutral nav style (no checkmark, no red).
   const issueCount = catalog ? computeIssues(catalog).length : 0;
   const integrityClean = catalog !== null && issueCount === 0;
   const integrityDirty = catalog !== null && issueCount > 0;
 
+  if (showSplash) {
+    return <SplashScreen onDone={() => setShowSplash(false)} />;
+  }
+
   return (
     <div className="flex h-screen flex-col">
       <header className="flex shrink-0 items-center gap-6 border-b-2 border-neutral-800 bg-neutral-950 px-6 py-4">
-        <span className="font-display text-sm tracking-wider text-emerald-400">
+        <button
+          type="button"
+          onClick={() => {
+            // Hard reload to /. Replays the splash and lands on /concept.
+            window.location.href = "/";
+          }}
+          className="font-display text-sm tracking-wider text-emerald-400 transition-colors hover:text-emerald-300"
+          title="Refresh to home"
+        >
           BLEEPFORGE
-        </span>
+        </button>
         <nav className="flex gap-2">
+          <NavLink to="/concept" className={navLinkClass}>
+            Game concept
+          </NavLink>
           <NavLink to="/factions" className={navLinkClass}>
             Factions
           </NavLink>
@@ -116,7 +138,8 @@ export function App() {
       <ModalHost />
       <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <Routes>
-          <Route path="/" element={<Navigate to="/dialogs" replace />} />
+          <Route path="/" element={<Navigate to="/concept" replace />} />
+          <Route path="/concept" element={<ConceptPage />} />
           <Route path="/dialogs" element={<DialogGraph />} />
           <Route path="/dialogs/list" element={<DialogList />} />
           <Route path="/dialogs/new" element={<DialogEdit />} />

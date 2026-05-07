@@ -4,3 +4,4 @@ export * from "./item";
 export * from "./karma";
 export * from "./npc";
 export * from "./faction";
+export * from "./concept";

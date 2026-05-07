@@ -14,14 +14,16 @@
 
 ## v1 plan (decided)
 
-**Scope** — five data domains:
+**Scope** — six data domains (Godot-mirrored) plus a Bleepforge-only concept doc:
 
 1. Dialogs (`DialogSequence` / `DialogLine` / `DialogChoice`) — **CRUD + interactive graph view + multi-folder implemented**
 2. Quests (`Quest` / `QuestObjective` / `QuestReward`) — **implemented**
 3. Items (`Item`, `Category="QuestItem"` discriminates `QuestItemData`) — **implemented**
 4. Karma impacts (`KarmaImpact` / `KarmaDelta`) — **implemented**
-5. NPCs — **lightweight stub today; full `NpcData` authoring is Phase 2 (in progress)**
-6. Factions (`FactionData`) — **implemented (Phase 1 of the NPC/Faction refactor)**
+5. NPCs (`NpcData` — full authoring; `Quests[]` and `LootTable` round-trip-only in v1) — **implemented**
+6. Factions (`FactionData`) — **implemented**
+
+Plus **Game concept** — a single Bleepforge-only doc (`data/concept.json`) used as the app homepage, *not* exported to Godot. Holds title, tagline, description, logo/icon/splash images, genre, setting, status, inspirations, notes. Covered in the "Architecture decisions" section below.
 
 **Graph view interactions:**
 
@@ -82,6 +84,8 @@ The `DialogGraph` exported component wraps `DialogGraphInner` in `<ReactFlowProv
 - **Theming.** Every theme is a CSS-only override on `[data-theme="X"]` of `<html>`, defined in [client/src/index.css](client/src/index.css). Each block re-points the accent (`--color-emerald-*`) to a different Tailwind palette and re-tints the neutral scale toward the same hue with low chroma. Canvas tones (`--canvas-bg`, `--canvas-pattern`) are set per theme — invariant: canvas is always slightly darker than the page bg so the React Flow stage reads as recessed. Themes: dark, light, red, amber, green, cyan, blue, magenta. [client/src/Theme.tsx](client/src/Theme.tsx) holds the registry + `useTheme` hook + early-applies the saved theme to avoid flash. [client/src/themeColors.ts](client/src/themeColors.ts) exposes `useThemeColors()` to JS that needs the live computed values (SVG strokes, marker fills inside React Flow that can't be Tailwind classes).
 - **Typography knobs.** [client/src/Font.tsx](client/src/Font.tsx) holds three independently-persisted user settings: body font (8 pixel families, native `<select>` with each option styled in its own family), UI scale (`--text-scale` on `:root`, drives `html { font-size }` so `rem`-based padding scales with text — true UI zoom, not text-only resize), letter spacing (`--body-letter-spacing` on `<body>`, mono keeps its hard 0 override). Display font (Press Start 2P) and mono (VT323) stay fixed to preserve identity. The 5 added body fonts beyond Pixelify Sans / Press Start 2P / VT323: Silkscreen, Jersey 10, Tiny5, DotGothic16, Handjet, Workbench, Sixtyfour — all on Google Fonts so no additional infra.
 - **Themed scrollbars.** Track + thumb resolve through `--color-neutral-*` so they re-tint per theme (light themes get a darker thumb on a lighter bg, dark themes the inverse — both directions land naturally). Hover/active uses the accent so grabbing the bar gives a theme-colored "lit up" cue. Webkit pseudos for the hover state, `scrollbar-color` for Firefox.
+- **Game concept page** ([client/src/concept/Page.tsx](client/src/concept/Page.tsx)) is the app homepage at `/concept` — `/` redirects there. Single Bleepforge-only document at [data/concept.json](data/concept.json), served via a singleton router at `/api/concept` (GET + PUT, no list, no domain CRUD machinery). Schema in [shared/src/concept.ts](shared/src/concept.ts). All fields optional — the page renders the splash image / title / tagline / genre etc. as a hero only when content is present, then drops to the editable form below. Not exported to Godot, no `.tres` round-trip.
+- **Splash screen** ([client/src/SplashScreen.tsx](client/src/SplashScreen.tsx)) fires on every fresh mount of the app (i.e. real refresh / first load). Bleepforge logo + 3s pixel-themed loading bar. The current URL is preserved across the splash because the router doesn't re-mount — F5 on `/quests` goes splash → `/quests`. Clicking the `BLEEPFORGE` header label does `window.location.href = "/"`, which both reloads AND lands on `/concept`, so logo-click semantics are "refresh to home" rather than "navigate to home". Eventually replaced by Tauri's native splash for the desktop build; the React version stays as a fallback for web/dev sessions.
 - **List-page card pattern.** Items and Quests share the same shape: header row with count + New button, filter row (text search + domain-specific dropdowns + sort), grid of cards (`grid-cols-1 sm:2 lg:3 xl:4`) grouped by a primary axis. Items group by Category, Quests by quest giver. Cards live in their own component ([item/ItemCard.tsx](client/src/item/ItemCard.tsx), [quest/QuestCard.tsx](client/src/quest/QuestCard.tsx)) and surface the most useful info at a glance: portrait/icon, title, id, line-clamped description, and color-coded Badge components per type/category. Quest cards additionally show objective-type breakdown (`2× kill`, `1× collect`) and reward summary (`150c`, `⌹ 3`, `⚑ 2`), plus an auto-managed-flag strip at the bottom (`ActiveFlag` / `CompleteFlag` / `TurnedInFlag`) only when set.
 - **Schemas mirror Godot resource fields 1:1** (PascalCase keys, same field names). Pays off for manual transcription today, and keeps `.tres` parsing viable later if needed. Note: Bleepforge writes string enums (`"Credits"`, `"QuestItem"`); existing `.tres` files use ints — irrelevant unless we ever sync.
 
