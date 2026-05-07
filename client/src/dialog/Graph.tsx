@@ -1040,6 +1040,22 @@ function DialogGraphInner() {
     });
   }, [folders, folderTypeIndex, sourceFilter]);
 
+  // If the current folder is hidden by the active filter, hop to the first
+  // visible one so the user lands on real data instead of an empty canvas.
+  // Fires on filter change, and on data changes that flip a folder from
+  // matching → not matching (e.g. the last terminal sequence in a folder
+  // gets converted to NPC). When no folder matches the filter at all, we
+  // leave the URL alone — the empty graph + empty tab strip is a clearer
+  // "nothing here" signal than a forced redirect would be.
+  useEffect(() => {
+    if (!folder) return;
+    if (visibleFolders.length === 0) return;
+    if (visibleFolders.includes(folder)) return;
+    navigate(`/dialogs?folder=${encodeURIComponent(visibleFolders[0]!)}`, {
+      replace: true,
+    });
+  }, [folder, visibleFolders, navigate]);
+
   useEffect(() => {
     if (!seqs) return;
     const built = buildGraph(seqs, layout, speakerPortrait, themeColors, folder);
