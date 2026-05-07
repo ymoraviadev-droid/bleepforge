@@ -1,5 +1,6 @@
 import type { Doc, Section } from "../types.js";
 import {
+  addExtResource,
   buildSubResourceSection,
   getAttrValue,
   insertSectionBefore,
@@ -9,6 +10,17 @@ import {
   serializeString,
   serializeSubRefArray,
 } from "../mutate.js";
+
+// Optional context for resolving asset UIDs. When set, the mapper will add
+// new [ext_resource] blocks for portrait textures the .tres doesn't yet
+// reference, and for the DialogChoice.cs script when adding the first
+// choice to a sequence that has none. Without ctx, such cases warn and
+// leave the .tres unchanged.
+export interface DialogApplyContext {
+  godotRoot: string;
+  resolveTextureUid(absPath: string): string | null;
+  resolveDialogChoiceScriptUid(): string | null;
+}
 
 // Maps Bleepforge's DialogSequence JSON onto a parsed .tres.
 //
@@ -92,7 +104,11 @@ export interface DialogApplyResult {
 const DIALOG_LINE_SCRIPT_PATH = "res://shared/components/dialog/DialogLine.cs";
 const DIALOG_CHOICE_SCRIPT_PATH = "res://shared/components/dialog/DialogChoice.cs";
 
-export function applyDialog(doc: Doc, json: DialogSequenceJson): DialogApplyResult {
+export function applyDialog(
+  doc: Doc,
+  json: DialogSequenceJson,
+  ctx?: DialogApplyContext,
+): DialogApplyResult {
   const warnings: string[] = [];
   const resourceSection = doc.sections.find((s) => s.kind === "resource");
   if (!resourceSection) {
@@ -130,14 +146,13 @@ export function applyDialog(doc: Doc, json: DialogSequenceJson): DialogApplyResu
         `cannot append lines: DialogLine.cs ext_resource not found in this .tres (path: ${DIALOG_LINE_SCRIPT_PATH})`,
       );
     } else {
-      const dialogChoiceExt = findScriptExtResource(doc, DIALOG_CHOICE_SCRIPT_PATH);
+      const dialogChoiceExt = ensureDialogChoiceExtResource(doc, ctx, warnings);
       for (let i = originalLineSubIds.length; i < json.Lines.length; i++) {
         const lj = json.Lines[i]!;
-        if (lj.Portrait !== "") {
-          warnings.push(
-            `appended line ${i}: Portrait is set but ExtResource handling is deferred — Portrait skipped`,
-          );
-        }
+        const portraitExtId =
+          lj.Portrait === ""
+            ? null
+            : ensureTextureExtResource(doc, lj.Portrait, ctx, `appended line ${i}`, warnings);
 
         // Build choice sub_resources first (topological order: choices before
         // their referencing line). Skip if DialogChoice.cs ext_resource is
@@ -173,6 +188,9 @@ export function applyDialog(doc: Doc, json: DialogSequenceJson): DialogApplyResu
         }
         if (lj.Text !== "") {
           properties.push({ key: "Text", rawValue: serializeString(lj.Text) });
+        }
+        if (portraitExtId) {
+          properties.push({ key: "Portrait", rawValue: `ExtResource("${portraitExtId}")` });
         }
         if (newChoiceSubIds.length > 0) {
           properties.push({
@@ -242,6 +260,10 @@ export function applyDialog(doc: Doc, json: DialogSequenceJson): DialogApplyResu
       continue;
     }
     const lj = json.Lines[i]!;
+    const portraitExtId =
+      lj.Portrait === ""
+        ? null
+        : ensureTextureExtResource(doc, lj.Portrait, ctx, `line ${i}`, warnings);
     const actions: { key: string; action: Action }[] = [
       {
         key: "SpeakerName",
@@ -262,6 +284,21 @@ export function applyDialog(doc: Doc, json: DialogSequenceJson): DialogApplyResu
         ),
       },
     ];
+    // Portrait — only reconcile when we have something concrete (clear or
+    // resolved ext id). When set-but-unresolvable, leave the line's existing
+    // Portrait property untouched (warning already emitted).
+    let portraitAction: Action = "noop";
+    if (lj.Portrait === "") {
+      portraitAction = reconcileProperty(lineSection, "Portrait", null, LINE_FIELD_ORDER);
+    } else if (portraitExtId) {
+      portraitAction = reconcileProperty(
+        lineSection,
+        "Portrait",
+        `ExtResource("${portraitExtId}")`,
+        LINE_FIELD_ORDER,
+      );
+    }
+    actions.push({ key: "Portrait", action: portraitAction });
 
     // ---- Structural: choice removal/append within this line ----
     const originalChoiceSubIds = extractRefArray(lineSection, "Choices");
@@ -279,7 +316,7 @@ export function applyDialog(doc: Doc, json: DialogSequenceJson): DialogApplyResu
     }
 
     if (lj.Choices.length > originalChoiceSubIds.length) {
-      const dialogChoiceExt = findScriptExtResource(doc, DIALOG_CHOICE_SCRIPT_PATH);
+      const dialogChoiceExt = ensureDialogChoiceExtResource(doc, ctx, warnings);
       if (!dialogChoiceExt) {
         warnings.push(
           `line ${i}: cannot append choices — DialogChoice.cs ext_resource not present in this .tres`,
@@ -364,6 +401,85 @@ export function applyDialog(doc: Doc, json: DialogSequenceJson): DialogApplyResu
 export const applyDialogScalars = applyDialog;
 
 // ---- Helpers ---------------------------------------------------------------
+
+// Returns the {id, uid} of the DialogChoice.cs script ext_resource, adding
+// a new ext_resource block if needed. Returns null if the script can't be
+// resolved (no existing ref AND no ctx UID lookup).
+function ensureDialogChoiceExtResource(
+  doc: Doc,
+  ctx: DialogApplyContext | undefined,
+  warnings: string[],
+): { id: string; uid: string } | null {
+  const existing = findScriptExtResource(doc, DIALOG_CHOICE_SCRIPT_PATH);
+  if (existing) return existing;
+  if (!ctx) {
+    warnings.push(
+      `DialogChoice.cs ext_resource not present and no resolution context — choice operations skipped`,
+    );
+    return null;
+  }
+  const uid = ctx.resolveDialogChoiceScriptUid();
+  if (!uid) {
+    warnings.push(
+      `DialogChoice.cs ext_resource not present and uid lookup failed — choice operations skipped`,
+    );
+    return null;
+  }
+  const id = addExtResource(doc, {
+    type: "Script",
+    uid,
+    path: DIALOG_CHOICE_SCRIPT_PATH,
+  });
+  return { id, uid };
+}
+
+// Returns the ext_resource id for a texture's absolute path, adding a new
+// ext_resource block if needed. Returns null if the texture can't be
+// resolved (no existing ref AND no UID lookup succeeded).
+function ensureTextureExtResource(
+  doc: Doc,
+  absPath: string,
+  ctx: DialogApplyContext | undefined,
+  contextLabel: string,
+  warnings: string[],
+): string | null {
+  if (!ctx) {
+    warnings.push(
+      `${contextLabel}: Portrait set to "${absPath}" but no resolution context — Portrait left unchanged`,
+    );
+    return null;
+  }
+  const resPath = absToResPath(ctx.godotRoot, absPath);
+  if (!resPath) {
+    warnings.push(
+      `${contextLabel}: Portrait absolute path "${absPath}" is not under godotRoot — Portrait left unchanged`,
+    );
+    return null;
+  }
+  // Look for an existing ext_resource by res:// path.
+  for (const s of doc.sections) {
+    if (s.kind !== "ext_resource") continue;
+    if (getAttrValue(s, "type") !== "Texture2D") continue;
+    if (getAttrValue(s, "path") !== resPath) continue;
+    const id = getAttrValue(s, "id");
+    if (id) return id;
+  }
+  // Add a new ext_resource using the asset's actual UID.
+  const uid = ctx.resolveTextureUid(absPath);
+  if (!uid) {
+    warnings.push(
+      `${contextLabel}: Portrait "${absPath}" — no .import sidecar found, can't resolve UID`,
+    );
+    return null;
+  }
+  return addExtResource(doc, { type: "Texture2D", uid, path: resPath });
+}
+
+function absToResPath(godotRoot: string, absPath: string): string | null {
+  const root = godotRoot.replace(/\/$/, "");
+  if (!absPath.startsWith(root + "/")) return null;
+  return "res://" + absPath.substring(root.length + 1);
+}
 
 // Builds a fresh DialogChoice sub_resource section from JSON. Field order
 // matches Godot's: script, Text, NextSequenceId, SetsFlag, metadata. Default

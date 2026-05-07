@@ -246,6 +246,35 @@ Several authored fields are C# enums: `ItemCategory`, `ObjectiveType`, `RewardTy
 
 Flags are **free-form strings** — no schema, no declared registry. Used as boolean state across `NpcState` (seen referenced in `QuestManager`). Set by quest state transitions, dialog choices, dialog sequence entry, and quest rewards. The editor should at minimum offer autocomplete from flags seen elsewhere in the corpus.
 
+## `.tres` write-back
+
+Bleepforge can now write JSON edits back to `.tres` files. The mappers live in `server/src/tres/domains/{item,karma,dialog,quest}.ts`; the format library (parser, emitter, mutation helpers, ext-resource creation) is in [server/src/tres/](server/src/tres/). Each domain has a CLI canary that takes a slug/id (and optional JSON overrides), parses the matching `.tres`, applies the JSON, emits to `dialoguer/.tres-staging/`, and shows a unified diff:
+
+- `pnpm --filter @bleepforge/server canary <slug>` — Item
+- `pnpm --filter @bleepforge/server canary-karma <id>` — KarmaImpact
+- `pnpm --filter @bleepforge/server canary-dialog <folder> <id>` — DialogSequence
+- `pnpm --filter @bleepforge/server canary-quest <id>` — Quest
+
+Plus `pnpm harness` walks every `.tres` in the project and confirms parser+emitter round-trip is byte-identical (currently 88/88).
+
+**What's supported:**
+
+- All scalar property types (string incl. multiline, int, bool, enum-as-int).
+- Default-aware reconcile per field: insert when JSON is non-default and `.tres` omits it; update when both differ; remove when JSON is default and `.tres` has the line; no-op when matching.
+- Position-based scalar reconcile through every nesting level (sequence → lines → choices, quest → objectives/rewards).
+- Trailing structural add/remove of sub-resources (lines, choices, objectives, rewards) with orphan cleanup. Mints `Resource_<5alnum>` IDs in Godot's format.
+- Ext-resource creation when JSON references something the file doesn't yet point at:
+  - Item slugs (TargetItem / Reward.Item) — UID read from `<root>/shared/items/data/<slug>.tres` header.
+  - Texture paths (Portrait) — UID read from `<png>.import` sidecar.
+  - Project scripts (DialogChoice.cs, QuestObjective.cs, QuestReward.cs) — UID found by scanning the project for any other `.tres` that already references the script.
+
+**Known limitations (deferred):**
+
+- **Middle-insert / reorder**: matching is strictly positional. Reordering lines, choices, objectives, or rewards in JSON without identity tags will silently swap their scalar contents (since position N in JSON gets reconciled into position N's existing sub-resource). Detect-and-warn or stable-id support is future work.
+- **Orphan ext-resources** are not cleaned up when their last reference is removed. Godot tolerates them; minor lint, not a correctness issue.
+- **`load_steps` header attribute** isn't maintained (this corpus doesn't use it). If Godot starts emitting it on save, our writer will need to update it.
+- **No UI integration yet**: the canary CLIs are the only consumers. The Bleepforge save flow still writes JSON only; wiring it to also call the relevant mapper is a separate step.
+
 ## Open questions
 
 **Schema:**

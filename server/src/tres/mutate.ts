@@ -180,6 +180,88 @@ export function insertSectionBefore(
   else doc.sections.splice(idx, 0, newSection);
 }
 
+// Adds a new `[ext_resource]` line to the document, immediately after the
+// last existing ext_resource (preserving the trailing blank line). The new
+// id follows Godot's `<num>_<5alnum>` convention; `numberHint` defaults to
+// max(existing num) + 1. Returns the minted id so callers can reference it
+// from sub_resource property values (e.g. `ExtResource("3_abcde")`).
+//
+// If the file has no existing ext_resources at all, the new one is inserted
+// before the first sub_resource (or [resource]).
+export interface AddExtResourceOpts {
+  type: string;
+  uid: string;
+  path: string;
+  numberHint?: number;
+}
+
+export function addExtResource(doc: Doc, opts: AddExtResourceOpts): string {
+  const existingIds = new Set<string>();
+  let maxNum = 0;
+  for (const s of doc.sections) {
+    if (s.kind !== "ext_resource") continue;
+    const id = getAttrValue(s, "id");
+    if (!id) continue;
+    existingIds.add(id);
+    const m = id.match(/^(\d+)_/);
+    if (m) maxNum = Math.max(maxNum, parseInt(m[1]!, 10));
+  }
+  const numPrefix = opts.numberHint ?? maxNum + 1;
+  let newId = "";
+  for (let attempt = 0; attempt < 1000; attempt++) {
+    const candidate = `${numPrefix}_${randomAlnum(5)}`;
+    if (!existingIds.has(candidate)) {
+      newId = candidate;
+      break;
+    }
+  }
+  if (!newId) throw new Error("addExtResource: exhausted id attempts");
+
+  const eol = inferDocEol(doc);
+  const headerLine =
+    `[ext_resource type="${opts.type}" uid="${opts.uid}" path="${opts.path}" id="${newId}"]${eol}`;
+  const newSection: Section = {
+    kind: "ext_resource",
+    rawHeaderLine: headerLine,
+    attrs: [
+      { key: "type", rawValue: `"${opts.type}"` },
+      { key: "uid", rawValue: `"${opts.uid}"` },
+      { key: "path", rawValue: `"${opts.path}"` },
+      { key: "id", rawValue: `"${newId}"` },
+    ],
+    body: [],
+  };
+
+  // Find the last existing ext_resource and append the new one right after.
+  let lastExtIdx = -1;
+  for (let i = 0; i < doc.sections.length; i++) {
+    if (doc.sections[i]!.kind === "ext_resource") lastExtIdx = i;
+  }
+  if (lastExtIdx >= 0) {
+    // Move trailing blank entries from the previous-last to the new section
+    // so they end up between the new ext_resource and whatever follows.
+    const prevLast = doc.sections[lastExtIdx]!;
+    const trailingBlanks: BodyEntry[] = [];
+    while (
+      prevLast.body.length > 0 &&
+      prevLast.body[prevLast.body.length - 1]!.kind === "blank"
+    ) {
+      trailingBlanks.unshift(prevLast.body.pop()!);
+    }
+    doc.sections.splice(lastExtIdx + 1, 0, newSection);
+    newSection.body.push(...trailingBlanks);
+  } else {
+    // No existing ext_resources — fall back to inserting before sub_resource
+    // or [resource], with a trailing blank for spacing.
+    newSection.body.push({ kind: "blank", raw: eol });
+    const subIdx = doc.sections.findIndex((s) => s.kind === "sub_resource");
+    if (subIdx >= 0) doc.sections.splice(subIdx, 0, newSection);
+    else insertSectionBefore(doc, "resource", newSection);
+  }
+
+  return newId;
+}
+
 // Mints a sub_resource id in Godot's format: `<ClassName>_<5alnum>`.
 // Default ClassName is "Resource" (matching what Godot writes for plain
 // scripted Resource sub_resources). Guarantees no collision with existing
@@ -280,4 +362,14 @@ function inferSectionEol(section: Section): string {
     if (e.kind === "blank") return detectEol(e.raw);
   }
   return detectEol(section.rawHeaderLine);
+}
+
+// Infers EOL convention for the whole document. Looks at the first section's
+// header line; if none exists, defaults to "\n".
+function inferDocEol(doc: Doc): string {
+  for (const s of doc.sections) {
+    const e = detectEol(s.rawHeaderLine);
+    return e;
+  }
+  return "\n";
 }

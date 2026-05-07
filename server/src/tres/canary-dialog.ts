@@ -17,7 +17,8 @@ import { fileURLToPath } from "node:url";
 
 import { parseTres } from "./parser.js";
 import { emitTres } from "./emitter.js";
-import { applyDialog, type DialogSequenceJson } from "./domains/dialog.js";
+import { applyDialog, type DialogApplyContext, type DialogSequenceJson } from "./domains/dialog.js";
+import { findScriptUidInProject, readTextureUid } from "./uidLookup.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -78,8 +79,33 @@ async function main(): Promise<void> {
   const text = await readFile(matchAbs, "utf8");
   const doc = parseTres(text);
 
+  // Pre-resolve texture UIDs for any Portrait paths referenced in JSON. Used
+  // by the mapper to add a new ext_resource when the .tres doesn't yet
+  // reference a portrait the JSON wants to point at.
+  const portraitPaths = new Set<string>();
+  for (const line of json.Lines) if (line.Portrait) portraitPaths.add(line.Portrait);
+  const textureUidCache = new Map<string, string | null>();
+  for (const p of portraitPaths) {
+    textureUidCache.set(p, await readTextureUid(p));
+  }
+  // Pre-resolve DialogChoice.cs script UID — used as fallback when adding
+  // the first choice to a sequence that has no DialogChoice.cs ext_resource.
+  let dialogChoiceScriptUid: string | null = null;
+  const needsChoiceScript = json.Lines.some((l) => l.Choices.length > 0);
+  if (needsChoiceScript) {
+    dialogChoiceScriptUid = await findScriptUidInProject(
+      astroRoot,
+      "res://shared/components/dialog/DialogChoice.cs",
+    );
+  }
+  const ctx: DialogApplyContext = {
+    godotRoot: astroRoot,
+    resolveTextureUid: (abs) => textureUidCache.get(abs) ?? null,
+    resolveDialogChoiceScriptUid: () => dialogChoiceScriptUid,
+  };
+
   // 3. Apply.
-  const result = applyDialog(doc, json);
+  const result = applyDialog(doc, json, ctx);
   for (const a of result.resourceActions) {
     if (a.action !== "noop") console.log(`[canary-dialog] resource: ${a.action} ${a.key}`);
   }

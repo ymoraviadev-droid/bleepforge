@@ -1,5 +1,6 @@
 import type { Doc, Section } from "../types.js";
 import {
+  addExtResource,
   buildSubResourceSection,
   getAttrValue,
   insertSectionBefore,
@@ -12,6 +13,16 @@ import {
   serializeString,
   serializeSubRefArray,
 } from "../mutate.js";
+
+// Optional context for slug-to-UID resolution. When set, the mapper will
+// add a new [ext_resource] block for any TargetItem/Item slug that the
+// .tres doesn't already reference. Without this, such slugs warn and leave
+// the property unchanged.
+export interface QuestApplyContext {
+  resolveItemUid(slug: string): string | null;
+  resolveObjectiveScriptUid(): string | null;
+  resolveRewardScriptUid(): string | null;
+}
 
 // Maps Bleepforge's Quest JSON onto a parsed .tres.
 //
@@ -140,7 +151,11 @@ export interface QuestApplyResult {
   warnings: string[];
 }
 
-export function applyQuest(doc: Doc, json: QuestJson): QuestApplyResult {
+export function applyQuest(
+  doc: Doc,
+  json: QuestJson,
+  ctx?: QuestApplyContext,
+): QuestApplyResult {
   const warnings: string[] = [];
   const resourceSection = doc.sections.find((s) => s.kind === "resource");
   if (!resourceSection) {
@@ -164,16 +179,20 @@ export function applyQuest(doc: Doc, json: QuestJson): QuestApplyResult {
   }
 
   if (json.Objectives.length > origObjIds.length) {
-    const objExt = findScriptExtResource(doc, QUEST_OBJECTIVE_SCRIPT_PATH);
+    const objExt = ensureScriptExtResource(
+      doc,
+      QUEST_OBJECTIVE_SCRIPT_PATH,
+      ctx?.resolveObjectiveScriptUid(),
+      "QuestObjective.cs",
+      warnings,
+    );
     if (!objExt) {
-      warnings.push(
-        `cannot append objectives: QuestObjective.cs ext_resource not present in this .tres`,
-      );
+      // already warned
     } else {
       for (let i = origObjIds.length; i < json.Objectives.length; i++) {
         const oj = json.Objectives[i]!;
         const subId = mintSubResourceId(doc);
-        const section = buildObjectiveSubResource(doc, oj, objExt, subId, warnings, i);
+        const section = buildObjectiveSubResource(doc, oj, objExt, subId, warnings, i, ctx);
         insertSectionBefore(doc, "resource", section);
         finalObjIds.push(subId);
         objectivesAdded.push({ index: i, subId });
@@ -197,16 +216,20 @@ export function applyQuest(doc: Doc, json: QuestJson): QuestApplyResult {
   }
 
   if (json.Rewards.length > origRwdIds.length) {
-    const rwdExt = findScriptExtResource(doc, QUEST_REWARD_SCRIPT_PATH);
+    const rwdExt = ensureScriptExtResource(
+      doc,
+      QUEST_REWARD_SCRIPT_PATH,
+      ctx?.resolveRewardScriptUid(),
+      "QuestReward.cs",
+      warnings,
+    );
     if (!rwdExt) {
-      warnings.push(
-        `cannot append rewards: QuestReward.cs ext_resource not present in this .tres`,
-      );
+      // already warned
     } else {
       for (let i = origRwdIds.length; i < json.Rewards.length; i++) {
         const rj = json.Rewards[i]!;
         const subId = mintSubResourceId(doc);
-        const section = buildRewardSubResource(doc, rj, rwdExt, subId, warnings, i);
+        const section = buildRewardSubResource(doc, rj, rwdExt, subId, warnings, i, ctx);
         insertSectionBefore(doc, "resource", section);
         finalRwdIds.push(subId);
         rewardsAdded.push({ index: i, subId });
@@ -316,6 +339,7 @@ export function applyQuest(doc: Doc, json: QuestJson): QuestApplyResult {
       oj,
       i,
       warnings,
+      ctx,
     );
     objectives.push({ index: i, subId, actions });
   }
@@ -337,6 +361,7 @@ export function applyQuest(doc: Doc, json: QuestJson): QuestApplyResult {
       rj,
       i,
       warnings,
+      ctx,
     );
     rewards.push({ index: i, subId, actions });
   }
@@ -361,6 +386,7 @@ function reconcileObjectiveScalars(
   oj: QuestObjectiveJson,
   i: number,
   warnings: string[],
+  ctx?: QuestApplyContext,
 ): { key: string; action: Action }[] {
   const actions: { key: string; action: Action }[] = [
     {
@@ -440,6 +466,7 @@ function reconcileObjectiveScalars(
       OBJECTIVE_FIELD_ORDER,
       `objective ${i}`,
       warnings,
+      ctx,
     ),
   });
   return actions;
@@ -451,6 +478,7 @@ function reconcileRewardScalars(
   rj: QuestRewardJson,
   i: number,
   warnings: string[],
+  ctx?: QuestApplyContext,
 ): { key: string; action: Action }[] {
   const actions: { key: string; action: Action }[] = [
     {
@@ -500,6 +528,7 @@ function reconcileRewardScalars(
       REWARD_FIELD_ORDER,
       `reward ${i}`,
       warnings,
+      ctx,
     ),
   });
   return actions;
@@ -514,6 +543,7 @@ function buildObjectiveSubResource(
   subId: string,
   warnings: string[],
   i: number,
+  ctx: QuestApplyContext | undefined,
 ): Section {
   const props: { key: string; rawValue: string }[] = [
     { key: "script", rawValue: `ExtResource("${scriptExt.id}")` },
@@ -524,14 +554,8 @@ function buildObjectiveSubResource(
   if (oj.Type !== "CollectItem")
     props.push({ key: "Type", rawValue: serializeEnumInt(oj.Type, OBJECTIVE_TYPE_TO_INT) });
   if (oj.TargetItem !== "") {
-    const extId = findItemExtResourceBySlug(doc, oj.TargetItem);
-    if (extId) {
-      props.push({ key: "TargetItem", rawValue: `ExtResource("${extId}")` });
-    } else {
-      warnings.push(
-        `objective ${i}: TargetItem slug "${oj.TargetItem}" has no matching ext_resource — TargetItem omitted`,
-      );
-    }
+    const extId = ensureItemExtResource(doc, oj.TargetItem, ctx, `appended objective ${i}`, warnings);
+    if (extId) props.push({ key: "TargetItem", rawValue: `ExtResource("${extId}")` });
   }
   if (oj.TargetId !== "") props.push({ key: "TargetId", rawValue: serializeString(oj.TargetId) });
   if (oj.EnemyType !== "")
@@ -554,6 +578,7 @@ function buildRewardSubResource(
   subId: string,
   warnings: string[],
   i: number,
+  ctx: QuestApplyContext | undefined,
 ): Section {
   const props: { key: string; rawValue: string }[] = [
     { key: "script", rawValue: `ExtResource("${scriptExt.id}")` },
@@ -561,14 +586,8 @@ function buildRewardSubResource(
   if (rj.Type !== "Item")
     props.push({ key: "Type", rawValue: serializeEnumInt(rj.Type, REWARD_TYPE_TO_INT) });
   if (rj.Item !== "") {
-    const extId = findItemExtResourceBySlug(doc, rj.Item);
-    if (extId) {
-      props.push({ key: "Item", rawValue: `ExtResource("${extId}")` });
-    } else {
-      warnings.push(
-        `reward ${i}: Item slug "${rj.Item}" has no matching ext_resource — Item omitted`,
-      );
-    }
+    const extId = ensureItemExtResource(doc, rj.Item, ctx, `appended reward ${i}`, warnings);
+    if (extId) props.push({ key: "Item", rawValue: `ExtResource("${extId}")` });
   }
   if (rj.Quantity !== 1)
     props.push({ key: "Quantity", rawValue: serializeInt(rj.Quantity) });
@@ -606,18 +625,42 @@ function reconcileItemRef(
   fieldOrder: readonly string[],
   contextLabel: string,
   warnings: string[],
+  ctx: QuestApplyContext | undefined,
 ): Action {
   if (slug === "") {
     return reconcileProperty(section, key, null, fieldOrder);
   }
-  const extId = findItemExtResourceBySlug(doc, slug);
-  if (!extId) {
-    warnings.push(
-      `${contextLabel}: ${key} slug "${slug}" has no matching ext_resource in this .tres — left unchanged`,
-    );
-    return "noop";
-  }
+  const extId = ensureItemExtResource(doc, slug, ctx, contextLabel, warnings);
+  if (!extId) return "noop";
   return reconcileProperty(section, key, `ExtResource("${extId}")`, fieldOrder);
+}
+
+// Returns the ext_resource id for an item slug, adding a new ext_resource
+// block if the .tres doesn't yet reference that item and ctx can resolve
+// the item's UID. Returns null if neither is possible (warns).
+function ensureItemExtResource(
+  doc: Doc,
+  slug: string,
+  ctx: QuestApplyContext | undefined,
+  contextLabel: string,
+  warnings: string[],
+): string | null {
+  const existing = findItemExtResourceBySlug(doc, slug);
+  if (existing) return existing;
+  if (ctx) {
+    const uid = ctx.resolveItemUid(slug);
+    if (uid) {
+      return addExtResource(doc, {
+        type: "Resource",
+        uid,
+        path: `res://shared/items/data/${slug}.tres`,
+      });
+    }
+  }
+  warnings.push(
+    `${contextLabel}: item slug "${slug}" has no ext_resource and uid lookup failed — reference left unchanged`,
+  );
+  return null;
 }
 
 function findItemExtResourceBySlug(doc: Doc, slug: string): string | null {
@@ -630,6 +673,28 @@ function findItemExtResourceBySlug(doc: Doc, slug: string): string | null {
     if (id) return id;
   }
   return null;
+}
+
+// Returns the {id, uid} of a script ext_resource, adding a new
+// `[ext_resource type="Script"]` block if needed. Returns null and warns
+// if the script can't be resolved.
+function ensureScriptExtResource(
+  doc: Doc,
+  resPath: string,
+  uidFromCtx: string | null | undefined,
+  scriptLabel: string,
+  warnings: string[],
+): { id: string; uid: string } | null {
+  const existing = findScriptExtResource(doc, resPath);
+  if (existing) return existing;
+  if (!uidFromCtx) {
+    warnings.push(
+      `${scriptLabel} ext_resource not present and uid lookup failed — operation skipped`,
+    );
+    return null;
+  }
+  const id = addExtResource(doc, { type: "Script", uid: uidFromCtx, path: resPath });
+  return { id, uid: uidFromCtx };
 }
 
 function findScriptExtResource(

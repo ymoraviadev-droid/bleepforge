@@ -12,7 +12,8 @@ import { fileURLToPath } from "node:url";
 
 import { parseTres } from "./parser.js";
 import { emitTres } from "./emitter.js";
-import { applyQuest, type QuestJson } from "./domains/quest.js";
+import { applyQuest, type QuestApplyContext, type QuestJson } from "./domains/quest.js";
+import { findScriptUidInProject, readItemUid } from "./uidLookup.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -75,7 +76,39 @@ async function main(): Promise<void> {
   const relPath = relative(astroRoot, matchAbs);
   console.log(`[canary-quest] matched .tres: ${relPath}`);
 
-  const result = applyQuest(matchDoc, json);
+  // Pre-resolve item UIDs for any slug referenced in JSON. Used by the mapper
+  // to add a new ext_resource block when the .tres doesn't yet reference an
+  // item that the JSON wants to point at.
+  const itemSlugs = new Set<string>();
+  for (const obj of json.Objectives) if (obj.TargetItem) itemSlugs.add(obj.TargetItem);
+  for (const rwd of json.Rewards) if (rwd.Item) itemSlugs.add(rwd.Item);
+  const itemUidCache = new Map<string, string | null>();
+  for (const slug of itemSlugs) {
+    itemUidCache.set(slug, await readItemUid(astroRoot, slug));
+  }
+  // Pre-resolve script UIDs as fallback for adding the first
+  // objective/reward to a quest that lacks the corresponding script ref.
+  let objectiveScriptUid: string | null = null;
+  let rewardScriptUid: string | null = null;
+  if (json.Objectives.length > 0) {
+    objectiveScriptUid = await findScriptUidInProject(
+      astroRoot,
+      "res://shared/components/quest/QuestObjective.cs",
+    );
+  }
+  if (json.Rewards.length > 0) {
+    rewardScriptUid = await findScriptUidInProject(
+      astroRoot,
+      "res://shared/components/quest/QuestReward.cs",
+    );
+  }
+  const ctx: QuestApplyContext = {
+    resolveItemUid: (slug) => itemUidCache.get(slug) ?? null,
+    resolveObjectiveScriptUid: () => objectiveScriptUid,
+    resolveRewardScriptUid: () => rewardScriptUid,
+  };
+
+  const result = applyQuest(matchDoc, json, ctx);
   for (const a of result.resourceActions) {
     if (a.action !== "noop") console.log(`[canary-quest] resource: ${a.action} ${a.key}`);
   }
