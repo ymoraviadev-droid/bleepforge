@@ -33,7 +33,7 @@ import {
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
 import "@xyflow/react/dist/style.css";
-import type { DialogSequence, Npc } from "@bleepforge/shared";
+import type { DialogSequence, DialogSourceType, Npc } from "@bleepforge/shared";
 import {
   dialogsApi,
   emptyLayout,
@@ -936,6 +936,11 @@ function writeSavedViewport(folder: string, vp: SavedViewport) {
 
 function DialogGraphInner() {
   const [folders, setFolders] = useState<string[] | null>(null);
+  // Folder → sequences mapping across the whole project. Used so the folder
+  // tabs can hide folders that don't match the current SourceType filter.
+  const [folderTypeIndex, setFolderTypeIndex] = useState<
+    Map<string, DialogSourceType[]>
+  >(new Map());
   const [seqs, setSeqs] = useState<DialogSequence[] | null>(null);
   const [npcs, setNpcs] = useState<Npc[]>([]);
   const [layout, setLayout] = useState<DialogLayout>(emptyLayout());
@@ -970,7 +975,31 @@ function DialogGraphInner() {
   useEffect(() => {
     dialogsApi.listFolders().then(setFolders).catch((e) => setError(String(e)));
     npcsApi.list().then(setNpcs).catch(() => {});
+    refreshFolderTypeIndex();
   }, []);
+
+  function refreshFolderTypeIndex() {
+    dialogsApi
+      .listAll()
+      .then((groups) => {
+        const m = new Map<string, DialogSourceType[]>();
+        for (const g of groups) {
+          m.set(
+            g.folder,
+            g.sequences.map((s) => s.SourceType),
+          );
+        }
+        setFolderTypeIndex(m);
+      })
+      .catch(() => {});
+  }
+
+  // Keep the folder-type index live when dialogs change externally (Godot
+  // save → watcher) or via Bleepforge edits.
+  useSyncRefresh({
+    domain: "dialog",
+    onChange: () => refreshFolderTypeIndex(),
+  });
 
   useEffect(() => {
     if (!folder) {
@@ -999,48 +1028,69 @@ function DialogGraphInner() {
     "all",
   );
 
+  // Folders that contain at least one sequence matching the active source
+  // filter. When filter is "all", every folder is visible.
+  const visibleFolders = useMemo(() => {
+    if (!folders) return [] as string[];
+    if (sourceFilter === "all") return folders;
+    return folders.filter((f) => {
+      const types = folderTypeIndex.get(f);
+      if (!types || types.length === 0) return true; // unknown → keep
+      return types.some((t) => t === sourceFilter);
+    });
+  }, [folders, folderTypeIndex, sourceFilter]);
+
   useEffect(() => {
     if (!seqs) return;
     const built = buildGraph(seqs, layout, speakerPortrait, themeColors, folder);
 
-    if (sourceFilter !== "all") {
-      const visibleIds = new Set<string>();
-      for (const n of built.nodes) {
-        const data = n.data as SeqNodeData;
-        // Ghost nodes (dangling targets) inherit their visibility from
-        // whether anyone visible still points at them — handled below.
-        if (data.ghost) continue;
-        if (data.seq.SourceType === sourceFilter) visibleIds.add(n.id);
+    if (sourceFilter === "all") {
+      setNodes(built.nodes);
+      setEdges(built.edges);
+      return;
+    }
+
+    // Visibility pass: a sequence is visible iff its SourceType matches the
+    // filter. Ghost (dangling) nodes "ride along" — they stay visible if at
+    // least one still-visible source points at them, so the broken-link
+    // signal isn't lost under filtering.
+    const visibleIds = new Set<string>();
+    for (const n of built.nodes) {
+      const data = n.data as SeqNodeData;
+      if (!data.ghost && data.seq.SourceType === sourceFilter) {
+        visibleIds.add(n.id);
       }
-      for (const n of built.nodes) {
-        const data = n.data as SeqNodeData;
-        if (data.ghost) {
-          // Ghost only stays visible if at least one visible node still
-          // references it.
-          n.hidden = true;
-          continue;
-        }
-        n.hidden = !visibleIds.has(n.id);
-      }
-      for (const e of built.edges) {
-        const sourceVisible = visibleIds.has(e.source);
-        const targetVisible = visibleIds.has(e.target);
-        e.hidden = !(sourceVisible && targetVisible);
-        // Re-show ghost target if a visible source points at it.
-        if (sourceVisible && !targetVisible) {
-          const ghost = built.nodes.find(
-            (n) => n.id === e.target && (n.data as SeqNodeData).ghost,
-          );
-          if (ghost) {
-            ghost.hidden = false;
-            e.hidden = false;
-          }
-        }
+    }
+    const ghostsToShow = new Set<string>();
+    for (const e of built.edges) {
+      if (!visibleIds.has(e.source)) continue;
+      const target = built.nodes.find((n) => n.id === e.target);
+      if (target && (target.data as SeqNodeData).ghost) {
+        ghostsToShow.add(e.target);
       }
     }
 
-    setNodes(built.nodes);
-    setEdges(built.edges);
+    // Build fresh node + edge objects with the hidden flag set explicitly.
+    // Going through `.map` (rather than mutating `built.nodes` in place)
+    // guarantees React Flow's reconciliation sees prop changes — mutating
+    // shared object identity here was masking the filter on some renders.
+    setNodes(
+      built.nodes.map((n) => {
+        const data = n.data as SeqNodeData;
+        const visible = data.ghost
+          ? ghostsToShow.has(n.id)
+          : visibleIds.has(n.id);
+        return { ...n, hidden: !visible };
+      }),
+    );
+    setEdges(
+      built.edges.map((e) => {
+        const sourceVisible = visibleIds.has(e.source);
+        const targetVisible =
+          visibleIds.has(e.target) || ghostsToShow.has(e.target);
+        return { ...e, hidden: !(sourceVisible && targetVisible) };
+      }),
+    );
   }, [
     seqs,
     layout,
@@ -1517,7 +1567,7 @@ function DialogGraphInner() {
       </div>
 
       <div className="flex shrink-0 items-center justify-between gap-3">
-        <FolderTabs folders={folders} selected={folder} basePath="/dialogs" />
+        <FolderTabs folders={visibleFolders} selected={folder} basePath="/dialogs" />
         <SourceFilter value={sourceFilter} onChange={setSourceFilter} />
       </div>
 
