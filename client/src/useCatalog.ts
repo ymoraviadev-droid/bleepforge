@@ -5,6 +5,7 @@ import type {
   Item,
   KarmaImpact,
   Npc,
+  Pickup,
   Quest,
 } from "@bleepforge/shared";
 import {
@@ -13,6 +14,7 @@ import {
   itemsApi,
   karmaApi,
   npcsApi,
+  pickupsApi,
   questsApi,
   type DialogFolderGroup,
 } from "./api";
@@ -26,6 +28,7 @@ export interface Catalog {
   quests: Quest[];
   karma: KarmaImpact[];
   factions: FactionData[];
+  pickups: Pickup[];
   dialogs: DialogFolderGroup[];
   sequences: DialogSequence[];
   flags: string[];
@@ -67,9 +70,10 @@ export function useCatalog(): Catalog | null {
       questsApi.list(),
       karmaApi.list(),
       factionsApi.list(),
+      pickupsApi.list(),
       dialogsApi.listAll(),
     ])
-      .then(([npcs, items, quests, karma, factions, dialogs]) => {
+      .then(([npcs, items, quests, karma, factions, pickups, dialogs]) => {
         if (cancelled) return;
         const sequences = dialogs.flatMap((g) => g.sequences);
         const flags = collectFlags(sequences, quests);
@@ -79,6 +83,7 @@ export function useCatalog(): Catalog | null {
           quests,
           karma,
           factions,
+          pickups,
           dialogs,
           sequences,
           flags,

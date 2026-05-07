@@ -30,6 +30,28 @@ export async function readTextureUid(absPngPath: string): Promise<string | null>
   return m ? m[1]! : null;
 }
 
+// Reads a `.tscn` (PackedScene) header and extracts its UID — the
+// `uid="uid://..."` attribute on `[gd_scene ...]`. Used by the NpcData
+// LootTable writer to add a PackedScene ext_resource for a LootEntry's
+// PickupScene reference.
+//
+// `scenePath` is `res://world/collectibles/.../<name>.tscn`.
+export async function readSceneUid(
+  godotRoot: string,
+  scenePath: string,
+): Promise<string | null> {
+  if (!scenePath.startsWith("res://")) return null;
+  const abs = join(godotRoot, scenePath.substring("res://".length));
+  let text: string;
+  try {
+    text = await readFile(abs, "utf8");
+  } catch {
+    return null;
+  }
+  const m = text.match(/^\[gd_scene\b[^\]]*\buid="([^"]+)"/m);
+  return m ? m[1]! : null;
+}
+
 // Walks the Godot project for any .tres that declares an `[ext_resource
 // type="Script" path="<scriptResPath>"]`, and returns its UID. Lets us
 // add a script ext_resource even when the current file doesn't yet have it.

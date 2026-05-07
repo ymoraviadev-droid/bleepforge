@@ -31,11 +31,18 @@ import { applyItemScalars, type ItemJson } from "./domains/item.js";
 import { applyKarma, type KarmaJson } from "./domains/karma.js";
 import { applyDialog, type DialogApplyContext, type DialogSequenceJson } from "./domains/dialog.js";
 import { applyFactionScalars, type FactionJson } from "./domains/faction.js";
-import { applyNpcScalars, type NpcJson } from "./domains/npc.js";
+import {
+  applyNpcLootTable,
+  applyNpcScalars,
+  type LootTableJson,
+  type NpcJson,
+  type NpcLootApplyContext,
+} from "./domains/npc.js";
 import { applyQuest, type QuestApplyContext, type QuestJson } from "./domains/quest.js";
 import {
   findScriptUidInProject,
   readItemUid,
+  readSceneUid,
   readTextureUid,
 } from "./uidLookup.js";
 
@@ -122,11 +129,44 @@ export async function writeNpcTres(json: Npc): Promise<TresWriteResult> {
   if (!found) {
     return { attempted: true, ok: false, error: `no .tres for npc "${json.NpcId}"` };
   }
+
+  // Pre-resolve UIDs the LootTable mapper might need: the two loot scripts
+  // (so we can add ext_resources for them when the .tres doesn't already
+  // reference them — Korjack-style "no LootTable yet" case), and a UID per
+  // unique PickupScene path used by the JSON entries (so each LootEntry can
+  // be wired to the correct PackedScene ext_resource).
+  const lootTableScriptUid = json.LootTable
+    ? await findScriptUidInProject(root, "res://shared/components/loot/LootTable.cs")
+    : null;
+  const lootEntryScriptUid =
+    json.LootTable && json.LootTable.Entries.length > 0
+      ? await findScriptUidInProject(root, "res://shared/components/loot/LootEntry.cs")
+      : null;
+  const sceneUidCache = new Map<string, string | null>();
+  if (json.LootTable) {
+    for (const entry of json.LootTable.Entries) {
+      if (!entry.PickupScene) continue;
+      if (sceneUidCache.has(entry.PickupScene)) continue;
+      sceneUidCache.set(entry.PickupScene, await readSceneUid(root, entry.PickupScene));
+    }
+  }
+  const lootCtx: NpcLootApplyContext = {
+    lootTableScriptUid,
+    lootEntryScriptUid,
+    resolveSceneUid: (path) => sceneUidCache.get(path) ?? null,
+  };
+
   return runWrite(found.path, (doc) => {
     const resourceSection = doc.sections.find((s) => s.kind === "resource");
     if (!resourceSection) return ["no [resource] section"];
-    const result = applyNpcScalars(resourceSection, json as NpcJson);
-    return result.warnings;
+    const scalars = applyNpcScalars(resourceSection, json as NpcJson);
+    const loot = applyNpcLootTable(
+      doc,
+      resourceSection,
+      json.LootTable as LootTableJson | null,
+      lootCtx,
+    );
+    return [...scalars.warnings, ...loot.warnings];
   });
 }
 

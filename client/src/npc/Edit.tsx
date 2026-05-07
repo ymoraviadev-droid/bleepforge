@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import type { Npc, NpcQuestEntry, LootEntry } from "@bleepforge/shared";
-import { npcsApi } from "../api";
+import type {
+  Item,
+  Npc,
+  NpcQuestEntry,
+  LootEntry,
+  Pickup,
+} from "@bleepforge/shared";
+import { itemsApi, npcsApi, pickupsApi } from "../api";
 import { AssetPicker } from "../AssetPicker";
 import { AssetThumb } from "../AssetThumb";
-import { ButtonLink } from "../Button";
+import { Button, ButtonLink } from "../Button";
 import { DL } from "../CatalogDatalists";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { showConfirm } from "../Modal";
@@ -35,6 +41,8 @@ export function NpcEdit() {
   const [npc, setNpc] = useState<Npc | null>(isNew ? empty() : null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pickups, setPickups] = useState<Pickup[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
 
   useEffect(() => {
     if (isNew) return;
@@ -43,6 +51,14 @@ export function NpcEdit() {
       .then((n) => (n === null ? setError("not found") : setNpc(n)))
       .catch((e) => setError(String(e)));
   }, [npcId, isNew]);
+
+  // Pickups (collectible scenes) + items: feed the LootTable editor.
+  // Pickups give us the dropdown options; items resolve each pickup's
+  // DbItemName to a friendly display name.
+  useEffect(() => {
+    pickupsApi.list().then(setPickups).catch(() => {});
+    itemsApi.list().then(setItems).catch(() => {});
+  }, []);
 
   useSyncRefresh({
     domain: "npc",
@@ -238,14 +254,17 @@ export function NpcEdit() {
       </Section>
 
       <QuestsReadOnly entries={npc.Quests} />
-      <LootReadOnly entries={npc.LootTable?.Entries ?? []} />
+      <LootEditor
+        npc={npc}
+        pickups={pickups}
+        items={items}
+        onChange={(LootTable) => update({ LootTable })}
+      />
 
       <p className="text-xs text-neutral-500">
-        v1: this form authors the scalar fields. <span className="font-mono">Quests[]</span>{" "}
-        and <span className="font-mono">LootTable.Entries[]</span> are
-        round-tripped — saving here preserves them in the .tres untouched but
-        doesn't currently let you author them. To edit, use Godot's inspector
-        and the changes will live-sync back here.
+        <span className="font-mono">Quests[]</span> is still round-trip-only —
+        saving preserves it in the .tres, but the dialog↔quest bridge editor
+        is Phase 3. Use Godot's inspector for now; the watcher syncs back.
       </p>
     </div>
   );
@@ -332,34 +351,216 @@ function DialogRefRow({ label, id }: { label: string; id: string }) {
   );
 }
 
-function LootReadOnly({ entries }: { entries: LootEntry[] }) {
-  if (entries.length === 0) return null;
+// Editable LootTable. Add / remove rows, pick a collectible scene from the
+// dropdown, edit chance + min/max amounts. Adding the first entry creates
+// the LootTable wrapper; "Remove loot table" wipes it entirely (sets to
+// null, which the writer translates to removing the LootTable sub-resource
+// + its line on the NPC's [resource] section).
+function LootEditor({
+  npc,
+  pickups,
+  items,
+  onChange,
+}: {
+  npc: Npc;
+  pickups: Pickup[];
+  items: Item[];
+  onChange: (next: Npc["LootTable"]) => void;
+}) {
+  const lootTable = npc.LootTable;
+  const entries = lootTable?.Entries ?? [];
+
+  // Item slug → display name, for showing what each pickup wraps.
+  const itemNameBySlug = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const it of items) m.set(it.Slug, it.DisplayName || it.Slug);
+    return m;
+  }, [items]);
+
+  const pickupByPath = useMemo(() => {
+    const m = new Map<string, Pickup>();
+    for (const p of pickups) m.set(p.path, p);
+    return m;
+  }, [pickups]);
+
+  const addEntry = () => {
+    const next: LootEntry = {
+      PickupScene: pickups[0]?.path ?? "",
+      Chance: 1,
+      MinAmount: 1,
+      MaxAmount: 1,
+    };
+    onChange({
+      _subId: lootTable?._subId,
+      Entries: [...entries, next],
+    });
+  };
+
+  const updateEntry = (idx: number, patch: Partial<LootEntry>) => {
+    const nextEntries = entries.map((e, i) =>
+      i === idx ? { ...e, ...patch } : e,
+    );
+    onChange({ _subId: lootTable?._subId, Entries: nextEntries });
+  };
+
+  const removeEntry = (idx: number) => {
+    const nextEntries = entries.filter((_, i) => i !== idx);
+    onChange({ _subId: lootTable?._subId, Entries: nextEntries });
+  };
+
+  const removeTable = () => onChange(null);
+
   return (
-    <Section title={`Loot table (${entries.length}, read-only)`}>
-      <table className="w-full text-xs">
-        <thead className="text-neutral-500">
-          <tr>
-            <th className="pb-1 text-left font-medium">Pickup scene</th>
-            <th className="pb-1 text-right font-medium">Chance</th>
-            <th className="pb-1 text-right font-medium">Min</th>
-            <th className="pb-1 text-right font-medium">Max</th>
-          </tr>
-        </thead>
-        <tbody className="font-mono">
-          {entries.map((e, i) => (
-            <tr key={e._subId ?? i} className="border-t border-neutral-800">
-              <td className="py-1 pr-2 text-neutral-200">
-                {e.PickupScene || (
-                  <span className="italic text-neutral-600">—</span>
-                )}
-              </td>
-              <td className="py-1 text-right text-neutral-300">{e.Chance}</td>
-              <td className="py-1 text-right text-neutral-300">{e.MinAmount}</td>
-              <td className="py-1 text-right text-neutral-300">{e.MaxAmount}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <Section
+      title={
+        lootTable
+          ? `Loot table (${entries.length})`
+          : "Loot table"
+      }
+    >
+      {!lootTable ? (
+        <div className="flex items-center justify-between rounded border border-dashed border-neutral-800 bg-neutral-900/40 p-3 text-xs text-neutral-400">
+          <span>This NPC has no loot table.</span>
+          <Button variant="secondary" size="sm" onClick={addEntry}>
+            + Add entry
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {entries.length === 0 && (
+            <p className="text-xs italic text-neutral-500">
+              Empty loot table — saves with no entries. Either add an entry
+              below or remove the table entirely.
+            </p>
+          )}
+          {entries.map((entry, idx) => {
+            const pickup = pickupByPath.get(entry.PickupScene);
+            const wrapsItem = pickup?.dbItemName
+              ? itemNameBySlug.get(pickup.dbItemName) ?? pickup.dbItemName
+              : null;
+            const known = !!pickup;
+            return (
+              <div
+                key={entry._subId ?? idx}
+                className="grid grid-cols-12 items-center gap-2 rounded border border-neutral-800 bg-neutral-950/40 p-2 text-xs"
+              >
+                <label className="col-span-6 block">
+                  <span className={fieldLabel}>Pickup scene</span>
+                  <select
+                    value={entry.PickupScene}
+                    onChange={(e) =>
+                      updateEntry(idx, { PickupScene: e.target.value })
+                    }
+                    className={`${textInput} mt-0.5 font-mono text-[11px] ${
+                      !known && entry.PickupScene
+                        ? "border-red-700 text-red-200"
+                        : ""
+                    }`}
+                  >
+                    {/* Preserve the existing value as an option even if it's
+                        not in the picker list (stale ref / scene removed) so
+                        the user can see what's there before fixing it. */}
+                    {entry.PickupScene && !known && (
+                      <option value={entry.PickupScene}>
+                        ⚠ missing — {entry.PickupScene}
+                      </option>
+                    )}
+                    {pickups.map((p) => (
+                      <option key={p.path} value={p.path}>
+                        {p.name}
+                        {p.dbItemName
+                          ? ` → ${itemNameBySlug.get(p.dbItemName) ?? p.dbItemName}`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {wrapsItem && (
+                    <p className="mt-0.5 text-[10px] text-neutral-500">
+                      wraps item:{" "}
+                      <span className="font-mono text-neutral-300">
+                        {pickup!.dbItemName}
+                      </span>{" "}
+                      ({wrapsItem})
+                    </p>
+                  )}
+                </label>
+                <label className="col-span-2 block">
+                  <span className={fieldLabel}>Chance</span>
+                  <input
+                    type="number"
+                    step="0.05"
+                    min="0"
+                    max="1"
+                    value={entry.Chance}
+                    onChange={(e) =>
+                      updateEntry(idx, {
+                        Chance: clampFloat(parseFloat(e.target.value), 0, 1),
+                      })
+                    }
+                    className={`${textInput} mt-0.5 font-mono`}
+                  />
+                </label>
+                <label className="col-span-1 block">
+                  <span className={fieldLabel}>Min</span>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={entry.MinAmount}
+                    onChange={(e) =>
+                      updateEntry(idx, {
+                        MinAmount: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className={`${textInput} mt-0.5 font-mono`}
+                  />
+                </label>
+                <label className="col-span-1 block">
+                  <span className={fieldLabel}>Max</span>
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    value={entry.MaxAmount}
+                    onChange={(e) =>
+                      updateEntry(idx, {
+                        MaxAmount: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className={`${textInput} mt-0.5 font-mono`}
+                  />
+                </label>
+                <div className="col-span-2 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => removeEntry(idx)}
+                    className="text-[10px] text-red-400 hover:text-red-300"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          <div className="flex items-center justify-between">
+            <Button variant="secondary" size="sm" onClick={addEntry}>
+              + Add entry
+            </Button>
+            <button
+              type="button"
+              onClick={removeTable}
+              className="text-[10px] text-red-400 hover:text-red-300"
+            >
+              Remove loot table
+            </button>
+          </div>
+        </div>
+      )}
     </Section>
   );
+}
+
+function clampFloat(v: number, min: number, max: number): number {
+  if (Number.isNaN(v)) return min;
+  return Math.min(max, Math.max(min, v));
 }

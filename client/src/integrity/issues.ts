@@ -1,7 +1,7 @@
 import type { Catalog } from "../useCatalog";
 
 export interface Issue {
-  domain: "Dialog" | "Quest" | "Item";
+  domain: "Dialog" | "Quest" | "Item" | "Npc";
   severity: "error" | "warning";
   description: string;
   link?: string;
@@ -74,6 +74,26 @@ export function computeIssues(catalog: Catalog): Issue[] {
         });
       }
     }
+  }
+
+  // ---- NPCs: dangling LootEntry.PickupScene refs ----
+  // The collectible scene the LootEntry points at must exist on disk in
+  // `world/collectibles/`. If the .tscn was renamed or removed in Godot,
+  // the JSON ref goes stale and the loot would silently misbehave at
+  // runtime. We catch it here before save so the user can fix it.
+  const pickupPaths = new Set(catalog.pickups.map((p) => p.path));
+  for (const npc of catalog.npcs) {
+    if (!npc.LootTable) continue;
+    npc.LootTable.Entries.forEach((entry, ei) => {
+      if (!entry.PickupScene) return;
+      if (pickupPaths.has(entry.PickupScene)) return;
+      issues.push({
+        domain: "Npc",
+        severity: "error",
+        description: `NPC "${npc.NpcId}" loot entry #${ei + 1} PickupScene="${entry.PickupScene}" — no collectible scene at that path`,
+        link: `/npcs/${encodeURIComponent(npc.NpcId)}`,
+      });
+    });
   }
 
   // ---- Items ----

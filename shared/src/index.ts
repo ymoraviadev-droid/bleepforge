@@ -6,3 +6,4 @@ export * from "./npc";
 export * from "./faction";
 export * from "./concept";
 export * from "./preferences";
+export * from "./pickup";

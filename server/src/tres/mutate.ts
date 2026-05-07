@@ -306,6 +306,10 @@ export interface SubArrayReconcileOps<T extends { _subId?: string }> {
   buildNew(entry: T, subId: string): Section | null; // return null if cannot build (caller warns)
   insertBefore: SectionKind | Section;
   onRemove?(subId: string): void;
+  /** When set, the array property line is emitted in Godot 4's typed-array
+   *  form, `Array[ExtResource("<extId>")]([SubResource(...), ...])`. Required
+   *  for C# fields declared as `Godot.Collections.Array<T>`. */
+  typedArrayExtId?: string;
 }
 
 export interface SubArrayReconcileResult {
@@ -366,7 +370,9 @@ export function reconcileSubResourceArray<T extends { _subId?: string }>(
   reconcileProperty(
     arrayHostSection,
     arrayKey,
-    finalIds.length === 0 ? null : serializeSubRefArray(finalIds),
+    finalIds.length === 0
+      ? null
+      : serializeSubRefArray(finalIds, ops.typedArrayExtId),
     arrayFieldOrder,
   );
 
@@ -433,10 +439,23 @@ export function getAttrValue(section: Section, key: string): string | undefined 
 
 // Serializes an array of sub_resource ids as Godot's array literal:
 //   [SubResource("X"), SubResource("Y")]
-// or [] for an empty list.
-export function serializeSubRefArray(ids: readonly string[]): string {
-  if (ids.length === 0) return "[]";
-  return "[" + ids.map((id) => `SubResource("${id}")`).join(", ") + "]";
+//
+// When `typedArrayExtId` is set, wraps the bare list in Godot 4's typed-array
+// literal — `Array[ExtResource("<id>")]([SubResource("X"), ...])` — matching
+// the shape Godot emits for C# fields declared as `Godot.Collections.Array<T>`
+// (e.g. NpcData.LootTable.Entries). For plain `T[]` C# arrays (e.g.
+// KarmaImpact.Deltas) leave it unset.
+export function serializeSubRefArray(
+  ids: readonly string[],
+  typedArrayExtId?: string,
+): string {
+  const bare =
+    ids.length === 0
+      ? "[]"
+      : "[" + ids.map((id) => `SubResource("${id}")`).join(", ") + "]";
+  return typedArrayExtId
+    ? `Array[ExtResource("${typedArrayExtId}")](${bare})`
+    : bare;
 }
 
 function randomAlnum(len: number): string {

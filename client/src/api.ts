@@ -5,6 +5,7 @@ import type {
   Item,
   KarmaImpact,
   Npc,
+  Pickup,
   Preferences,
   Quest,
 } from "@bleepforge/shared";
@@ -114,6 +115,16 @@ export const itemsApi = crud<Item>("items", (e) => e.Slug);
 export const karmaApi = crud<KarmaImpact>("karma", (e) => e.Id);
 export const npcsApi = crud<Npc>("npcs", (e) => e.NpcId);
 export const factionsApi = crud<FactionData>("factions", (e) => e.Faction);
+
+// Read-only list of collectible scenes from the Godot project. Used by the
+// NPC LootTable editor to render a pickup-picker dropdown.
+export const pickupsApi = {
+  list: async (): Promise<Pickup[]> => {
+    const r = await fetch("/api/pickups");
+    if (!r.ok) throw new Error(`list pickups failed: ${r.status}`);
+    return r.json();
+  },
+};
 
 // Singleton-style preferences doc — global themes (color + typography bundles)
 // and the active one. Lives at data/preferences.json.
