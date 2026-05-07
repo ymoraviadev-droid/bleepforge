@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",
+    "chokidar": "^5.0.0",
     "express": "^5.0.0",
     "zod": "^3.23.0"
   },

@@ -1,12 +1,12 @@
-// Watches GODOT_PROJECT_ROOT for .tres changes. On change: re-import that
-// single file (so Bleepforge's JSON catches up) and publish a sync event
-// for any connected SSE clients to refetch.
+// Watches GODOT_PROJECT_ROOT for .tres changes via chokidar (cross-platform,
+// reliable across deep subtrees, handles atomic-rename saves like Godot's).
+// On change: re-import that single file (so Bleepforge's JSON catches up)
+// and publish a sync event for any connected SSE clients to refetch.
 //
 // Self-write suppression (via writer.ts's recentSelfWrites map) prevents
 // our own save flow from triggering a useless re-import loop.
 
-import { stat } from "node:fs/promises";
-import { watch, type FSWatcher } from "node:fs";
+import chokidar, { type FSWatcher } from "chokidar";
 import { join } from "node:path";
 
 import { config } from "../config.js";
@@ -14,10 +14,7 @@ import { publishSyncEvent } from "../sync/eventBus.js";
 import { detectDomain, deleteJsonFor, reimportOne } from "./reimportOne.js";
 import { isRecentSelfWrite } from "./writer.js";
 
-const DEBOUNCE_MS = 200;
-
 let watcher: FSWatcher | null = null;
-const pending = new Map<string, NodeJS.Timeout>();
 
 export function shouldWatchTres(): boolean {
   return process.env.WATCH_TRES === "1" && !!config.godotProjectRoot;
@@ -28,45 +25,43 @@ export function startTresWatcher(): void {
   if (!shouldWatchTres()) return;
   const root = config.godotProjectRoot!;
 
-  try {
-    watcher = watch(root, { recursive: true }, (_evt, filename) => {
-      if (!filename) return;
-      const rel = filename.toString();
-      if (!rel.endsWith(".tres")) return;
-      // Skip generated cache.
-      if (rel.startsWith(".godot/") || rel.includes("/.godot/")) return;
+  // Watch only `.tres` files under the project root, ignoring the .godot
+  // cache directory (lots of churn from Godot's import pipeline; nothing
+  // we care about lives in there).
+  watcher = chokidar.watch(`${root}/**/*.tres`, {
+    ignored: (p) => p.includes(`${root}/.godot/`) || p.includes("/.godot/"),
+    ignoreInitial: true, // don't fire for files that already exist at startup
+    awaitWriteFinish: {
+      // Godot saves via temp file + rename. Wait for size to stabilize
+      // before treating the file as "ready" — this collapses the noisy
+      // create/rename/change burst into a single event.
+      stabilityThreshold: 200,
+      pollInterval: 50,
+    },
+  });
 
-      const abs = join(root, rel);
-      // Debounce per-file: rapid-fire change/rename events get coalesced.
-      const existing = pending.get(abs);
-      if (existing) clearTimeout(existing);
-      pending.set(
-        abs,
-        setTimeout(() => {
-          pending.delete(abs);
-          void handleEvent(abs);
-        }, DEBOUNCE_MS),
-      );
-    });
-    watcher.on("error", (err) => {
-      console.error(`[tres-watcher] error: ${(err as Error).message}`);
-    });
-    console.log(`[tres-watcher] active on ${root} (recursive)`);
-  } catch (err) {
-    console.error(`[tres-watcher] failed to start: ${(err as Error).message}`);
-  }
+  watcher.on("add", (path) => void handleEvent(path, "add"));
+  watcher.on("change", (path) => void handleEvent(path, "change"));
+  watcher.on("unlink", (path) => void handleEvent(path, "unlink"));
+  watcher.on("error", (err) => {
+    console.error(`[tres-watcher] error: ${(err as Error).message}`);
+  });
+  watcher.on("ready", () => {
+    console.log(`[tres-watcher] active on ${root} (chokidar)`);
+  });
 }
 
 export function stopTresWatcher(): void {
   if (watcher) {
-    watcher.close();
+    void watcher.close();
     watcher = null;
   }
-  for (const timer of pending.values()) clearTimeout(timer);
-  pending.clear();
 }
 
-async function handleEvent(absPath: string): Promise<void> {
+async function handleEvent(absPath: string, kind: "add" | "change" | "unlink"): Promise<void> {
+  // Defensive — chokidar's glob already filters but be explicit.
+  if (!absPath.endsWith(".tres")) return;
+
   if (isRecentSelfWrite(absPath)) {
     // Bleepforge wrote this file via WRITE_TRES. Skip — our JSON is
     // already what we just emitted, no re-import needed.
@@ -76,29 +71,7 @@ async function handleEvent(absPath: string): Promise<void> {
   const detected = detectDomain(absPath);
   if (!detected) return; // not an authored domain we track
 
-  let exists = false;
-  try {
-    await stat(absPath);
-    exists = true;
-  } catch {
-    exists = false;
-  }
-
-  if (exists) {
-    const result = await reimportOne(absPath);
-    if (result.ok && result.domain && result.key) {
-      console.log(
-        `[tres-watcher] reimported ${result.domain}=${result.key} from ${absPath}`,
-      );
-      publishSyncEvent({
-        domain: result.domain,
-        key: result.key,
-        action: "updated",
-      });
-    } else {
-      console.log(`[tres-watcher] reimport failed for ${absPath}: ${result.error}`);
-    }
-  } else {
+  if (kind === "unlink") {
     const result = await deleteJsonFor(absPath);
     if (result.ok && result.domain && result.key) {
       console.log(
@@ -110,5 +83,24 @@ async function handleEvent(absPath: string): Promise<void> {
         action: "deleted",
       });
     }
+    return;
+  }
+
+  const result = await reimportOne(absPath);
+  if (result.ok && result.domain && result.key) {
+    console.log(
+      `[tres-watcher] reimported ${result.domain}=${result.key} from ${absPath}`,
+    );
+    publishSyncEvent({
+      domain: result.domain,
+      key: result.key,
+      action: "updated",
+    });
+  } else {
+    console.log(`[tres-watcher] reimport failed for ${absPath}: ${result.error}`);
   }
 }
+
+// Suppress unused-import warning when join is no longer used (kept for
+// future helpers).
+void join;
