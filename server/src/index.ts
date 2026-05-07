@@ -10,6 +10,12 @@ import { assetRouter } from "./asset/router.js";
 import { dialogRouter } from "./dialog/router.js";
 import { importRouter } from "./import/router.js";
 import { itemIconRouter } from "./item/iconRouter.js";
+import {
+  shouldWriteTres,
+  writeItemTres,
+  writeKarmaTres,
+  writeQuestTres,
+} from "./tres/writer.js";
 import { makeCrudRouter, makeJsonStorage } from "./util/jsonCrud.js";
 
 const app = express();
@@ -21,9 +27,9 @@ const karmaStorage = makeJsonStorage(KarmaImpactSchema, folderAbs.karma, "Id");
 const npcStorage = makeJsonStorage(NpcSchema, folderAbs.npc, "NpcId");
 
 app.use("/api/dialogs", dialogRouter);
-app.use("/api/quests", makeCrudRouter(QuestSchema, questStorage, "Id"));
-app.use("/api/items", makeCrudRouter(ItemSchema, itemStorage, "Slug"));
-app.use("/api/karma", makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id"));
+app.use("/api/quests", makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres));
+app.use("/api/items", makeCrudRouter(ItemSchema, itemStorage, "Slug", writeItemTres));
+app.use("/api/karma", makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id", writeKarmaTres));
 app.use("/api/npcs", makeCrudRouter(NpcSchema, npcStorage, "NpcId"));
 app.use("/api/asset", assetRouter);
 app.use("/api/item-icon", itemIconRouter);
@@ -42,4 +48,10 @@ app.listen(config.port, () => {
   console.log(`[bleepforge/server] http://localhost:${config.port}`);
   console.log(`[bleepforge/server] data root:  ${config.dataRoot}`);
   console.log(`[bleepforge/server] asset root: ${config.assetRoot}`);
+  if (config.godotProjectRoot) {
+    console.log(`[bleepforge/server] godot root: ${config.godotProjectRoot}`);
+  }
+  console.log(
+    `[bleepforge/server] tres write-back: ${shouldWriteTres() ? "ENABLED (WRITE_TRES=1)" : "disabled (set WRITE_TRES=1 to enable)"}`,
+  );
 });

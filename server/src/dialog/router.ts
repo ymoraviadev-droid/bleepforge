@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { DialogSequenceSchema } from "@bleepforge/shared";
 import * as storage from "./storage.js";
+import { writeDialogTres, type TresWriteResult } from "../tres/writer.js";
 
 export const dialogRouter: Router = Router();
 
@@ -48,7 +49,28 @@ dialogRouter.put("/:folder/:id", async (req, res) => {
     res.status(400).json({ error: "Id in body does not match URL" });
     return;
   }
-  res.json(await storage.write(req.params.folder, parsed.data));
+  const folder = req.params.folder;
+  const saved = await storage.write(folder, parsed.data);
+  let tresWrite: TresWriteResult = { attempted: false };
+  try {
+    tresWrite = await writeDialogTres(folder, saved);
+  } catch (err) {
+    tresWrite = { attempted: true, ok: false, error: String(err) };
+  }
+  if (tresWrite.attempted) {
+    if (tresWrite.ok) {
+      const w = tresWrite.warnings && tresWrite.warnings.length > 0
+        ? ` (${tresWrite.warnings.length} warnings)`
+        : "";
+      console.log(`[tres-write] OK dialog ${folder}/${saved.Id} -> ${tresWrite.path}${w}`);
+      if (tresWrite.warnings) {
+        for (const wn of tresWrite.warnings) console.log(`  ! ${wn}`);
+      }
+    } else {
+      console.log(`[tres-write] FAIL dialog ${folder}/${saved.Id}: ${tresWrite.error}`);
+    }
+  }
+  res.json({ entity: saved, tresWrite });
 });
 
 dialogRouter.delete("/:folder/:id", async (req, res) => {

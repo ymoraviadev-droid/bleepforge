@@ -1,0 +1,279 @@
+// Writes Bleepforge JSON edits back to .tres files in the Godot project.
+//
+// Per-domain entry points (writeItemTres, writeKarmaTres, writeQuestTres,
+// writeDialogTres) each:
+//   1. Locate the matching .tres under GODOT_PROJECT_ROOT.
+//   2. Parse via the round-trip parser.
+//   3. Pre-resolve any asset UIDs the mapper might need (item .tres,
+//      texture .import sidecars, script paths).
+//   4. Call the domain mapper with a fully-populated context.
+//   5. Emit and write atomically (temp file + rename).
+//
+// Returns `{ attempted, ok, path, warnings, error }`. JSON callers should
+// treat .tres write as best-effort: a failure here does not invalidate the
+// JSON save (which is authoritative for Bleepforge).
+
+import { readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { dirname, join, resolve, sep } from "node:path";
+
+import { config } from "../config.js";
+import type {
+  DialogSequence,
+  Item,
+  KarmaImpact,
+  Quest,
+} from "@bleepforge/shared";
+import { parseTres } from "./parser.js";
+import { emitTres } from "./emitter.js";
+import { applyItemScalars, type ItemJson } from "./domains/item.js";
+import { applyKarma, type KarmaJson } from "./domains/karma.js";
+import { applyDialog, type DialogApplyContext, type DialogSequenceJson } from "./domains/dialog.js";
+import { applyQuest, type QuestApplyContext, type QuestJson } from "./domains/quest.js";
+import {
+  findScriptUidInProject,
+  readItemUid,
+  readTextureUid,
+} from "./uidLookup.js";
+
+export interface TresWriteResult {
+  attempted: boolean;
+  ok?: boolean;
+  path?: string;
+  warnings?: string[];
+  error?: string;
+}
+
+const NOT_ATTEMPTED: TresWriteResult = { attempted: false };
+
+// Returns true if `WRITE_TRES` is enabled in the environment AND the
+// godot project root is configured. Callers should short-circuit when
+// false; we expose `notAttempted` for that.
+export function shouldWriteTres(): boolean {
+  return process.env.WRITE_TRES === "1" && !!config.godotProjectRoot;
+}
+
+export const tresNotAttempted = (): TresWriteResult => NOT_ATTEMPTED;
+
+// ---- Per-domain writers ---------------------------------------------------
+
+export async function writeItemTres(json: Item): Promise<TresWriteResult> {
+  if (!shouldWriteTres()) return NOT_ATTEMPTED;
+  const root = config.godotProjectRoot!;
+  const found = await findItemTres(root, json.Slug);
+  if (!found) return { attempted: true, ok: false, error: `no .tres for slug "${json.Slug}"` };
+  return runWrite(found.path, (doc) => {
+    const resourceSection = doc.sections.find((s) => s.kind === "resource");
+    if (!resourceSection) return ["no [resource] section"];
+    applyItemScalars(resourceSection, json as ItemJson);
+    return [];
+  });
+}
+
+export async function writeKarmaTres(json: KarmaImpact): Promise<TresWriteResult> {
+  if (!shouldWriteTres()) return NOT_ATTEMPTED;
+  const root = config.godotProjectRoot!;
+  const found = await findKarmaTres(root, json.Id);
+  if (!found) return { attempted: true, ok: false, error: `no .tres for karma id "${json.Id}"` };
+  return runWrite(found.path, (doc) => {
+    const result = applyKarma(doc, json as KarmaJson);
+    return result.warnings;
+  });
+}
+
+export async function writeQuestTres(json: Quest): Promise<TresWriteResult> {
+  if (!shouldWriteTres()) return NOT_ATTEMPTED;
+  const root = config.godotProjectRoot!;
+  const found = await findQuestTres(root, json.Id);
+  if (!found) return { attempted: true, ok: false, error: `no .tres for quest id "${json.Id}"` };
+
+  // Pre-resolve UIDs the mapper may need.
+  const itemSlugs = new Set<string>();
+  for (const o of json.Objectives) if (o.TargetItem) itemSlugs.add(o.TargetItem);
+  for (const r of json.Rewards) if (r.Item) itemSlugs.add(r.Item);
+  const itemUidCache = new Map<string, string | null>();
+  for (const slug of itemSlugs) {
+    itemUidCache.set(slug, await readItemUid(root, slug));
+  }
+  const objScriptUid =
+    json.Objectives.length > 0
+      ? await findScriptUidInProject(root, "res://shared/components/quest/QuestObjective.cs")
+      : null;
+  const rwdScriptUid =
+    json.Rewards.length > 0
+      ? await findScriptUidInProject(root, "res://shared/components/quest/QuestReward.cs")
+      : null;
+  const ctx: QuestApplyContext = {
+    resolveItemUid: (s) => itemUidCache.get(s) ?? null,
+    resolveObjectiveScriptUid: () => objScriptUid,
+    resolveRewardScriptUid: () => rwdScriptUid,
+  };
+
+  return runWrite(found.path, (doc) => {
+    const result = applyQuest(doc, json as QuestJson, ctx);
+    return result.warnings;
+  });
+}
+
+export async function writeDialogTres(
+  folder: string,
+  json: DialogSequence,
+): Promise<TresWriteResult> {
+  if (!shouldWriteTres()) return NOT_ATTEMPTED;
+  const root = config.godotProjectRoot!;
+  const found = await findDialogTres(root, folder, json.Id);
+  if (!found) {
+    return {
+      attempted: true,
+      ok: false,
+      error: `no .tres at */dialogs/${folder}/${json.Id}.tres`,
+    };
+  }
+
+  // Pre-resolve portrait UIDs and DialogChoice.cs script UID.
+  const portraitPaths = new Set<string>();
+  for (const line of json.Lines) if (line.Portrait) portraitPaths.add(line.Portrait);
+  const textureUidCache = new Map<string, string | null>();
+  for (const p of portraitPaths) {
+    textureUidCache.set(p, await readTextureUid(p));
+  }
+  const needsChoiceScript = json.Lines.some((l) => l.Choices.length > 0);
+  const choiceScriptUid = needsChoiceScript
+    ? await findScriptUidInProject(root, "res://shared/components/dialog/DialogChoice.cs")
+    : null;
+  const ctx: DialogApplyContext = {
+    godotRoot: root,
+    resolveTextureUid: (abs) => textureUidCache.get(abs) ?? null,
+    resolveDialogChoiceScriptUid: () => choiceScriptUid,
+  };
+
+  return runWrite(found.path, (doc) => {
+    const result = applyDialog(doc, json as DialogSequenceJson, ctx);
+    return result.warnings;
+  });
+}
+
+// ---- Atomic write with safety guard ---------------------------------------
+
+async function runWrite(
+  absPath: string,
+  apply: (doc: ReturnType<typeof parseTres>) => string[],
+): Promise<TresWriteResult> {
+  // Defense in depth: refuse to write outside the configured Godot root.
+  const root = config.godotProjectRoot!;
+  const rel = absPath.startsWith(root + sep) ? absPath.substring(root.length + 1) : null;
+  if (!rel) {
+    return {
+      attempted: true,
+      ok: false,
+      error: `refusing to write outside GODOT_PROJECT_ROOT: ${absPath}`,
+    };
+  }
+  let original: string;
+  try {
+    original = await readFile(absPath, "utf8");
+  } catch (err) {
+    return { attempted: true, ok: false, error: `read failed: ${(err as Error).message}` };
+  }
+  let warnings: string[];
+  let emitted: string;
+  try {
+    const doc = parseTres(original);
+    warnings = apply(doc);
+    emitted = emitTres(doc);
+  } catch (err) {
+    return { attempted: true, ok: false, error: `mapper threw: ${(err as Error).message}` };
+  }
+  if (emitted === original) {
+    return { attempted: true, ok: true, path: absPath, warnings };
+  }
+  // Atomic write: temp file in same dir, then rename.
+  const tmp = `${absPath}.bleepforge.${process.pid}.${Date.now()}.tmp`;
+  try {
+    await writeFile(tmp, emitted, "utf8");
+    await rename(tmp, absPath);
+  } catch (err) {
+    return { attempted: true, ok: false, error: `write failed: ${(err as Error).message}` };
+  }
+  return { attempted: true, ok: true, path: absPath, warnings };
+}
+
+// ---- Filesystem locators --------------------------------------------------
+
+async function findItemTres(
+  godotRoot: string,
+  slug: string,
+): Promise<{ path: string } | null> {
+  const dir = join(godotRoot, "shared", "items", "data");
+  return findInDirByContent(dir, (text) => text.includes(`Slug = "${slug}"`));
+}
+
+async function findKarmaTres(
+  godotRoot: string,
+  id: string,
+): Promise<{ path: string } | null> {
+  const dir = join(godotRoot, "shared", "components", "karma", "impacts");
+  return findInDirByContent(dir, (text) => text.includes(`Id = "${id}"`));
+}
+
+async function findQuestTres(
+  godotRoot: string,
+  id: string,
+): Promise<{ path: string } | null> {
+  const dir = join(godotRoot, "shared", "components", "quest", "quests");
+  return findInDirByContent(dir, (text) => text.includes(`Id = "${id}"`));
+}
+
+async function findDialogTres(
+  godotRoot: string,
+  folder: string,
+  id: string,
+): Promise<{ path: string } | null> {
+  const wantSuffix = `${sep}dialogs${sep}${folder}${sep}${id}.tres`;
+  const all: string[] = [];
+  await walk(godotRoot, all);
+  const match = all.find((p) => p.endsWith(wantSuffix));
+  return match ? { path: match } : null;
+}
+
+async function findInDirByContent(
+  dir: string,
+  matches: (text: string) => boolean,
+): Promise<{ path: string } | null> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const e of entries) {
+    if (!e.isFile() || !e.name.endsWith(".tres")) continue;
+    const abs = join(dir, e.name);
+    let text: string;
+    try {
+      text = await readFile(abs, "utf8");
+    } catch {
+      continue;
+    }
+    if (matches(text)) return { path: abs };
+  }
+  return null;
+}
+
+async function walk(dir: string, out: string[]): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+  for (const e of entries) {
+    if (e.name === ".godot" || e.name === ".git") continue;
+    const full = join(dir, e.name);
+    if (e.isDirectory()) await walk(full, out);
+    else if (e.isFile() && e.name.endsWith(".tres")) out.push(full);
+  }
+}
+
+// Re-exported for callers (e.g. dialogRouter, jsonCrud) that need to know
+// where the project root currently points.
+export const _internalForTests = { dirname, resolve };

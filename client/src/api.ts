@@ -7,11 +7,47 @@ import type {
 } from "@bleepforge/shared";
 import { refreshCatalog } from "./catalog-bus";
 
+// Returned by the server alongside the saved entity. Lets us surface
+// .tres write status to the user (or just log it if UI feedback isn't
+// wired yet). All fields are optional; `attempted: false` means the
+// server didn't try (WRITE_TRES disabled, or domain has no writer).
+export interface TresWriteResult {
+  attempted: boolean;
+  ok?: boolean;
+  path?: string;
+  warnings?: string[];
+  error?: string;
+}
+
 interface ResourceApi<T> {
   list: () => Promise<T[]>;
   get: (key: string) => Promise<T | null>;
   save: (entity: T) => Promise<T>;
   remove: (key: string) => Promise<void>;
+}
+
+// New servers return `{ entity, tresWrite }` from PUT. Older code paths
+// (or domains without writers) return the entity directly. This adapter
+// handles both, logs tresWrite to console for now, and returns the entity.
+function unwrapSavedResponse<T>(data: unknown, label: string): T {
+  if (data && typeof data === "object" && "entity" in (data as object)) {
+    const wrapped = data as { entity: T; tresWrite?: TresWriteResult };
+    if (wrapped.tresWrite?.attempted) {
+      logTresWrite(label, wrapped.tresWrite);
+    }
+    return wrapped.entity;
+  }
+  return data as T;
+}
+
+function logTresWrite(label: string, r: TresWriteResult): void {
+  if (r.ok) {
+    const w = r.warnings && r.warnings.length > 0 ? ` (${r.warnings.length} warnings)` : "";
+    console.log(`[tres-write] ${label} -> ${r.path}${w}`);
+    if (r.warnings) for (const wn of r.warnings) console.log(`  ! ${wn}`);
+  } else {
+    console.warn(`[tres-write] FAILED for ${label}: ${r.error}`);
+  }
 }
 
 const crud = <T>(name: string, keyOf: (entity: T) => string): ResourceApi<T> => ({
@@ -38,7 +74,7 @@ const crud = <T>(name: string, keyOf: (entity: T) => string): ResourceApi<T> => 
     }
     const data = await r.json();
     refreshCatalog();
-    return data;
+    return unwrapSavedResponse<T>(data, `${name}/${keyOf(entity)}`);
   },
   remove: async (key) => {
     const r = await fetch(`/api/${name}/${encodeURIComponent(key)}`, {
@@ -132,7 +168,7 @@ export const dialogsApi = {
     }
     const data = await r.json();
     refreshCatalog();
-    return data;
+    return unwrapSavedResponse<DialogSequence>(data, `dialogs/${folder}/${sequence.Id}`);
   },
   remove: async (folder: string, id: string): Promise<void> => {
     const r = await fetch(

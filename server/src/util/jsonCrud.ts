@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Router } from "express";
 import type { z } from "zod";
+import type { TresWriteResult } from "../tres/writer.js";
 
 export interface JsonStorage<T> {
   list: () => Promise<T[]>;
@@ -78,6 +79,7 @@ export function makeCrudRouter<S extends z.ZodTypeAny>(
   schema: S,
   storage: JsonStorage<z.infer<S>>,
   keyField: string,
+  afterWrite?: (entity: z.infer<S>) => Promise<TresWriteResult>,
 ): Router {
   const router = Router();
 
@@ -105,7 +107,17 @@ export function makeCrudRouter<S extends z.ZodTypeAny>(
       res.status(400).json({ error: `${keyField} in body does not match URL` });
       return;
     }
-    res.json(await storage.write(parsed.data));
+    const saved = await storage.write(parsed.data);
+    let tresWrite: TresWriteResult = { attempted: false };
+    if (afterWrite) {
+      try {
+        tresWrite = await afterWrite(saved);
+      } catch (err) {
+        tresWrite = { attempted: true, ok: false, error: String(err) };
+      }
+      logTresWrite(keyField, saved, tresWrite);
+    }
+    res.json({ entity: saved, tresWrite });
   });
 
   router.delete("/:id", async (req, res) => {
@@ -114,4 +126,20 @@ export function makeCrudRouter<S extends z.ZodTypeAny>(
   });
 
   return router;
+}
+
+function logTresWrite(
+  keyField: string,
+  entity: unknown,
+  result: TresWriteResult,
+): void {
+  if (!result.attempted) return;
+  const key = (entity as Record<string, unknown>)[keyField];
+  if (result.ok) {
+    const w = result.warnings && result.warnings.length > 0 ? ` (${result.warnings.length} warnings)` : "";
+    console.log(`[tres-write] OK ${keyField}=${key} -> ${result.path}${w}`);
+    if (result.warnings) for (const wn of result.warnings) console.log(`  ! ${wn}`);
+  } else {
+    console.log(`[tres-write] FAIL ${keyField}=${key}: ${result.error}`);
+  }
 }

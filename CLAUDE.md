@@ -268,12 +268,16 @@ Plus `pnpm harness` walks every `.tres` in the project and confirms parser+emitt
   - Texture paths (Portrait) — UID read from `<png>.import` sidecar.
   - Project scripts (DialogChoice.cs, QuestObjective.cs, QuestReward.cs) — UID found by scanning the project for any other `.tres` that already references the script.
 
+**Reorder-safe via `_subId`:** every sub-resource-backed JSON entry (DialogLine, DialogChoice, KarmaDelta, QuestObjective, QuestReward) carries an optional `_subId` mirroring the Godot sub_resource id. The importer populates it; mappers use it for stable-identity matching across reorder, add, update, and remove. Existing JSON was migrated via `pnpm --filter @bleepforge/server migrate-subids` (idempotent). New entries authored in Bleepforge UI have no `_subId` until first save, when one is minted.
+
+**Save-to-Godot wiring (gated by `WRITE_TRES`):** the four save endpoints — `PUT /api/items/:slug`, `/api/karma/:id`, `/api/quests/:id`, `/api/dialogs/:folder/:id` — first write the JSON (always), then optionally call the matching mapper to update the live `.tres` in `GODOT_PROJECT_ROOT`. Atomic write (temp file + rename). Default off; set `WRITE_TRES=1` in `.env` and restart the server to enable. The save response shape is `{ entity, tresWrite }` where `tresWrite` is `{ attempted, ok, path, warnings, error }` — clients can ignore it for now (api.ts logs to console). Server logs every attempt.
+
 **Known limitations (deferred):**
 
-- **Middle-insert / reorder**: matching is strictly positional. Reordering lines, choices, objectives, or rewards in JSON without identity tags will silently swap their scalar contents (since position N in JSON gets reconciled into position N's existing sub-resource). Detect-and-warn or stable-id support is future work.
 - **Orphan ext-resources** are not cleaned up when their last reference is removed. Godot tolerates them; minor lint, not a correctness issue.
 - **`load_steps` header attribute** isn't maintained (this corpus doesn't use it). If Godot starts emitting it on save, our writer will need to update it.
-- **No UI integration yet**: the canary CLIs are the only consumers. The Bleepforge save flow still writes JSON only; wiring it to also call the relevant mapper is a separate step.
+- **No `.tres` deletion** when JSON is deleted. The orphan stays in Godot; user removes manually if desired.
+- **Bleepforge → JSON → `.tres` is one-way at save time.** If Yonatan edits a `.tres` directly in Godot, Bleepforge's JSON drifts until the user manually re-imports.
 
 ## Open questions
 
