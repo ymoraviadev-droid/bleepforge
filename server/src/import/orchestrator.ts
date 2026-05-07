@@ -10,6 +10,7 @@ import {
 import { folderAbs } from "../config.js";
 import * as dialogStorage from "../dialog/storage.js";
 import { makeJsonStorage } from "../util/jsonCrud.js";
+import { discoverGodotContent, type Discovery } from "./discover.js";
 import {
   mapDialogSequence,
   mapFaction,
@@ -53,35 +54,6 @@ interface DialogDomainResult {
   errors: { folder: string; file: string; error: string }[];
 }
 
-const KNOWN_DIALOG_FOLDERS: { godotPath: string; bleepforgeFolder: string }[] = [
-  {
-    godotPath: "world/interactibles/standing_terminal/dialogs/welcome",
-    bleepforgeFolder: "welcome",
-  },
-  {
-    godotPath: "world/interactibles/standing_terminal/dialogs/cut_door_001",
-    bleepforgeFolder: "cut_door_001",
-  },
-  {
-    godotPath: "characters/npcs/hap_500/dialogs/Eddie",
-    bleepforgeFolder: "Eddie",
-  },
-  {
-    godotPath: "characters/npcs/sld_300/dialogs/Krang",
-    bleepforgeFolder: "Krang",
-  },
-  {
-    godotPath: "characters/npcs/sld_300/dialogs/Korjack",
-    bleepforgeFolder: "Korjack",
-  },
-];
-
-const ITEMS_GODOT_PATH = "shared/items/data";
-const QUESTS_GODOT_PATH = "shared/components/quest/quests";
-const KARMA_GODOT_PATH = "shared/components/karma/impacts";
-const FACTIONS_GODOT_PATH = "shared/components/factions";
-const NPCS_GODOT_PATH = "characters/npcs";
-
 export async function runImport(opts: ImportOptions): Promise<ImportResult> {
   const root = path.resolve(opts.godotProjectRoot);
   const dryRun = !!opts.dryRun;
@@ -98,6 +70,12 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     );
   }
 
+  // Discovery: walk the project once and bucket every .tres by its
+  // script_class. Replaces the previous hardcoded folder lists, so adding
+  // a new NPC (with its own dialogs/<Speaker>/ folder) just works without
+  // a code change.
+  const discovery: Discovery = await discoverGodotContent(root);
+
   // 1. Items pass — needed first so quests can resolve TargetItem ExtResource → slug.
   const itemAbsToSlug = new Map<string, string>();
   const items: DomainResult = {
@@ -105,8 +83,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     skipped: [],
     errors: [],
   };
-  const itemsDir = path.join(root, ITEMS_GODOT_PATH);
-  for await (const filePath of walkTres(itemsDir)) {
+  for (const filePath of discovery.items) {
     try {
       const text = await fs.readFile(filePath, "utf8");
       const parsed = parseTres(text);
@@ -140,8 +117,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     skipped: [],
     errors: [],
   };
-  const questsDir = path.join(root, QUESTS_GODOT_PATH);
-  for await (const filePath of walkTres(questsDir)) {
+  for (const filePath of discovery.quests) {
     try {
       const text = await fs.readFile(filePath, "utf8");
       const parsed = parseTres(text);
@@ -178,8 +154,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     skipped: [],
     errors: [],
   };
-  const karmaDir = path.join(root, KARMA_GODOT_PATH);
-  for await (const filePath of walkTres(karmaDir)) {
+  for (const filePath of discovery.karma) {
     try {
       const text = await fs.readFile(filePath, "utf8");
       const parsed = parseTres(text);
@@ -210,8 +185,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     skipped: [],
     errors: [],
   };
-  const factionsDir = path.join(root, FACTIONS_GODOT_PATH);
-  for await (const filePath of walkTres(factionsDir)) {
+  for (const filePath of discovery.factions) {
     try {
       const text = await fs.readFile(filePath, "utf8");
       const parsed = parseTres(text);
@@ -237,18 +211,19 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     }
   }
 
-  // 5. Dialogs pass — per folder. Also builds a path→Id map for the NPC pass
-  // (NpcData and NpcQuestEntry reference DialogSequence resources by ext-path,
-  // and we need to convert those refs to DialogSequence Ids in JSON).
+  // 5. Dialogs pass — per folder, where the Bleepforge folder name is the
+  // discovered parent-dir basename (e.g. ".../dialogs/Krang/foo.tres" →
+  // "Krang"). Also builds a path→Id map for the NPC pass (NpcData and
+  // NpcQuestEntry reference DialogSequence resources by ext-path; we need
+  // to convert those refs to DialogSequence Ids in JSON).
   const dialogs: DialogDomainResult = {
     imported: [],
     skipped: [],
     errors: [],
   };
   const dialogAbsToId = new Map<string, string>();
-  for (const { godotPath, bleepforgeFolder } of KNOWN_DIALOG_FOLDERS) {
-    const dir = path.join(root, godotPath);
-    for await (const filePath of walkTres(dir)) {
+  for (const [bleepforgeFolder, paths] of discovery.dialogs) {
+    for (const filePath of paths) {
       try {
         const text = await fs.readFile(filePath, "utf8");
         const parsed = parseTres(text);
@@ -287,17 +262,15 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
   }
 
   // 6. NPCs pass — uses dialogAbsToId to resolve DialogSequence refs.
-  // Walks `characters/npcs/<model>/data/*.tres` (the new NpcData layout).
+  // Discovery already filtered to script_class="NpcData", so we don't need
+  // the previous `data/` path filter — every entry here is the NPC root
+  // resource by definition.
   const npcs: DomainResult = {
     imported: [],
     skipped: [],
     errors: [],
   };
-  const npcsDir = path.join(root, NPCS_GODOT_PATH);
-  for await (const filePath of walkTres(npcsDir)) {
-    // Only pick up files inside a `data/` subfolder — Godot scenes (.tscn)
-    // and balloon/dialog .tres live elsewhere under characters/npcs/.
-    if (!filePath.includes(`${path.sep}data${path.sep}`)) continue;
+  for (const filePath of discovery.npcs) {
     try {
       const text = await fs.readFile(filePath, "utf8");
       const parsed = parseTres(text);
@@ -338,23 +311,4 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     dryRun,
     domains: { items, quests, karma, factions, dialogs, npcs },
   };
-}
-
-async function* walkTres(dir: string): AsyncGenerator<string> {
-  let entries: import("node:fs").Dirent[];
-  try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return;
-    throw err;
-  }
-  for (const e of entries) {
-    if (e.name.startsWith(".")) continue;
-    const full = path.join(dir, e.name);
-    if (e.isDirectory()) {
-      yield* walkTres(full);
-    } else if (e.isFile() && e.name.endsWith(".tres")) {
-      yield full;
-    }
-  }
 }

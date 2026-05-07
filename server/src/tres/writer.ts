@@ -86,11 +86,13 @@ export function isRecentSelfWrite(absPath: string): boolean {
   return true;
 }
 
-// Returns true if `WRITE_TRES` is enabled in the environment AND the
-// godot project root is configured. Callers should short-circuit when
-// false; we expose `notAttempted` for that.
+// Returns true when the Godot project root is configured. .tres write-back
+// is the canonical save path now (JSON is a derived cache), so the only
+// reason to short-circuit is "no Godot project to write to" — which the
+// boot-time check makes a hard error anyway. Kept as a guard so the writer
+// modules stay defensible if config evolves.
 export function shouldWriteTres(): boolean {
-  return process.env.WRITE_TRES === "1" && !!config.godotProjectRoot;
+  return !!config.godotProjectRoot;
 }
 
 export const tresNotAttempted = (): TresWriteResult => NOT_ATTEMPTED;

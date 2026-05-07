@@ -12,7 +12,6 @@ import { showConfirm, showPrompt } from "../Modal";
 import { THEMES, useTheme } from "../Theme";
 import { Button } from "../Button";
 import { fieldLabel, textInput } from "../ui";
-import { ImportSection } from "./ImportSection";
 
 export function PreferencesPage() {
   return (
@@ -20,11 +19,10 @@ export function PreferencesPage() {
       <div>
         <h1 className="text-xl font-semibold">Preferences</h1>
         <p className="mt-1 text-xs text-neutral-400">
-          Editor settings + the import-from-Godot tool. Color theme +
-          typography are bundled into a global theme; the active one is
-          saved to <span className="font-mono">data/preferences.json</span>{" "}
-          and reapplied each session. Import writes JSON files in{" "}
-          <span className="font-mono">data/</span>.
+          Editor settings. Color theme + typography are bundled into a
+          global theme; the active one is saved to{" "}
+          <span className="font-mono">data/preferences.json</span> and
+          reapplied each session.
         </p>
       </div>
 
@@ -38,10 +36,6 @@ export function PreferencesPage() {
 
       <Section title="Typography">
         <TypographySection />
-      </Section>
-
-      <Section title="Import from Godot">
-        <ImportSection />
       </Section>
     </div>
   );

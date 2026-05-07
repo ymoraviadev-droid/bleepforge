@@ -14,7 +14,8 @@ import { refreshCatalog } from "./catalog-bus";
 // Returned by the server alongside the saved entity. Lets us surface
 // .tres write status to the user (or just log it if UI feedback isn't
 // wired yet). All fields are optional; `attempted: false` means the
-// server didn't try (WRITE_TRES disabled, or domain has no writer).
+// server didn't try (no Godot project root configured, or singleton
+// domain like concept/preferences with no .tres counterpart).
 export interface TresWriteResult {
   attempted: boolean;
   ok?: boolean;

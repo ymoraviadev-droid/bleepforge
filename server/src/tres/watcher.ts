@@ -25,7 +25,7 @@ const DEBOUNCE_MS = 150;
 const pending = new Map<string, NodeJS.Timeout>();
 
 export function shouldWatchTres(): boolean {
-  return process.env.WATCH_TRES === "1" && !!config.godotProjectRoot;
+  return !!config.godotProjectRoot;
 }
 
 export function startTresWatcher(): void {

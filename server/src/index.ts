@@ -12,19 +12,28 @@ import { conceptRouter } from "./concept/router.js";
 import { pickupsRouter } from "./pickup/router.js";
 import { preferencesRouter } from "./preferences/router.js";
 import { dialogRouter } from "./dialog/router.js";
-import { importRouter } from "./import/router.js";
+import { runImport } from "./import/orchestrator.js";
 import { itemIconRouter } from "./item/iconRouter.js";
 import {
-  shouldWriteTres,
   writeFactionTres,
   writeItemTres,
   writeKarmaTres,
   writeNpcTres,
   writeQuestTres,
 } from "./tres/writer.js";
-import { shouldWatchTres, startTresWatcher } from "./tres/watcher.js";
+import { startTresWatcher } from "./tres/watcher.js";
 import { syncRouter } from "./sync/router.js";
 import { makeCrudRouter, makeJsonStorage } from "./util/jsonCrud.js";
+
+// Fail-fast: Bleepforge is a tool for the Flock of Bleeps Godot project. .tres
+// is canonical; data/ JSONs are a derived cache rebuilt from it on boot. Without
+// a project root there's nothing to read or write — refuse to start so the
+// failure mode is obvious instead of "everything's empty and I don't know why."
+if (!config.godotProjectRoot) {
+  console.error("[bleepforge/server] GODOT_PROJECT_ROOT is required.");
+  console.error("[bleepforge/server] Set it in .env to point at your Godot project root.");
+  process.exit(1);
+}
 
 const app = express();
 app.use(express.json({ limit: "5mb" }));
@@ -46,7 +55,6 @@ app.use(
 );
 app.use("/api/asset", assetRouter);
 app.use("/api/item-icon", itemIconRouter);
-app.use("/api/import", importRouter);
 app.use("/api/sync", syncRouter);
 app.use("/api/concept", conceptRouter);
 app.use("/api/preferences", preferencesRouter);
@@ -61,18 +69,33 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
-app.listen(config.port, () => {
+app.listen(config.port, async () => {
   console.log(`[bleepforge/server] http://localhost:${config.port}`);
   console.log(`[bleepforge/server] data root:  ${config.dataRoot}`);
   console.log(`[bleepforge/server] asset root: ${config.assetRoot}`);
-  if (config.godotProjectRoot) {
-    console.log(`[bleepforge/server] godot root: ${config.godotProjectRoot}`);
+  console.log(`[bleepforge/server] godot root: ${config.godotProjectRoot}`);
+
+  // Boot-time reconcile: rebuild the JSON cache from .tres so any edits made
+  // in Godot while Bleepforge was off are picked up before the first request.
+  // Runs after listen so health-check clients aren't blocked, but before the
+  // watcher so we don't double-process anything that fires during startup.
+  console.log(`[bleepforge/server] reconciling JSON cache from .tres ...`);
+  const t0 = Date.now();
+  try {
+    const result = await runImport({ godotProjectRoot: config.godotProjectRoot! });
+    const counts = [
+      `items=${result.domains.items.imported.length}`,
+      `quests=${result.domains.quests.imported.length}`,
+      `karma=${result.domains.karma.imported.length}`,
+      `factions=${result.domains.factions.imported.length}`,
+      `dialogs=${result.domains.dialogs.imported.length}`,
+      `npcs=${result.domains.npcs.imported.length}`,
+    ].join(" ");
+    console.log(`[bleepforge/server] reconcile ok in ${Date.now() - t0}ms — ${counts}`);
+  } catch (err) {
+    console.error(`[bleepforge/server] reconcile FAILED: ${(err as Error).message}`);
+    console.error(`[bleepforge/server] continuing with whatever JSON is currently on disk`);
   }
-  console.log(
-    `[bleepforge/server] tres write-back: ${shouldWriteTres() ? "ENABLED (WRITE_TRES=1)" : "disabled (set WRITE_TRES=1 to enable)"}`,
-  );
-  console.log(
-    `[bleepforge/server] tres watcher:    ${shouldWatchTres() ? "ENABLED (WATCH_TRES=1)" : "disabled (set WATCH_TRES=1 to enable)"}`,
-  );
+
   startTresWatcher();
 });
