@@ -2,9 +2,9 @@
 
 **A graph-based project organizer / planning tool** for Yonatan's Godot game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name). Visualizes and documents **dialogues** (the headline feature: a graph view), plus **quests**, **items**, **karma impacts**, and **NPCs**.
 
-**Bleepforge is NOT the source of truth.** The Godot `.tres` files remain canonical. Yonatan manually copy-pastes between Godot and Bleepforge. Bleepforge's value is design + visualization + cross-reference documentation, not authoring that ships to the runtime.
+**Two-way editor with `.tres` as canonical.** The Godot `.tres` files are what the game runtime loads, so they stay canonical: anything that ships is what's in `astro-man/`. Bleepforge's JSON in `dialoguer/data/` is a working copy. When `WRITE_TRES=1` is set, every save in Bleepforge also pushes the edit into the matching `.tres` (atomic write). The read direction (`.tres` → JSON) is **not** auto-sync — it still runs through the Import page on demand, which doubles as the recovery path if Bleepforge's JSON drifts from Godot.
 
-**Godot project on disk** (read for reference, never written to): `/home/ymoravia/Data/Projects/Godot/astro-man/`. The schema sections below mirror the Godot Resource fields 1:1 so manual transcription stays mechanical, and so we keep the option open to one day parse `.tres` directly.
+**Godot project on disk**: `/home/ymoravia/Data/Projects/Godot/astro-man/`. Bleepforge writes here only on save when `WRITE_TRES=1`, and only to `.tres` files we've already mapped. Defense in depth: the writer refuses any target outside `GODOT_PROJECT_ROOT`. The schema sections below mirror the Godot Resource fields 1:1 so the mappers can apply JSON edits to the corresponding `.tres` properties.
 
 ## Stack
 
@@ -50,7 +50,7 @@ The `DialogGraph` exported component wraps `DialogGraphInner` in `<ReactFlowProv
 **Out of scope (and not coming back without explicit decision):**
 
 - **Authoring full NPC behavior** (the 25-field `Npc : CharacterBody2D` from Godot, including `Quests : NpcQuestEntry[]`). NPC config lives as per-instance overrides in level scenes; Yonatan keeps editing in Godot's inspector. The NPC entity here is just a documentation stub for cross-reference (so `QuestGiverId` autocompletes, etc.).
-- **`.tres` ↔ JSON sync**, in either direction. Manual copy-paste is the workflow. Revisit only if the manual workflow becomes painful and Bleepforge's schema fidelity has been validated against real content.
+- **Auto-import (Godot → Bleepforge)**: there's no file watcher. If a `.tres` is edited directly in Godot, the user re-runs Import. The two-way wiring at save time only goes Bleepforge → Godot.
 
 **Headline next feature: graph view of dialogs.** Each `DialogSequence` is a node, each `DialogChoice.NextSequenceId` is an edge. Pan/zoom, click-for-detail, dagre auto-layout. Likely [React Flow](https://reactflow.dev) (`@xyflow/react`). Scoped per-folder once multi-folder dialog support lands.
 
