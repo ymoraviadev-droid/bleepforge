@@ -1,5 +1,6 @@
 {
   "Id": "eddie_turn_in",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_osdjm",

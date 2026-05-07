@@ -1,5 +1,6 @@
 {
   "Id": "korjack_pitch",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_mviyw",

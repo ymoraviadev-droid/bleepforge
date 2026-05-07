@@ -1,5 +1,6 @@
 {
   "Id": "welcome_terminal_news",
+  "SourceType": "Terminal",
   "Lines": [
     {
       "_subId": "Resource_jb0te",

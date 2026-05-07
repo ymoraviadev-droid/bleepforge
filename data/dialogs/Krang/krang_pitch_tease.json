@@ -1,5 +1,6 @@
 {
   "Id": "krang_pitch_tease",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_ah0ur",

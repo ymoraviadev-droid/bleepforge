@@ -18,8 +18,15 @@ export const DialogLineSchema = z.object({
   Choices: z.array(DialogChoiceSchema).default([]),
 });
 
+// Mirrors `enum DialogSourceTypes { Npc, Terminal }` in DialogSequence.cs.
+// Drives a visual distinction in the graph (NPC nodes vs terminal logs) and
+// a filter control on the dialog page.
+export const DialogSourceType = z.enum(["Npc", "Terminal"]);
+export type DialogSourceType = z.infer<typeof DialogSourceType>;
+
 export const DialogSequenceSchema = z.object({
   Id: z.string().min(1),
+  SourceType: DialogSourceType.default("Npc"),
   Lines: z.array(DialogLineSchema).default([]),
   SetsFlag: z.string().default(""),
 });

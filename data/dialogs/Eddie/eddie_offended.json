@@ -1,5 +1,6 @@
 {
   "Id": "eddie_offended",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_d512r",

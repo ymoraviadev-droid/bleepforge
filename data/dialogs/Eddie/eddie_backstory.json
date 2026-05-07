@@ -1,5 +1,6 @@
 {
   "Id": "eddie_backstory",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_nmwq1",

@@ -1,5 +1,6 @@
 {
   "Id": "krang_offended",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_kqat7",

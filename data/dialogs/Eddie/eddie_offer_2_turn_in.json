@@ -1,5 +1,6 @@
 {
   "Id": "eddie_offer_2_turn_in",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_o4fbf",

@@ -1,5 +1,6 @@
 {
   "Id": "krang_refused",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_3ajo2",

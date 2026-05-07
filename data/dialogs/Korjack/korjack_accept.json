@@ -1,5 +1,6 @@
 {
   "Id": "korjack_accept",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_ppi2w",

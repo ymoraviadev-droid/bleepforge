@@ -1,5 +1,6 @@
 {
   "Id": "eddie_post_quest",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_0g4mv",

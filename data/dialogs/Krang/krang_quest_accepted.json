@@ -1,5 +1,6 @@
 {
   "Id": "krang_quest_accepted",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_qs16r",

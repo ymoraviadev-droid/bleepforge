@@ -1,5 +1,6 @@
 {
   "Id": "korjack_turn_in",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_6227c",

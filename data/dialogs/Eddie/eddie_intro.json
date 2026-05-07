@@ -1,5 +1,6 @@
 {
   "Id": "eddie_intro",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_3giyo",

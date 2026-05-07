@@ -1,5 +1,6 @@
 {
   "Id": "krang_turn_in",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_ow6i2",

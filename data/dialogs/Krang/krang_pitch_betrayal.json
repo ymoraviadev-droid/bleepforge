@@ -1,5 +1,6 @@
 {
   "Id": "krang_pitch_betrayal",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_nbomo",

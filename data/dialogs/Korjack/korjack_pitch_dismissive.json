@@ -1,5 +1,6 @@
 {
   "Id": "korjack_pitch_dismissive",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_ia0dn",

@@ -1,5 +1,6 @@
 {
   "Id": "korjack_post_quest",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_twtb2",

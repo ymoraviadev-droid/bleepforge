@@ -1,5 +1,6 @@
 {
   "Id": "eddie_accepted",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_any4v",

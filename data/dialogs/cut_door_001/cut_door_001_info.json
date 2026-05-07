@@ -1,5 +1,6 @@
 {
   "Id": "cut_door_001_info",
+  "SourceType": "Terminal",
   "Lines": [
     {
       "_subId": "Resource_6x38x",

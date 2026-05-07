@@ -1,5 +1,6 @@
 {
   "Id": "krang_pitch_self",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_umsx4",

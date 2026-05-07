@@ -1,5 +1,6 @@
 {
   "Id": "eddie_quest_2_in_progress",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_sbsbv",

@@ -226,11 +226,22 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
     return () => ro.disconnect();
   }, [id, seq.Lines, handleCount, updateNodeInternals]);
 
+  // Visual distinction for Terminal sequences: sky-tinted border + a small
+  // "TERMINAL" pill in the header. NPCs keep the default neutral chrome so
+  // the everyday case stays unchanged.
+  const isTerminal = seq.SourceType === "Terminal";
+  const nodeBorderClass = isTerminal
+    ? "border-sky-700 bg-sky-950/20"
+    : "border-neutral-700 bg-neutral-900";
+  const headerBorderClass = isTerminal
+    ? "border-sky-900/60"
+    : "border-neutral-800";
+
   return (
     <div
       ref={containerRef}
       onContextMenu={onContextMenu}
-      className="relative flex flex-col border-2 border-neutral-700 bg-neutral-900 text-xs"
+      className={`relative flex flex-col border-2 text-xs ${nodeBorderClass}`}
       style={{
         width: NODE_WIDTH,
         boxShadow: "3px 3px 0 0 rgba(0,0,0,0.5)",
@@ -238,13 +249,25 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
     >
       <Handle type="target" position={Position.Left} />
 
-      <header className="flex items-center gap-2 border-b-2 border-neutral-800 px-2 py-1.5">
+      <header
+        className={`flex items-center gap-2 border-b-2 px-2 py-1.5 ${headerBorderClass}`}
+      >
         <div className="size-10 shrink-0">
           {portrait && <AssetThumb path={portrait} size="sm" />}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-mono text-[13px] text-neutral-100">
-            {seq.Id}
+          <div className="flex items-center gap-2">
+            <span className="truncate font-mono text-[13px] text-neutral-100">
+              {seq.Id}
+            </span>
+            {isTerminal && (
+              <span
+                className="shrink-0 border border-sky-700 bg-sky-950/60 px-1 py-0 font-mono text-[9px] uppercase tracking-wider text-sky-300"
+                title="Source type: Terminal"
+              >
+                Terminal
+              </span>
+            )}
           </div>
           {seq.SetsFlag && (
             <div
@@ -820,7 +843,11 @@ function buildGraph(
     nodes.push({
       id,
       type: "sequence",
-      data: { seq: { Id: id, Lines: [], SetsFlag: "" }, ghost: true, folder },
+      data: {
+        seq: { Id: id, SourceType: "Npc", Lines: [], SetsFlag: "" },
+        ghost: true,
+        folder,
+      },
       position: { x: 0, y: 0 },
     });
   }
@@ -963,12 +990,67 @@ function DialogGraphInner() {
       .catch((e) => setError(String(e)));
   }, [folder]);
 
+  // Filter the graph by DialogSequence.SourceType. "all" shows everything;
+  // otherwise hide nodes (and any edges with a hidden endpoint) whose source
+  // type doesn't match. State is session-scoped — sticky persistence isn't
+  // worth the localStorage churn for a top-level UI toggle the user changes
+  // once per session at most.
+  const [sourceFilter, setSourceFilter] = useState<"all" | "Npc" | "Terminal">(
+    "all",
+  );
+
   useEffect(() => {
     if (!seqs) return;
     const built = buildGraph(seqs, layout, speakerPortrait, themeColors, folder);
+
+    if (sourceFilter !== "all") {
+      const visibleIds = new Set<string>();
+      for (const n of built.nodes) {
+        const data = n.data as SeqNodeData;
+        // Ghost nodes (dangling targets) inherit their visibility from
+        // whether anyone visible still points at them — handled below.
+        if (data.ghost) continue;
+        if (data.seq.SourceType === sourceFilter) visibleIds.add(n.id);
+      }
+      for (const n of built.nodes) {
+        const data = n.data as SeqNodeData;
+        if (data.ghost) {
+          // Ghost only stays visible if at least one visible node still
+          // references it.
+          n.hidden = true;
+          continue;
+        }
+        n.hidden = !visibleIds.has(n.id);
+      }
+      for (const e of built.edges) {
+        const sourceVisible = visibleIds.has(e.source);
+        const targetVisible = visibleIds.has(e.target);
+        e.hidden = !(sourceVisible && targetVisible);
+        // Re-show ghost target if a visible source points at it.
+        if (sourceVisible && !targetVisible) {
+          const ghost = built.nodes.find(
+            (n) => n.id === e.target && (n.data as SeqNodeData).ghost,
+          );
+          if (ghost) {
+            ghost.hidden = false;
+            e.hidden = false;
+          }
+        }
+      }
+    }
+
     setNodes(built.nodes);
     setEdges(built.edges);
-  }, [seqs, layout, speakerPortrait, themeColors, folder, setNodes, setEdges]);
+  }, [
+    seqs,
+    layout,
+    speakerPortrait,
+    themeColors,
+    folder,
+    sourceFilter,
+    setNodes,
+    setEdges,
+  ]);
 
   // Apply saved viewport (or fitView for first-visit) once nodes are loaded
   // for the current folder. Tracks the last folder we applied for so that
@@ -1121,6 +1203,8 @@ function DialogGraphInner() {
       try {
         await dialogsApi.save(folder, {
           Id: newId,
+          // New sequences default to NPC; user can flip to Terminal in Edit.
+          SourceType: "Npc",
           Lines: [{ SpeakerName: "", Text: "", Portrait: "", Choices: [] }],
           SetsFlag: "",
         });
@@ -1432,8 +1516,9 @@ function DialogGraphInner() {
         </div>
       </div>
 
-      <div className="shrink-0">
+      <div className="flex shrink-0 items-center justify-between gap-3">
         <FolderTabs folders={folders} selected={folder} basePath="/dialogs" />
+        <SourceFilter value={sourceFilter} onChange={setSourceFilter} />
       </div>
 
       {folders.length === 0 ? (
@@ -1511,6 +1596,50 @@ function DialogGraphInner() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+// 3-state segmented control for the SourceType filter. Mirrors the
+// FolderTabs visual rhythm so the two read as a paired control row.
+function SourceFilter({
+  value,
+  onChange,
+}: {
+  value: "all" | "Npc" | "Terminal";
+  onChange: (v: "all" | "Npc" | "Terminal") => void;
+}) {
+  const options: { id: "all" | "Npc" | "Terminal"; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "Npc", label: "NPC" },
+    { id: "Terminal", label: "Terminal" },
+  ];
+  return (
+    <div className="flex shrink-0 gap-1 text-xs" role="radiogroup" aria-label="Source type filter">
+      {options.map((o) => {
+        const active = value === o.id;
+        return (
+          <button
+            key={o.id}
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onClick={() => onChange(o.id)}
+            className={`border px-2 py-1 transition-colors ${
+              active
+                ? o.id === "Terminal"
+                  ? "border-sky-600 bg-sky-950/40 text-sky-200"
+                  : o.id === "Npc"
+                    ? "border-emerald-600 bg-emerald-950/40 text-emerald-200"
+                    : "border-neutral-500 bg-neutral-800 text-neutral-100"
+                : "border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

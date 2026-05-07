@@ -11,6 +11,7 @@ import type {
   Quest,
   RewardType,
   DialogSequence,
+  DialogSourceType,
 } from "@bleepforge/shared";
 import {
   valueAsArray,
@@ -46,6 +47,9 @@ const ITEM_CATEGORY_BY_INDEX: ItemCategory[] = [
   "Upgrade",
   "Consumable",
 ];
+
+// Mirrors the C# `enum DialogSourceTypes { Npc, Terminal }` order.
+const DIALOG_SOURCE_BY_INDEX: DialogSourceType[] = ["Npc", "Terminal"];
 
 // ---- Factions --------------------------------------------------------------
 
@@ -398,8 +402,15 @@ export function mapDialogSequence(parsed: ParsedTres): DialogSequence | null {
     })
     .filter((l) => l !== null) as DialogSequence["Lines"];
 
+  // SourceType: Godot omits the line when the value is 0 (Npc), so default
+  // when missing. `enum DialogSourceTypes { Npc, Terminal }`.
+  const sourceTypeIdx = valueAsNumber(props.SourceType) ?? 0;
+  const SourceType =
+    DIALOG_SOURCE_BY_INDEX[sourceTypeIdx] ?? "Npc";
+
   return {
     Id: id,
+    SourceType,
     Lines,
     SetsFlag: valueAsString(props.SetsFlag) ?? "",
   };

@@ -1,7 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ButtonLink } from "../Button";
-import type { DialogChoice, DialogLine, DialogSequence } from "@bleepforge/shared";
+import type {
+  DialogChoice,
+  DialogLine,
+  DialogSequence,
+  DialogSourceType,
+} from "@bleepforge/shared";
 import { dialogsApi } from "../api";
 import { AssetPicker } from "../AssetPicker";
 import { DL } from "../CatalogDatalists";
@@ -22,9 +27,12 @@ const emptyLine = (): DialogLine => ({
 });
 const emptySequence = (): DialogSequence => ({
   Id: "",
+  SourceType: "Npc",
   Lines: [],
   SetsFlag: "",
 });
+
+const SOURCE_TYPES: DialogSourceType[] = ["Npc", "Terminal"];
 
 export function DialogEdit() {
   const { folder: folderParam, id } = useParams();
@@ -194,6 +202,22 @@ export function DialogEdit() {
             placeholder="globally unique sequence id"
             className={`${textInput} disabled:cursor-not-allowed disabled:opacity-60`}
           />
+        </label>
+        <label className="block">
+          <span className={fieldLabel}>SourceType</span>
+          <select
+            value={seq.SourceType}
+            onChange={(e) =>
+              setSeq({ ...seq, SourceType: e.target.value as DialogSourceType })
+            }
+            className={textInput}
+          >
+            {SOURCE_TYPES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="col-span-2 block">
           <span className={fieldLabel}>SetsFlag</span>

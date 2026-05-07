@@ -1,5 +1,6 @@
 {
   "Id": "welcome_terminal_log_001",
+  "SourceType": "Terminal",
   "Lines": [
     {
       "_subId": "Resource_gl0ph",

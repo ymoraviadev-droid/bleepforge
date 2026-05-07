@@ -9,6 +9,7 @@ import {
   reconcileProperty,
   reconcileSubResourceArray,
   removeSectionById,
+  serializeEnumInt,
   serializeString,
   type ReconcileAction,
   type SubArrayReconcileResult,
@@ -32,10 +33,19 @@ export interface DialogApplyContext {
 export const SEQUENCE_FIELD_ORDER: readonly string[] = [
   "script",
   "Id",
+  "SourceType",
   "Lines",
   "SetsFlag",
   "metadata/_custom_type_script",
 ];
+
+// Mirrors the C# `enum DialogSourceTypes { Npc, Terminal }`. Same trick as
+// every other enum in the project: omit the line when the value is the
+// 0-default (Godot's behavior on save).
+const DIALOG_SOURCE_TO_INT: Record<string, number> = {
+  Npc: 0,
+  Terminal: 1,
+};
 
 export const LINE_FIELD_ORDER: readonly string[] = [
   "script",
@@ -74,6 +84,7 @@ export interface DialogLineJson {
 
 export interface DialogSequenceJson {
   Id: string;
+  SourceType: string;
   Lines: DialogLineJson[];
   SetsFlag: string;
 }
@@ -155,6 +166,19 @@ export function applyDialog(
         resourceSection,
         "Id",
         serializeString(json.Id),
+        SEQUENCE_FIELD_ORDER,
+      ),
+    },
+    {
+      key: "SourceType",
+      action: reconcileProperty(
+        resourceSection,
+        "SourceType",
+        // Default Npc=0 is omitted by Godot, so we omit too. Anything else
+        // emits as the C# enum int.
+        json.SourceType === "Npc"
+          ? null
+          : serializeEnumInt(json.SourceType, DIALOG_SOURCE_TO_INT),
         SEQUENCE_FIELD_ORDER,
       ),
     },

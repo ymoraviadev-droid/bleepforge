@@ -1,5 +1,6 @@
 {
   "Id": "eddie_offer_2_betrayal",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_bhv33",

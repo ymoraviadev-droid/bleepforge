@@ -1,5 +1,6 @@
 {
   "Id": "eddie_offer_2_accepted",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_wq7vh",

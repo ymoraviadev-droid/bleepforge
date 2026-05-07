@@ -1,5 +1,6 @@
 {
   "Id": "krang_post_quest",
+  "SourceType": "Npc",
   "Lines": [
     {
       "_subId": "Resource_1c4sm",
