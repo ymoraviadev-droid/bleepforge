@@ -16,6 +16,8 @@ import {
   writeKarmaTres,
   writeQuestTres,
 } from "./tres/writer.js";
+import { shouldWatchTres, startTresWatcher } from "./tres/watcher.js";
+import { syncRouter } from "./sync/router.js";
 import { makeCrudRouter, makeJsonStorage } from "./util/jsonCrud.js";
 
 const app = express();
@@ -34,6 +36,7 @@ app.use("/api/npcs", makeCrudRouter(NpcSchema, npcStorage, "NpcId"));
 app.use("/api/asset", assetRouter);
 app.use("/api/item-icon", itemIconRouter);
 app.use("/api/import", importRouter);
+app.use("/api/sync", syncRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({
@@ -54,4 +57,8 @@ app.listen(config.port, () => {
   console.log(
     `[bleepforge/server] tres write-back: ${shouldWriteTres() ? "ENABLED (WRITE_TRES=1)" : "disabled (set WRITE_TRES=1 to enable)"}`,
   );
+  console.log(
+    `[bleepforge/server] tres watcher:    ${shouldWatchTres() ? "ENABLED (WATCH_TRES=1)" : "disabled (set WATCH_TRES=1 to enable)"}`,
+  );
+  startTresWatcher();
 });

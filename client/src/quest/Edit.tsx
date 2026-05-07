@@ -11,6 +11,7 @@ import type {
 import { questsApi } from "../api";
 import { DL } from "../CatalogDatalists";
 import { showConfirm } from "../Modal";
+import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { button, fieldLabel, textInput } from "../ui";
 
 const OBJECTIVE_TYPES: ObjectiveType[] = [
@@ -69,6 +70,15 @@ export function QuestEdit() {
       .then((q) => (q === null ? setError("not found") : setQuest(q)))
       .catch((e) => setError(String(e)));
   }, [id, isNew]);
+
+  useSyncRefresh({
+    domain: "quest",
+    key: isNew ? undefined : id,
+    onChange: () => {
+      if (isNew || !id) return;
+      questsApi.get(id).then((q) => q && setQuest(q)).catch(() => {});
+    },
+  });
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (quest === null) return <div className="text-neutral-500">Loading…</div>;

@@ -6,6 +6,7 @@ import { dialogsApi } from "../api";
 import { AssetPicker } from "../AssetPicker";
 import { DL } from "../CatalogDatalists";
 import { showConfirm } from "../Modal";
+import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { button, fieldLabel, textInput } from "../ui";
 
 const emptyChoice = (): DialogChoice => ({
@@ -50,6 +51,15 @@ export function DialogEdit() {
       .then((s) => (s === null ? setError("not found") : setSeq(s)))
       .catch((e) => setError(String(e)));
   }, [folderParam, id, isNew]);
+
+  useSyncRefresh({
+    domain: "dialog",
+    key: isNew || !folderParam || !id ? undefined : `${folderParam}/${id}`,
+    onChange: () => {
+      if (isNew || !folderParam || !id) return;
+      dialogsApi.get(folderParam, id).then((s) => s && setSeq(s)).catch(() => {});
+    },
+  });
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (seq === null) return <div className="text-neutral-500">Loading…</div>;

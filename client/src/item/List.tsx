@@ -3,6 +3,7 @@ import type { Item, ItemCategory } from "@bleepforge/shared";
 import { itemsApi } from "../api";
 import { ButtonLink } from "../Button";
 import { textInput } from "../ui";
+import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { ItemCard } from "./ItemCard";
 
 const CATEGORIES: ItemCategory[] = [
@@ -31,6 +32,12 @@ export function ItemList() {
   useEffect(() => {
     itemsApi.list().then(setItems).catch((e) => setError(String(e)));
   }, []);
+
+  // Live-refresh on any external item change (Godot save, .tres edit, etc.)
+  useSyncRefresh({
+    domain: "item",
+    onChange: () => itemsApi.list().then(setItems).catch(() => {}),
+  });
 
   const grouped = useMemo(() => {
     if (!items) return null;

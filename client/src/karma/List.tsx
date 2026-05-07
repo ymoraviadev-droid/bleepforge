@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { ButtonLink } from "../Button";
 import type { KarmaImpact } from "@bleepforge/shared";
 import { karmaApi } from "../api";
+import { useSyncRefresh } from "../sync/useSyncRefresh";
 
 export function KarmaList() {
   const [impacts, setImpacts] = useState<KarmaImpact[] | null>(null);
@@ -11,6 +12,11 @@ export function KarmaList() {
   useEffect(() => {
     karmaApi.list().then(setImpacts).catch((e) => setError(String(e)));
   }, []);
+
+  useSyncRefresh({
+    domain: "karma",
+    onChange: () => karmaApi.list().then(setImpacts).catch(() => {}),
+  });
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (impacts === null) return <div className="text-neutral-500">Loading…</div>;

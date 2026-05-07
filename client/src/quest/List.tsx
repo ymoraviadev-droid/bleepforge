@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { ButtonLink } from "../Button";
 import type { Quest } from "@bleepforge/shared";
 import { questsApi } from "../api";
+import { useSyncRefresh } from "../sync/useSyncRefresh";
 
 export function QuestList() {
   const [quests, setQuests] = useState<Quest[] | null>(null);
@@ -11,6 +12,11 @@ export function QuestList() {
   useEffect(() => {
     questsApi.list().then(setQuests).catch((e) => setError(String(e)));
   }, []);
+
+  useSyncRefresh({
+    domain: "quest",
+    onChange: () => questsApi.list().then(setQuests).catch(() => {}),
+  });
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (quests === null) return <div className="text-neutral-500">Loading…</div>;

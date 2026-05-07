@@ -4,6 +4,7 @@ import { ButtonLink } from "../Button";
 import type { Faction, KarmaDelta, KarmaImpact } from "@bleepforge/shared";
 import { karmaApi } from "../api";
 import { showConfirm } from "../Modal";
+import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { button, fieldLabel, textInput } from "../ui";
 
 const FACTIONS: Faction[] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
@@ -27,6 +28,15 @@ export function KarmaEdit() {
       .then((k) => (k === null ? setError("not found") : setImpact(k)))
       .catch((e) => setError(String(e)));
   }, [id, isNew]);
+
+  useSyncRefresh({
+    domain: "karma",
+    key: isNew ? undefined : id,
+    onChange: () => {
+      if (isNew || !id) return;
+      karmaApi.get(id).then((k) => k && setImpact(k)).catch(() => {});
+    },
+  });
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (impact === null) return <div className="text-neutral-500">Loading…</div>;

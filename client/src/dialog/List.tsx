@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router";
 import { ButtonLink } from "../Button";
 import type { DialogSequence } from "@bleepforge/shared";
 import { dialogsApi } from "../api";
+import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { FolderTabs } from "./FolderTabs";
 
 export function DialogList() {
@@ -26,6 +27,18 @@ export function DialogList() {
     setSeqs(null);
     dialogsApi.listInFolder(folder).then(setSeqs).catch((e) => setError(String(e)));
   }, [folder]);
+
+  // Live-refresh on any external dialog change in the current folder.
+  useSyncRefresh({
+    domain: "dialog",
+    onChange: (e) => {
+      if (!folder) return;
+      // event.key shape "<folder>/<id>"
+      const [eventFolder] = e.key.split("/");
+      if (eventFolder !== folder) return;
+      dialogsApi.listInFolder(folder).then(setSeqs).catch(() => {});
+    },
+  });
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (folders === null) return <div className="text-neutral-500">Loading…</div>;

@@ -272,12 +272,16 @@ Plus `pnpm harness` walks every `.tres` in the project and confirms parser+emitt
 
 **Save-to-Godot wiring (gated by `WRITE_TRES`):** the four save endpoints — `PUT /api/items/:slug`, `/api/karma/:id`, `/api/quests/:id`, `/api/dialogs/:folder/:id` — first write the JSON (always), then optionally call the matching mapper to update the live `.tres` in `GODOT_PROJECT_ROOT`. Atomic write (temp file + rename). Default off; set `WRITE_TRES=1` in `.env` and restart the server to enable. The save response shape is `{ entity, tresWrite }` where `tresWrite` is `{ attempted, ok, path, warnings, error }` — clients can ignore it for now (api.ts logs to console). Server logs every attempt.
 
+**Live-sync from Godot (gated by `WATCH_TRES`):** when set to `1`, the server watches `GODOT_PROJECT_ROOT/**/*.tres` via `node:fs.watch` (recursive). On external change: re-imports that one file via the import mappers, overwrites the matching JSON in `data/`, and publishes a `SyncEvent` (`{ domain, key, action }`) on an in-memory bus. The SSE endpoint `GET /api/sync/events` streams those events to any open browser tab. The client opens an `EventSource` once at app boot ([client/src/sync/stream.ts](client/src/sync/stream.ts)), re-dispatches each event as a `Bleepforge:sync` window CustomEvent, and components register via `useSyncRefresh({ domain, key, onChange })` to refetch when their entity changes. Result: edit a `.tres` in Godot, save it, and any open Bleepforge tab updates without manual refresh.
+
+Self-write suppression in [server/src/tres/writer.ts](server/src/tres/writer.ts): every save records the path with a timestamp; the watcher skips events for paths within a 1.5 s window. Without this, a Bleepforge save would trigger our own watcher → re-import → emit event → client refetch (harmless but wasteful).
+
 **Known limitations (deferred):**
 
 - **Orphan ext-resources** are not cleaned up when their last reference is removed. Godot tolerates them; minor lint, not a correctness issue.
 - **`load_steps` header attribute** isn't maintained (this corpus doesn't use it). If Godot starts emitting it on save, our writer will need to update it.
 - **No `.tres` deletion** when JSON is deleted. The orphan stays in Godot; user removes manually if desired.
-- **Bleepforge → JSON → `.tres` is one-way at save time.** If Yonatan edits a `.tres` directly in Godot, Bleepforge's JSON drifts until the user manually re-imports.
+- **Concurrent edit conflict**: if Yonatan edits the same entity in Bleepforge and in Godot at the same time, the watcher's reimport silently overwrites the in-progress form data when the client refetches. Single-user local workflow makes this rare; future work could surface a "modified externally" banner.
 
 ## Open questions
 

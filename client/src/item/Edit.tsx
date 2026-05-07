@@ -6,6 +6,7 @@ import { AssetPicker } from "../AssetPicker";
 import { ButtonLink } from "../Button";
 import { ItemIcon } from "../ItemIcon";
 import { DL } from "../CatalogDatalists";
+import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { showConfirm } from "../Modal";
 import { button, fieldLabel, textInput } from "../ui";
 
@@ -46,6 +47,15 @@ export function ItemEdit() {
       .then((it) => (it === null ? setError("not found") : setItem(it)))
       .catch((e) => setError(String(e)));
   }, [slug, isNew]);
+
+  useSyncRefresh({
+    domain: "item",
+    key: isNew ? undefined : slug,
+    onChange: () => {
+      if (isNew || !slug) return;
+      itemsApi.get(slug).then((it) => it && setItem(it)).catch(() => {});
+    },
+  });
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (item === null) return <div className="text-neutral-500">Loading…</div>;
