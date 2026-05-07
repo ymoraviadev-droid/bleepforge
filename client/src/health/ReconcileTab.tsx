@@ -1,15 +1,14 @@
 import { useEffect, useState } from "react";
-import { ButtonLink } from "../Button";
 import { reconcileApi, type ReconcileStatus } from "../api";
 
-// Diagnostic page for the boot-time .tres → JSON cache rebuild. Reachable
-// via the header link (which only appears when there's something to fix)
-// or directly at /reconcile. Read-only — there's no "rebuild now" action
-// because rebuilding requires a server restart by design (config is
-// captured once at boot).
+// Boot-reconcile diagnostic tab. Same content as the previous /reconcile page
+// minus the page chrome (header lives in HealthPage). Read-only — rebuilding
+// requires a server restart by design (config is captured once at boot).
 
-export function ReconcilePage() {
-  const [status, setStatus] = useState<ReconcileStatus | null | undefined>(undefined);
+export function ReconcileTab() {
+  const [status, setStatus] = useState<ReconcileStatus | null | undefined>(
+    undefined,
+  );
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -32,23 +31,15 @@ export function ReconcilePage() {
   }
 
   if (error) {
-    return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Reconcile status</h1>
-        <p className="text-red-400">Failed to fetch: {error}</p>
-      </div>
-    );
+    return <p className="text-red-400">Failed to fetch: {error}</p>;
   }
 
   if (status === null) {
     return (
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Reconcile status</h1>
-        <p className="text-neutral-400">
-          The server hasn't completed its boot-time reconcile yet. Refresh in a
-          moment.
-        </p>
-      </div>
+      <p className="text-neutral-400">
+        The server hasn't completed its boot-time reconcile yet. Refresh in a
+        moment.
+      </p>
     );
   }
 
@@ -62,20 +53,12 @@ export function ReconcilePage() {
   const ranAt = new Date(s.ranAt).toLocaleString();
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Reconcile status</h1>
-          <p className="mt-1 text-xs text-neutral-400">
-            Boot-time rebuild of the JSON cache from{" "}
-            <span className="font-mono">.tres</span>. Ran {ranAt} in{" "}
-            {s.durationMs}ms. Restart the server to re-run.
-          </p>
-        </div>
-        <ButtonLink to="/concept" variant="secondary">
-          ← Back
-        </ButtonLink>
-      </div>
+    <div className="space-y-4">
+      <p className="text-xs text-neutral-500">
+        Last boot-time rebuild of the JSON cache from{" "}
+        <span className="font-mono">.tres</span>. Ran {ranAt} in {s.durationMs}
+        ms. Restart the server to re-run.
+      </p>
 
       {!s.ok && (
         <div className="border-2 border-red-700 bg-red-950/30 p-3 text-sm text-red-200">
@@ -95,9 +78,9 @@ export function ReconcilePage() {
       />
 
       <section className="space-y-2">
-        <h2 className="font-display text-xs tracking-wider text-emerald-400">
+        <h3 className="font-display text-xs tracking-wider text-emerald-400">
           PER DOMAIN
-        </h2>
+        </h3>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {(Object.entries(s.perDomain) as [string, typeof s.perDomain.items][]).map(
             ([name, c]) => {
@@ -154,10 +137,10 @@ export function ReconcilePage() {
         <DetailList
           title="Skipped"
           tone="amber"
-          items={s.skippedDetails.map((s) => ({
-            domain: s.domain,
-            file: s.file,
-            note: s.reason,
+          items={s.skippedDetails.map((sk) => ({
+            domain: sk.domain,
+            file: sk.file,
+            note: sk.reason,
           }))}
         />
       )}
@@ -211,9 +194,9 @@ function DetailList({
   const titleClass = tone === "red" ? "text-red-400" : "text-amber-400";
   return (
     <section className="space-y-2">
-      <h2 className={`font-display text-xs tracking-wider ${titleClass}`}>
+      <h3 className={`font-display text-xs tracking-wider ${titleClass}`}>
         {title.toUpperCase()} ({items.length})
-      </h2>
+      </h3>
       <ul className="space-y-1.5">
         {items.map((it, i) => (
           <li

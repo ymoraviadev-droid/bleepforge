@@ -1,18 +1,16 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router";
-import { reconcileApi, type ReconcileStatus } from "./api";
 import { CatalogDatalists } from "./CatalogDatalists";
 import { ContextMenuHost } from "./ContextMenu";
 import { ModalHost } from "./Modal";
 import { SplashScreen } from "./SplashScreen";
-import { useCatalog } from "./useCatalog";
 import { ConceptView } from "./concept/View";
 import { ConceptEdit } from "./concept/Edit";
 import { DialogList } from "./dialog/List";
 import { DialogEdit } from "./dialog/Edit";
 import { DialogGraph } from "./dialog/Graph";
-import { IntegrityPage } from "./integrity/IntegrityPage";
-import { computeIssues } from "./integrity/issues";
+import { HealthPage } from "./health/HealthPage";
+import { useHealthStatus } from "./health/useHealthStatus";
 import { QuestList } from "./quest/List";
 import { QuestEdit } from "./quest/Edit";
 import { ItemList } from "./item/List";
@@ -25,7 +23,6 @@ import { FactionList } from "./faction/List";
 import { FactionEdit } from "./faction/Edit";
 import { GearIcon } from "./preferences/GearIcon";
 import { PreferencesPage } from "./preferences/PreferencesPage";
-import { ReconcilePage } from "./reconcile/StatusPage";
 
 const NAV_BASE = "border-2 px-3 py-1.5 text-sm font-medium transition-colors";
 
@@ -36,31 +33,27 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
       : "border-transparent text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200"
   }`;
 
-// Variant for the Integrity link when the catalog has dangling references.
-// Keeps the same shape as navLinkClass but in red so it pulls the eye.
-const integrityWarnClass = ({ isActive }: { isActive: boolean }) =>
-  `${NAV_BASE} ${
-    isActive
-      ? "border-red-600 bg-red-950/40 text-red-200"
-      : "border-red-900/60 bg-red-950/20 text-red-300 hover:border-red-700 hover:bg-red-950/40 hover:text-red-200"
-  }`;
-
-// Reconcile diagnostic link — only renders when there's something to fix
-// (boring infrastructure when working, urgent when broken). Red on errors,
-// amber on skip-only.
-const reconcileWarnClass = (tone: "red" | "amber") =>
+// Variant for the Health link, scaled by overall severity. Red on errors
+// (or aborted reconcile), amber on warnings/skips, default on clean. Always
+// visible — the ✓ badge gives positive feedback when everything's healthy
+// and the count gives urgency when not.
+const healthLinkClass = (severity: "loading" | "clean" | "warning" | "error") =>
   ({ isActive }: { isActive: boolean }) => {
-    const palette =
-      tone === "red"
-        ? {
-            active: "border-red-600 bg-red-950/40 text-red-200",
-            idle: "border-red-900/60 bg-red-950/20 text-red-300 hover:border-red-700 hover:bg-red-950/40 hover:text-red-200",
-          }
-        : {
-            active: "border-amber-600 bg-amber-950/40 text-amber-200",
-            idle: "border-amber-900/60 bg-amber-950/20 text-amber-300 hover:border-amber-700 hover:bg-amber-950/40 hover:text-amber-200",
-          };
-    return `${NAV_BASE} ${isActive ? palette.active : palette.idle}`;
+    if (severity === "error") {
+      return `${NAV_BASE} ${
+        isActive
+          ? "border-red-600 bg-red-950/40 text-red-200"
+          : "border-red-900/60 bg-red-950/20 text-red-300 hover:border-red-700 hover:bg-red-950/40 hover:text-red-200"
+      }`;
+    }
+    if (severity === "warning") {
+      return `${NAV_BASE} ${
+        isActive
+          ? "border-amber-600 bg-amber-950/40 text-amber-200"
+          : "border-amber-900/60 bg-amber-950/20 text-amber-300 hover:border-amber-700 hover:bg-amber-950/40 hover:text-amber-200"
+      }`;
+    }
+    return navLinkClass({ isActive });
   };
 
 const prefsNavClass = ({ isActive }: { isActive: boolean }) =>
@@ -91,27 +84,12 @@ export function App() {
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
-  const catalog = useCatalog();
-  const issueCount = catalog ? computeIssues(catalog).length : 0;
-  const integrityClean = catalog !== null && issueCount === 0;
-  const integrityDirty = catalog !== null && issueCount > 0;
-
-  // Boot-reconcile diagnostic. Fetched once on mount; the only writer is
-  // server boot, so polling isn't needed. The link only appears when there
-  // are issues — see reconcileWarnClass.
-  const [reconcile, setReconcile] = useState<ReconcileStatus | null>(null);
-  useEffect(() => {
-    reconcileApi.getStatus().then(setReconcile).catch(() => {});
-  }, []);
-  const reconcileErrors = reconcile?.errorDetails.length ?? 0;
-  const reconcileSkipped = reconcile?.skippedDetails.length ?? 0;
-  const reconcileBroken = reconcile && !reconcile.ok;
-  const reconcileTone: "red" | "amber" | null =
-    reconcileBroken || reconcileErrors > 0
-      ? "red"
-      : reconcileSkipped > 0
-        ? "amber"
-        : null;
+  // Unified health signal: integrity (authored data) + reconcile (.tres
+  // cache infra) folded into one severity. Single header indicator is
+  // simpler than two and matches the user's actual question — "is anything
+  // wrong?" — instead of forcing them to know data-vs-infra distinctions.
+  const health = useHealthStatus();
+  const healthCount = health.tabs.reduce((n, t) => n + t.count, 0);
 
   if (showSplash) {
     return <SplashScreen onDone={() => setShowSplash(false)} />;
@@ -154,46 +132,30 @@ export function App() {
             Items
           </NavLink>
           <NavLink
-            to="/integrity"
-            className={integrityDirty ? integrityWarnClass : navLinkClass}
+            to="/health"
+            className={healthLinkClass(health.overall)}
             title={
-              integrityDirty
-                ? `${issueCount} integrity issue${issueCount === 1 ? "" : "s"}`
-                : integrityClean
-                  ? "Integrity check is clean"
-                  : "Integrity"
+              health.overall === "error"
+                ? `Health: ${healthCount} issue${healthCount === 1 ? "" : "s"}`
+                : health.overall === "warning"
+                  ? `Health: ${healthCount} warning${healthCount === 1 ? "" : "s"}`
+                  : health.overall === "clean"
+                    ? "Health check is clean"
+                    : "Health"
             }
           >
-            Integrity{" "}
-            {integrityClean && (
+            Health{" "}
+            {health.overall === "clean" && (
               <span className="text-emerald-400" aria-label="clean">
                 ✓
               </span>
             )}
-            {integrityDirty && (
+            {(health.overall === "error" || health.overall === "warning") && (
               <span className="ml-0.5 font-mono text-[10px]">
-                ({issueCount})
+                ({healthCount})
               </span>
             )}
           </NavLink>
-          {reconcileTone && (
-            <NavLink
-              to="/reconcile"
-              className={reconcileWarnClass(reconcileTone)}
-              title={
-                reconcileBroken
-                  ? "Reconcile aborted — JSON cache may be stale"
-                  : reconcileErrors > 0
-                    ? `${reconcileErrors} reconcile error${reconcileErrors === 1 ? "" : "s"}`
-                    : `${reconcileSkipped} file${reconcileSkipped === 1 ? "" : "s"} skipped during reconcile`
-              }
-            >
-              Reconcile{" "}
-              <span className="ml-0.5 font-mono text-[10px]">
-                ({reconcileErrors > 0 ? reconcileErrors : reconcileSkipped})
-              </span>
-            </NavLink>
-          )}
         </nav>
         <div className="flex-1" />
         <NavLink
@@ -232,8 +194,9 @@ export function App() {
           <Route path="/factions" element={<FactionList />} />
           <Route path="/factions/new" element={<FactionEdit />} />
           <Route path="/factions/:faction" element={<FactionEdit />} />
-          <Route path="/integrity" element={<IntegrityPage />} />
-          <Route path="/reconcile" element={<ReconcilePage />} />
+          <Route path="/health/*" element={<HealthPage />} />
+          <Route path="/integrity" element={<Navigate to="/health/integrity" replace />} />
+          <Route path="/reconcile" element={<Navigate to="/health/reconcile" replace />} />
           <Route path="/preferences" element={<PreferencesPage />} />
           <Route path="/import" element={<Navigate to="/preferences" replace />} />
         </Routes>

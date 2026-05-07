@@ -7,8 +7,10 @@ export interface Issue {
   link?: string;
 }
 
-// Pure cross-domain integrity check. Extracted from IntegrityPage so the App
-// nav can run it too (to render a checkmark vs. red tint on the Integrity link).
+// Pure cross-domain integrity check. Lives in its own module so the
+// IntegrityTab page renderer AND the unified health-status hook
+// (used by the App-level header indicator) can share the same logic
+// without dragging in any UI imports.
 export function computeIssues(catalog: Catalog): Issue[] {
   const issues: Issue[] = [];
   const npcIds = new Set(catalog.npcs.map((n) => n.NpcId));

@@ -2,12 +2,14 @@ import { Link } from "react-router";
 import { refreshCatalog } from "../catalog-bus";
 import { useCatalog } from "../useCatalog";
 import { button } from "../ui";
-import { computeIssues, type Issue } from "./issues";
+import { computeIssues } from "../integrity/issues";
 
-// computeIssues + Issue type live in ./issues.ts so App can run the same
-// check to render the nav-link state indicator (✓ when clean, red tint when not).
+// Authored-data integrity tab. Same logic as the previous standalone
+// /integrity page — extracted into a tab body. computeIssues + Issue type
+// stay in ../integrity/issues.ts so App.tsx can also evaluate the count
+// for the unified Health header indicator without rendering anything.
 
-export function IntegrityPage() {
+export function IntegrityTab() {
   const catalog = useCatalog();
   if (catalog === null)
     return <div className="text-neutral-500">Loading catalog…</div>;
@@ -16,16 +18,13 @@ export function IntegrityPage() {
   const byDomain = groupBy(issues, (i) => i.domain);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold">Integrity</h1>
-          <p className="text-xs text-neutral-500">
-            {issues.length === 0
-              ? "All clear — no broken references found."
-              : `${issues.length} issue${issues.length === 1 ? "" : "s"} found.`}
-          </p>
-        </div>
+        <p className="text-xs text-neutral-500">
+          {issues.length === 0
+            ? "All clear — no broken references found."
+            : `${issues.length} issue${issues.length === 1 ? "" : "s"} found.`}
+        </p>
         <button
           onClick={refreshCatalog}
           className={`${button} bg-neutral-800 text-neutral-100 hover:bg-neutral-700`}
@@ -35,15 +34,15 @@ export function IntegrityPage() {
       </div>
 
       {issues.length === 0 ? (
-        <div className="rounded border-2 border-emerald-800/60 bg-emerald-950/20 p-8 text-center text-emerald-300">
+        <div className="border-2 border-emerald-800/60 bg-emerald-950/20 p-8 text-center text-emerald-300">
           ✓ No broken references, no duplicate sequence ids, no dangling FKs.
         </div>
       ) : (
         Object.entries(byDomain).map(([domain, list]) => (
           <section key={domain}>
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-300">
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-neutral-300">
               {domain} ({list.length})
-            </h2>
+            </h3>
             <ul className="divide-y divide-neutral-800 border-2 border-neutral-800">
               {list.map((iss, idx) => (
                 <li key={idx} className="px-3 py-2 text-sm hover:bg-neutral-900">
