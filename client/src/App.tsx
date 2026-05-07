@@ -1,10 +1,12 @@
 import { NavLink, Navigate, Route, Routes } from "react-router";
 import { CatalogDatalists } from "./CatalogDatalists";
 import { ModalHost } from "./Modal";
+import { useCatalog } from "./useCatalog";
 import { DialogList } from "./dialog/List";
 import { DialogEdit } from "./dialog/Edit";
 import { DialogGraph } from "./dialog/Graph";
 import { IntegrityPage } from "./integrity/IntegrityPage";
+import { computeIssues } from "./integrity/issues";
 import { QuestList } from "./quest/List";
 import { QuestEdit } from "./quest/Edit";
 import { ItemList } from "./item/List";
@@ -18,11 +20,22 @@ import { FactionEdit } from "./faction/Edit";
 import { GearIcon } from "./preferences/GearIcon";
 import { PreferencesPage } from "./preferences/PreferencesPage";
 
+const NAV_BASE = "border-2 px-3 py-1.5 text-sm font-medium transition-colors";
+
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-  `border-2 px-3 py-1.5 text-sm font-medium transition-colors ${
+  `${NAV_BASE} ${
     isActive
       ? "border-emerald-600 bg-emerald-950/40 text-emerald-200"
       : "border-transparent text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200"
+  }`;
+
+// Variant for the Integrity link when the catalog has dangling references.
+// Keeps the same shape as navLinkClass but in red so it pulls the eye.
+const integrityWarnClass = ({ isActive }: { isActive: boolean }) =>
+  `${NAV_BASE} ${
+    isActive
+      ? "border-red-600 bg-red-950/40 text-red-200"
+      : "border-red-900/60 bg-red-950/20 text-red-300 hover:border-red-700 hover:bg-red-950/40 hover:text-red-200"
   }`;
 
 const prefsNavClass = ({ isActive }: { isActive: boolean }) =>
@@ -33,6 +46,13 @@ const prefsNavClass = ({ isActive }: { isActive: boolean }) =>
   }`;
 
 export function App() {
+  const catalog = useCatalog();
+  // null catalog → don't show stale state. While loading, integrity is unknown
+  // so we render the neutral nav style (no checkmark, no red).
+  const issueCount = catalog ? computeIssues(catalog).length : 0;
+  const integrityClean = catalog !== null && issueCount === 0;
+  const integrityDirty = catalog !== null && issueCount > 0;
+
   return (
     <div className="flex h-screen flex-col">
       <header className="flex shrink-0 items-center gap-6 border-b-2 border-neutral-800 bg-neutral-950 px-6 py-4">
@@ -40,26 +60,46 @@ export function App() {
           BLEEPFORGE
         </span>
         <nav className="flex gap-2">
-          <NavLink to="/dialogs" className={navLinkClass}>
-            Dialogs
-          </NavLink>
-          <NavLink to="/quests" className={navLinkClass}>
-            Quests
+          <NavLink to="/factions" className={navLinkClass}>
+            Factions
           </NavLink>
           <NavLink to="/npcs" className={navLinkClass}>
             NPCs
           </NavLink>
-          <NavLink to="/items" className={navLinkClass}>
-            Items
+          <NavLink to="/quests" className={navLinkClass}>
+            Quests
           </NavLink>
           <NavLink to="/karma" className={navLinkClass}>
             Karma
           </NavLink>
-          <NavLink to="/factions" className={navLinkClass}>
-            Factions
+          <NavLink to="/items" className={navLinkClass}>
+            Items
           </NavLink>
-          <NavLink to="/integrity" className={navLinkClass}>
-            Integrity
+          <NavLink to="/dialogs" className={navLinkClass}>
+            Dialogs
+          </NavLink>
+          <NavLink
+            to="/integrity"
+            className={integrityDirty ? integrityWarnClass : navLinkClass}
+            title={
+              integrityDirty
+                ? `${issueCount} integrity issue${issueCount === 1 ? "" : "s"}`
+                : integrityClean
+                  ? "Integrity check is clean"
+                  : "Integrity"
+            }
+          >
+            Integrity{" "}
+            {integrityClean && (
+              <span className="text-emerald-400" aria-label="clean">
+                ✓
+              </span>
+            )}
+            {integrityDirty && (
+              <span className="ml-0.5 font-mono text-[10px]">
+                ({issueCount})
+              </span>
+            )}
           </NavLink>
         </nav>
         <div className="flex-1" />

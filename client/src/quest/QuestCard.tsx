@@ -131,10 +131,10 @@ export function QuestCard({ quest, giver, className = "" }: Props) {
       )}
 
       {(quest.ActiveFlag || quest.CompleteFlag || quest.TurnedInFlag) && (
-        <div className="flex flex-wrap gap-1 border-t border-neutral-800 pt-1.5 font-mono text-[9px] text-neutral-600">
+        <div className="flex flex-col gap-0.5 border-t border-neutral-800 pt-1.5 font-mono text-[9px] text-neutral-600">
           {quest.ActiveFlag && (
             <span className="truncate" title="ActiveFlag (set on StartQuest)">
-              ⚑ {quest.ActiveFlag}
+              ⚑ ActiveFlag: {quest.ActiveFlag}
             </span>
           )}
           {quest.CompleteFlag && (
@@ -142,12 +142,12 @@ export function QuestCard({ quest, giver, className = "" }: Props) {
               className="truncate"
               title="CompleteFlag (set when objectives complete)"
             >
-              ⚑ {quest.CompleteFlag}
+              ⚑ CompleteFlag: {quest.CompleteFlag}
             </span>
           )}
           {quest.TurnedInFlag && (
             <span className="truncate" title="TurnedInFlag (set on TurnIn)">
-              ⚑ {quest.TurnedInFlag}
+              ⚑ TurnedInFlag: {quest.TurnedInFlag}
             </span>
           )}
         </div>
