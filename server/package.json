@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "harness": "tsx --env-file=../.env src/tres/harness.ts",
     "canary": "tsx --env-file=../.env src/tres/canary.ts",
+    "canary-karma": "tsx --env-file=../.env src/tres/canary-karma.ts",
     "test-mutations": "tsx --env-file=../.env src/tres/test-mutations.ts"
   },
   "dependencies": {
