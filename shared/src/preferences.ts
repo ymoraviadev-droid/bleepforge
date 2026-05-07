@@ -21,9 +21,18 @@ export const GlobalThemeSchema = z.object({
 export const PreferencesSchema = z.object({
   themes: z.array(GlobalThemeSchema).default([]),
   activeName: z.string().default(""),
+  // Absolute path to the Godot project. When set, takes priority over the
+  // GODOT_PROJECT_ROOT env var at server boot. Empty string / undefined
+  // means "fall back to env." The setting is read once at boot — changes
+  // require a server restart, by design (no hot-swap in v1).
+  godotProjectRoot: z.string().default(""),
 });
 
 export type GlobalTheme = z.infer<typeof GlobalThemeSchema>;
 export type Preferences = z.infer<typeof PreferencesSchema>;
 
-export const emptyPreferences = (): Preferences => ({ themes: [], activeName: "" });
+export const emptyPreferences = (): Preferences => ({
+  themes: [],
+  activeName: "",
+  godotProjectRoot: "",
+});

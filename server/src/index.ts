@@ -12,6 +12,7 @@ import { conceptRouter } from "./concept/router.js";
 import { pickupsRouter } from "./pickup/router.js";
 import { preferencesRouter } from "./preferences/router.js";
 import { dialogRouter } from "./dialog/router.js";
+import { godotProjectRouter } from "./godotProject/router.js";
 import { runImport } from "./import/orchestrator.js";
 import { itemIconRouter } from "./item/iconRouter.js";
 import {
@@ -29,9 +30,11 @@ import { makeCrudRouter, makeJsonStorage } from "./util/jsonCrud.js";
 // is canonical; data/ JSONs are a derived cache rebuilt from it on boot. Without
 // a project root there's nothing to read or write — refuse to start so the
 // failure mode is obvious instead of "everything's empty and I don't know why."
+// Resolution order is preferences.json → GODOT_PROJECT_ROOT env var → fail.
 if (!config.godotProjectRoot) {
-  console.error("[bleepforge/server] GODOT_PROJECT_ROOT is required.");
-  console.error("[bleepforge/server] Set it in .env to point at your Godot project root.");
+  console.error("[bleepforge/server] No Godot project root configured.");
+  console.error("[bleepforge/server] Set GODOT_PROJECT_ROOT in .env, or open Preferences");
+  console.error("[bleepforge/server] in a previous run to point at your project.");
   process.exit(1);
 }
 
@@ -59,6 +62,7 @@ app.use("/api/sync", syncRouter);
 app.use("/api/concept", conceptRouter);
 app.use("/api/preferences", preferencesRouter);
 app.use("/api/pickups", pickupsRouter);
+app.use("/api/godot-project", godotProjectRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({
@@ -73,7 +77,9 @@ app.listen(config.port, async () => {
   console.log(`[bleepforge/server] http://localhost:${config.port}`);
   console.log(`[bleepforge/server] data root:  ${config.dataRoot}`);
   console.log(`[bleepforge/server] asset root: ${config.assetRoot}`);
-  console.log(`[bleepforge/server] godot root: ${config.godotProjectRoot}`);
+  console.log(
+    `[bleepforge/server] godot root: ${config.godotProjectRoot} (from ${config.godotProjectRootSource})`,
+  );
 
   // Boot-time reconcile: rebuild the JSON cache from .tres so any edits made
   // in Godot while Bleepforge was off are picked up before the first request.

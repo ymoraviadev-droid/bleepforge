@@ -70,6 +70,11 @@ function writeCache(p: Preferences) {
 
 let themes: GlobalTheme[] = [];
 let activeName: string = DEFAULT_NAME;
+// godotProjectRoot lives alongside themes in the same Preferences document
+// even though it isn't a theme. Routing it through the same persist machinery
+// avoids two writers racing on data/preferences.json — every save sends the
+// full document.
+let godotProjectRoot: string = "";
 const subs = new Set<() => void>();
 
 function notify() {
@@ -88,7 +93,7 @@ function applyToDom(t: GlobalTheme) {
 }
 
 function snapshotPreferences(): Preferences {
-  return { themes: themes.slice(), activeName };
+  return { themes: themes.slice(), activeName, godotProjectRoot };
 }
 
 // Fire-and-mostly-forget save. Updates the cache on success; logs and continues
@@ -109,6 +114,7 @@ function persist() {
 
 function adopt(prefs: Preferences, applyDom: boolean) {
   themes = prefs.themes;
+  godotProjectRoot = prefs.godotProjectRoot ?? "";
   // Resolve active: prefer the saved name, fall back to default, then first.
   const desired = prefs.activeName || DEFAULT_NAME;
   const found = themes.find((t) => t.name === desired) ?? themes[0];
@@ -268,6 +274,37 @@ export function setActiveLetterSpacing(v: number) {
 
 function clamp(v: number, min: number, max: number) {
   return Math.min(max, Math.max(min, v));
+}
+
+// ---- Godot project root setter / hook ---------------------------------------
+// Lives in the same module so it shares the persist queue + cache. The setter
+// is best-effort: it updates in-memory state and triggers a save, but the new
+// value doesn't take effect on the running server until next restart (config
+// reads preferences.json once at boot, not on each request).
+
+export function getGodotProjectRoot(): string {
+  return godotProjectRoot;
+}
+
+export function setGodotProjectRoot(value: string) {
+  godotProjectRoot = value.trim();
+  persist();
+  notify();
+}
+
+export function useGodotProjectRoot(): {
+  saved: string;
+  set: (v: string) => void;
+} {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const sub = () => force((x) => x + 1);
+    subs.add(sub);
+    return () => {
+      subs.delete(sub);
+    };
+  }, []);
+  return { saved: godotProjectRoot, set: setGodotProjectRoot };
 }
 
 // ---- React hook -------------------------------------------------------------

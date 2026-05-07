@@ -1,4 +1,9 @@
-import { type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  godotProjectApi,
+  type GodotProjectInfo,
+  type GodotProjectValidation,
+} from "../api";
 import { FONT_SIZE, FONTS, LETTER_SPACING, useFont, useFontSize, useLetterSpacing } from "../Font";
 import {
   DEFAULT_THEME_NAME,
@@ -7,6 +12,7 @@ import {
   setActiveFontSize,
   setActiveLetterSpacing,
   useGlobalThemes,
+  useGodotProjectRoot,
 } from "../GlobalTheme";
 import { showConfirm, showPrompt } from "../Modal";
 import { THEMES, useTheme } from "../Theme";
@@ -25,6 +31,10 @@ export function PreferencesPage() {
           reapplied each session.
         </p>
       </div>
+
+      <Section title="Godot project">
+        <GodotProjectSection />
+      </Section>
 
       <Section title="Global theme">
         <GlobalThemeSection />
@@ -49,6 +59,142 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       </h2>
       {children}
     </section>
+  );
+}
+
+function GodotProjectSection() {
+  const { saved, set } = useGodotProjectRoot();
+  // The "running config" — what the server resolved at boot. May differ from
+  // `saved` when a path change has been written to preferences.json but the
+  // server hasn't been restarted yet.
+  const [info, setInfo] = useState<GodotProjectInfo | null>(null);
+  const [draft, setDraft] = useState(saved);
+  const [validation, setValidation] = useState<GodotProjectValidation | null>(null);
+
+  // Re-sync draft when saved changes (e.g. after a successful save round-trip
+  // or another tab updated the preferences file).
+  useEffect(() => {
+    setDraft(saved);
+  }, [saved]);
+
+  // Fetch the running effective root once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    godotProjectApi
+      .get()
+      .then((r) => {
+        if (!cancelled) setInfo(r);
+      })
+      .catch(() => {
+        // Endpoint failure here is non-fatal — UI just won't show the
+        // "currently active" hint, but save still works.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Debounced live validation while the user types. Empty draft is a valid
+  // state (means "fall back to env") so we skip validation when blank.
+  useEffect(() => {
+    const trimmed = draft.trim();
+    if (!trimmed) {
+      setValidation(null);
+      return;
+    }
+    setValidation(null); // Clear stale verdict while we wait for the new one.
+    const handle = setTimeout(() => {
+      godotProjectApi.validate(trimmed).then(setValidation).catch(() => {
+        setValidation({ ok: false, exists: false, isProject: false, message: "Validation failed" });
+      });
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [draft]);
+
+  const trimmedDraft = draft.trim();
+  const dirty = trimmedDraft !== saved.trim();
+  // Empty is always saveable (clears the override → falls back to env on next
+  // boot). Non-empty must validate.
+  const canSave = dirty && (trimmedDraft === "" || validation?.ok === true);
+  // Restart-required when the saved value is non-empty and differs from what
+  // the server resolved at boot. We compare absolute paths to avoid trailing-
+  // slash false positives.
+  const restartRequired = useMemo(() => {
+    if (!info) return false;
+    const savedNorm = saved.trim().replace(/\/+$/, "");
+    const effectiveNorm = (info.effective ?? "").replace(/\/+$/, "");
+    return savedNorm !== "" && savedNorm !== effectiveNorm;
+  }, [info, saved]);
+
+  const onSave = () => {
+    set(trimmedDraft);
+  };
+
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-neutral-400">
+        Absolute path to your Flock of Bleeps Godot project. Bleepforge
+        reads <span className="font-mono">.tres</span> files from here on
+        boot and writes saves back to them. Changes take effect on next
+        server restart — the path is captured once at startup, not per
+        request.
+      </p>
+
+      <label className="block">
+        <span className={fieldLabel}>Project root</span>
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="/home/you/Godot/astro-man"
+          spellCheck={false}
+          className={`${textInput} font-mono text-sm`}
+        />
+      </label>
+
+      {trimmedDraft && validation && (
+        <div className="text-xs">
+          {validation.ok ? (
+            <span className="text-emerald-400">
+              ✓ Valid Godot project (project.godot found)
+            </span>
+          ) : (
+            <span className="text-red-400">✗ {validation.message}</span>
+          )}
+        </div>
+      )}
+
+      {info && (
+        <div className="text-xs text-neutral-500">
+          Currently active:{" "}
+          <span className="font-mono text-neutral-300">
+            {info.effective ?? "(none)"}
+          </span>{" "}
+          {info.source && (
+            <span className="text-neutral-500">
+              — from {info.source === "preferences" ? "this preferences file" : ".env"}
+            </span>
+          )}
+        </div>
+      )}
+
+      <div className="flex justify-end gap-2">
+        {dirty && (
+          <Button variant="secondary" size="sm" onClick={() => setDraft(saved)}>
+            Cancel
+          </Button>
+        )}
+        <Button size="sm" onClick={onSave} disabled={!canSave}>
+          {trimmedDraft === "" && dirty ? "Clear (use .env)" : "Save"}
+        </Button>
+      </div>
+
+      {restartRequired && (
+        <div className="border-2 border-amber-700 bg-amber-950/30 p-3 text-xs text-amber-200">
+          ⟳ Saved. Restart the server to apply — the running process is still
+          using the previous root.
+        </div>
+      )}
+    </div>
   );
 }
 

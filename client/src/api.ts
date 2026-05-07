@@ -127,6 +127,38 @@ export const pickupsApi = {
   },
 };
 
+// Godot project root introspection. The "effective" root is whatever the
+// running server resolved at boot; the "source" tells us whether it came
+// from preferences.json or the GODOT_PROJECT_ROOT env var (or null on
+// first run before either is set). Used by Preferences to detect when a
+// saved project-root change is pending a server restart.
+export interface GodotProjectInfo {
+  effective: string | null;
+  source: "preferences" | "env" | null;
+}
+
+export interface GodotProjectValidation {
+  ok: boolean;
+  exists: boolean;
+  isProject: boolean;
+  message?: string;
+}
+
+export const godotProjectApi = {
+  get: async (): Promise<GodotProjectInfo> => {
+    const r = await fetch("/api/godot-project");
+    if (!r.ok) throw new Error(`get godot-project failed: ${r.status}`);
+    return r.json();
+  },
+  validate: async (path: string): Promise<GodotProjectValidation> => {
+    const r = await fetch(
+      `/api/godot-project/validate?path=${encodeURIComponent(path)}`,
+    );
+    if (!r.ok) throw new Error(`validate godot-project failed: ${r.status}`);
+    return r.json();
+  },
+};
+
 // Singleton-style preferences doc — global themes (color + typography bundles)
 // and the active one. Lives at data/preferences.json.
 export const preferencesApi = {
