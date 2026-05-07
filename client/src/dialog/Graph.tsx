@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   BaseEdge,
@@ -21,6 +28,7 @@ import {
   useEdgesState,
   useNodesState,
   useReactFlow,
+  useUpdateNodeInternals,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
 import "@xyflow/react/dist/style.css";
@@ -76,29 +84,35 @@ const NODE_CHOICE = 20;
 const NODE_LINE_GAP = 8; // matches space-y-2
 const NODE_BODY_PAD = 6;
 const NODE_PADDING = 14;
-const NODE_MAX_HEIGHT = 300;
 
-function lineRowMidY(lines: DialogSequence["Lines"], idx: number): number {
+// Initial-paint fallback for handle Y positions before useLayoutEffect runs
+// the real DOM measurement. Approximate — actual line heights vary with font,
+// UI scale, line-clamp, and choices count, all of which differ at runtime.
+function lineRowMidYFallback(
+  lines: DialogSequence["Lines"],
+  idx: number,
+): number {
   let y = NODE_HEADER + NODE_BODY_PAD;
   for (let i = 0; i < idx; i++) {
     y += NODE_LINE_BASE + NODE_LINE_TEXT;
     y += lines[i]!.Choices.length * NODE_CHOICE;
     y += NODE_LINE_GAP;
   }
-  // Center of the speaker:text row of THIS line:
   return y + (NODE_LINE_BASE + NODE_LINE_TEXT) / 2;
 }
 
+// Used by dagre for initial auto-layout collision spacing only — once a layout
+// position is saved per-node, this estimate stops mattering.
 function estimateNodeHeight(seq: DialogSequence): number {
   let h = NODE_HEADER + NODE_PADDING;
   for (const line of seq.Lines) {
     h += NODE_LINE_BASE + NODE_LINE_TEXT;
     h += line.Choices.length * NODE_CHOICE;
   }
-  return Math.min(h, NODE_MAX_HEIGHT);
+  return h;
 }
 
-function SequenceNode({ data }: NodeProps<SeqNode>) {
+function SequenceNode({ id, data }: NodeProps<SeqNode>) {
   if (data.ghost) {
     return (
       <div
@@ -114,15 +128,68 @@ function SequenceNode({ data }: NodeProps<SeqNode>) {
 
   const seq = data.seq;
   const portrait = data.portrait ?? "";
-  // If empty, render a single "virtual" line so a handle is still present.
-  const lines = seq.Lines.length > 0 ? seq.Lines : [null];
+  // If empty, we still render one source handle (anchored to the placeholder
+  // text) so the user can drag-to-empty and create the first line.
+  const handleCount = Math.max(seq.Lines.length, 1);
+
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const updateNodeInternals = useUpdateNodeInternals();
+
+  // Handle Y positions. Initial values are the constant-based fallback so the
+  // first paint is approximately right; useLayoutEffect immediately replaces
+  // them with measured DOM positions before the user sees anything.
+  const [handleTops, setHandleTops] = useState<number[]>(() =>
+    Array.from({ length: handleCount }, (_, i) =>
+      lineRowMidYFallback(
+        seq.Lines.length > 0
+          ? seq.Lines
+          : [{ SpeakerName: "", Text: "", Portrait: "", Choices: [] }],
+        i,
+      ),
+    ),
+  );
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const measure = () => {
+      const next = lineRefs.current
+        .slice(0, handleCount)
+        .map((el) => (el ? el.offsetTop + el.offsetHeight / 2 : 0));
+      setHandleTops((prev) => {
+        if (
+          prev.length === next.length &&
+          prev.every((v, i) => v === next[i])
+        ) {
+          return prev;
+        }
+        return next;
+      });
+      // Tell React Flow the handle positions changed so it re-anchors any
+      // edges attached to this node.
+      updateNodeInternals(id);
+    };
+
+    measure();
+
+    // Recompute on font / UI-scale / line-clamp changes — these don't
+    // re-trigger React renders by themselves but do change DOM layout.
+    const ro = new ResizeObserver(measure);
+    ro.observe(container);
+    for (const el of lineRefs.current) {
+      if (el) ro.observe(el);
+    }
+    return () => ro.disconnect();
+  }, [id, seq.Lines, handleCount, updateNodeInternals]);
 
   return (
     <div
+      ref={containerRef}
       className="relative flex flex-col border-2 border-neutral-700 bg-neutral-900 text-xs"
       style={{
         width: NODE_WIDTH,
-        maxHeight: NODE_MAX_HEIGHT,
         boxShadow: "3px 3px 0 0 rgba(0,0,0,0.5)",
       }}
     >
@@ -147,14 +214,25 @@ function SequenceNode({ data }: NodeProps<SeqNode>) {
         </div>
       </header>
 
-      <div className="space-y-2 overflow-y-auto px-2 py-1.5">
+      <div className="space-y-2 px-2 py-1.5">
         {seq.Lines.length === 0 ? (
-          <div className="text-[10px] italic text-neutral-600">
+          <div
+            ref={(el) => {
+              lineRefs.current[0] = el;
+            }}
+            className="text-[10px] italic text-neutral-600"
+          >
             No lines yet — drag from the handle to add one.
           </div>
         ) : (
           seq.Lines.map((line, idx) => (
-            <div key={idx} className="space-y-1">
+            <div
+              key={idx}
+              ref={(el) => {
+                lineRefs.current[idx] = el;
+              }}
+              className="space-y-1"
+            >
               <div>
                 {line.SpeakerName && (
                   <span className="mr-1 italic text-neutral-400">
@@ -199,34 +277,29 @@ function SequenceNode({ data }: NodeProps<SeqNode>) {
         )}
       </div>
 
-      <PerLineHandles seq={seq} lines={lines} />
+      <PerLineHandles tops={handleTops} count={handleCount} />
     </div>
   );
 }
 
 function PerLineHandles({
-  seq,
-  lines,
+  tops,
+  count,
 }: {
-  seq: DialogSequence;
-  lines: (DialogSequence["Lines"][number] | null)[];
+  tops: number[];
+  count: number;
 }) {
   const colors = useThemeColors();
   return (
     <>
-      {lines.map((_, idx) => (
+      {Array.from({ length: count }, (_, idx) => (
         <Handle
           key={idx}
           type="source"
           position={Position.Right}
           id={`line-${idx}`}
           style={{
-            top: lineRowMidY(
-              seq.Lines.length > 0
-                ? seq.Lines
-                : [{ SpeakerName: "", Text: "", Portrait: "", Choices: [] }],
-              idx,
-            ),
+            top: tops[idx] ?? 0,
             background: colors.accent500,
             width: 10,
             height: 10,
@@ -750,6 +823,46 @@ export function DialogGraph() {
   );
 }
 
+interface SavedViewport {
+  x: number;
+  y: number;
+  zoom: number;
+}
+const VIEWPORT_KEY_PREFIX = "bleepforge:graphViewport:";
+// Padding for the first-visit fitView. 0.4 leaves a generous margin around
+// the bounding box of all sequences — reads as "zoomed out, here's the
+// whole map" rather than "tightly cropped to nodes".
+const FIT_VIEW_PADDING = 0.4;
+
+function readSavedViewport(folder: string): SavedViewport | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(VIEWPORT_KEY_PREFIX + folder);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<SavedViewport>;
+    if (
+      typeof v.x === "number" &&
+      typeof v.y === "number" &&
+      typeof v.zoom === "number" &&
+      Number.isFinite(v.x) &&
+      Number.isFinite(v.y) &&
+      Number.isFinite(v.zoom)
+    ) {
+      return { x: v.x, y: v.y, zoom: v.zoom };
+    }
+  } catch {}
+  return null;
+}
+
+function writeSavedViewport(folder: string, vp: SavedViewport) {
+  try {
+    window.localStorage.setItem(
+      VIEWPORT_KEY_PREFIX + folder,
+      JSON.stringify(vp),
+    );
+  } catch {}
+}
+
 function DialogGraphInner() {
   const [folders, setFolders] = useState<string[] | null>(null);
   const [seqs, setSeqs] = useState<DialogSequence[] | null>(null);
@@ -760,7 +873,7 @@ function DialogGraphInner() {
   const [error, setError] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, setViewport, fitView } = useReactFlow();
   const { theme } = useTheme();
   const themeColors = useThemeColors();
 
@@ -812,6 +925,35 @@ function DialogGraphInner() {
     setNodes(built.nodes);
     setEdges(built.edges);
   }, [seqs, layout, speakerPortrait, themeColors, setNodes, setEdges]);
+
+  // Apply saved viewport (or fitView for first-visit) once nodes are loaded
+  // for the current folder. Tracks the last folder we applied for so that
+  // node count changes (user creates/deletes a sequence) don't re-trigger.
+  const lastAppliedFolderRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!folder) return;
+    if (nodes.length === 0) return;
+    if (lastAppliedFolderRef.current === folder) return;
+    lastAppliedFolderRef.current = folder;
+
+    const saved = readSavedViewport(folder);
+    if (saved) {
+      setViewport(saved, { duration: 0 });
+    } else {
+      fitView({ padding: FIT_VIEW_PADDING, duration: 0 });
+    }
+  }, [folder, nodes.length, setViewport, fitView]);
+
+  // Persist viewport on every user pan/zoom. Programmatic setViewport /
+  // fitView don't fire onMoveEnd so the auto-fit view isn't saved as if
+  // the user had set it.
+  const onMoveEnd = useCallback(
+    (_event: unknown, viewport: SavedViewport) => {
+      if (!folder) return;
+      writeSavedViewport(folder, viewport);
+    },
+    [folder],
+  );
 
   const refetch = useCallback(async () => {
     if (!folder) return;
@@ -1233,7 +1375,6 @@ function DialogGraphInner() {
               nodeTypes={nodeTypes}
               edgeTypes={edgeTypes}
               colorMode={theme === "light" ? "light" : "dark"}
-              fitView
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onNodeDragStop={onNodeDragStop}
@@ -1243,6 +1384,7 @@ function DialogGraphInner() {
               onNodesDelete={onNodesDelete}
               onBeforeDelete={onBeforeDelete}
               isValidConnection={isValidConnection}
+              onMoveEnd={onMoveEnd}
               onNodeDoubleClick={(_e, node) => {
                 const data = node.data as SeqNodeData;
                 if (data.ghost || !folder) return;
