@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 
 import { parseTres } from "./parser.js";
 import { emitTres } from "./emitter.js";
-import { setPropertyRaw, quoteString } from "./mutate.js";
+import { applyItemScalars, type ItemJson } from "./domains/item.js";
 import type { Section } from "./types.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -33,8 +33,10 @@ function assertUnderStaging(absPath: string): void {
 
 async function main(): Promise<void> {
   const slug = process.argv[2];
+  const overridesArg = process.argv[3];
   if (!slug) {
-    console.error("Usage: pnpm --filter @bleepforge/server canary <slug>");
+    console.error("Usage: pnpm --filter @bleepforge/server canary <slug> ['<json-overrides>']");
+    console.error('Example: pnpm canary rff_keycard \'{"Category":"Weapon","Price":750}\'');
     process.exit(2);
   }
   const root = process.env.ASTRO_MAN_ROOT;
@@ -46,13 +48,13 @@ async function main(): Promise<void> {
 
   // 1. Read the Bleepforge-side JSON for this slug.
   const jsonPath = join(ITEMS_JSON_DIR, `${slug}.json`);
-  const json = JSON.parse(await readFile(jsonPath, "utf8")) as Record<string, unknown>;
-  const newDisplayName = json.DisplayName;
-  if (typeof newDisplayName !== "string") {
-    throw new Error(`DisplayName missing or not a string in ${jsonPath}`);
+  const json = JSON.parse(await readFile(jsonPath, "utf8")) as ItemJson;
+  if (overridesArg) {
+    const overrides = JSON.parse(overridesArg) as Partial<ItemJson>;
+    Object.assign(json, overrides);
+    console.log(`[canary] applied overrides: ${overridesArg}`);
   }
   console.log(`[canary] slug=${slug}`);
-  console.log(`[canary] new DisplayName: ${JSON.stringify(newDisplayName)}`);
 
   // 2. Find the matching .tres by walking astro-man and matching the
   //    [resource] block's Slug property.
@@ -92,11 +94,12 @@ async function main(): Promise<void> {
   const relPath = relative(astroRoot, matchAbs);
   console.log(`[canary] matched .tres: ${relPath}`);
 
-  // 3. Mutate the AST.
-  const ok = setPropertyRaw(matchSection, "DisplayName", quoteString(newDisplayName));
-  if (!ok) {
-    console.error("[canary] DisplayName property not found in [resource] block");
-    process.exit(1);
+  // 3. Mutate the AST — reconcile every known scalar field. For each one:
+  //    update if value differs, insert if missing-and-non-default, remove
+  //    if present-but-now-default, no-op otherwise.
+  const result = applyItemScalars(matchSection, json);
+  for (const a of result.actions) {
+    if (a.action !== "noop") console.log(`[canary] ${a.action}: ${a.key}`);
   }
 
   // 4. Emit to staging.
@@ -110,9 +113,9 @@ async function main(): Promise<void> {
   // 5. Diff. Use system `diff -u` for friendly output.
   console.log("");
   console.log(`[canary] diff (original -> staged):`);
-  const result = spawnSync("diff", ["-u", matchAbs, stagedPath], { encoding: "utf8" });
-  if (result.stdout) process.stdout.write(result.stdout);
-  if (result.stderr) process.stderr.write(result.stderr);
+  const diffProc = spawnSync("diff", ["-u", matchAbs, stagedPath], { encoding: "utf8" });
+  if (diffProc.stdout) process.stdout.write(diffProc.stdout);
+  if (diffProc.stderr) process.stderr.write(diffProc.stderr);
 
   // Exit 0 if diff found exactly the expected change pattern; for now just
   // exit success and let Yonatan eyeball the diff.
