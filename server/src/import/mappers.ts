@@ -93,7 +93,7 @@ export function mapKarma(parsed: ParsedTres): KarmaImpact | null {
   if (parsed.scriptClass !== "KarmaImpact") return null;
   const props = parsed.resourceProps;
   const id = valueAsString(props.Id) ?? "";
-  if (!id) return null;
+  if (!id) throw new Error("Id is empty — KarmaImpact requires a non-empty Id");
   const description = valueAsString(props.Description) ?? "";
   const deltaRefs = valueAsArray(props.Deltas) ?? [];
 
@@ -125,7 +125,12 @@ export function mapItem(parsed: ParsedTres): Item | null {
   // is documentation, not the source of truth.
   const props = parsed.resourceProps;
   const slug = valueAsString(props.Slug) ?? "";
-  if (!slug) return null;
+  if (!slug) {
+    // Discovery already filtered to "has Slug = " line — the only way to reach
+    // here is `Slug = ""` literal. That's a broken file, surface as an error
+    // (the orchestrator's try/catch routes throws to the errors bucket).
+    throw new Error("Slug is empty — file looks like an item but the value is missing");
+  }
 
   const isQuestItem = parsed.scriptClass === "QuestItemData";
   const categoryIdx = valueAsNumber(props.Category);
@@ -177,7 +182,7 @@ export function mapQuest(parsed: ParsedTres, ctx: QuestImportContext): Quest | n
   if (parsed.scriptClass !== "Quest") return null;
   const props = parsed.resourceProps;
   const id = valueAsString(props.Id) ?? "";
-  if (!id) return null;
+  if (!id) throw new Error("Id is empty — Quest requires a non-empty Id");
 
   const Objectives = (valueAsArray(props.Objectives) ?? [])
     .map((ref) => {
@@ -256,7 +261,7 @@ export function mapNpc(parsed: ParsedTres, ctx: NpcImportContext): Npc | null {
   if (parsed.scriptClass !== "NpcData") return null;
   const props = parsed.resourceProps;
   const npcId = valueAsString(props.NpcId) ?? "";
-  if (!npcId) return null;
+  if (!npcId) throw new Error("NpcId is empty — NpcData requires a non-empty NpcId");
 
   // Single ext-resource Texture2D → absolute path.
   let Portrait = "";
@@ -359,7 +364,7 @@ export function mapDialogSequence(parsed: ParsedTres): DialogSequence | null {
   if (parsed.scriptClass !== "DialogSequence") return null;
   const props = parsed.resourceProps;
   const id = valueAsString(props.Id) ?? "";
-  if (!id) return null;
+  if (!id) throw new Error("Id is empty — DialogSequence requires a non-empty Id");
 
   const Lines = (valueAsArray(props.Lines) ?? [])
     .map((ref): DialogSequence["Lines"][number] | null => {

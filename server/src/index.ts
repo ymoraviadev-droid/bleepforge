@@ -14,6 +14,7 @@ import { preferencesRouter } from "./preferences/router.js";
 import { dialogRouter } from "./dialog/router.js";
 import { godotProjectRouter } from "./godotProject/router.js";
 import { runImport } from "./import/orchestrator.js";
+import { reconcileRouter, setReconcileStatus } from "./reconcile/router.js";
 import { itemIconRouter } from "./item/iconRouter.js";
 import {
   writeFactionTres,
@@ -63,6 +64,7 @@ app.use("/api/concept", conceptRouter);
 app.use("/api/preferences", preferencesRouter);
 app.use("/api/pickups", pickupsRouter);
 app.use("/api/godot-project", godotProjectRouter);
+app.use("/api/reconcile", reconcileRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({
@@ -85,23 +87,90 @@ app.listen(config.port, async () => {
   // in Godot while Bleepforge was off are picked up before the first request.
   // Runs after listen so health-check clients aren't blocked, but before the
   // watcher so we don't double-process anything that fires during startup.
+  // The result is stashed for /api/reconcile/status so the client header can
+  // surface skip/error counts (otherwise a single broken .tres silently leaves
+  // one domain with stale JSON and the UI gives no signal).
   console.log(`[bleepforge/server] reconciling JSON cache from .tres ...`);
   const t0 = Date.now();
   try {
     const result = await runImport({ godotProjectRoot: config.godotProjectRoot! });
-    const counts = [
-      `items=${result.domains.items.imported.length}`,
-      `quests=${result.domains.quests.imported.length}`,
-      `karma=${result.domains.karma.imported.length}`,
-      `factions=${result.domains.factions.imported.length}`,
-      `dialogs=${result.domains.dialogs.imported.length}`,
-      `npcs=${result.domains.npcs.imported.length}`,
-    ].join(" ");
-    console.log(`[bleepforge/server] reconcile ok in ${Date.now() - t0}ms — ${counts}`);
+    const durationMs = Date.now() - t0;
+
+    const errorDetails: { domain: string; file: string; error: string }[] = [];
+    const skippedDetails: { domain: string; file: string; reason: string }[] = [];
+    for (const dom of ["items", "quests", "karma", "factions", "npcs"] as const) {
+      for (const e of result.domains[dom].errors) {
+        errorDetails.push({ domain: dom, file: e.file, error: e.error });
+      }
+      for (const s of result.domains[dom].skipped) {
+        skippedDetails.push({ domain: dom, file: s.file, reason: s.reason });
+      }
+    }
+    for (const e of result.domains.dialogs.errors) {
+      errorDetails.push({ domain: "dialogs", file: e.file, error: e.error });
+    }
+    for (const s of result.domains.dialogs.skipped) {
+      skippedDetails.push({ domain: "dialogs", file: s.file, reason: s.reason });
+    }
+
+    const perDomain = {
+      items: countsOf(result.domains.items.imported.length, result.domains.items.skipped.length, result.domains.items.errors.length),
+      quests: countsOf(result.domains.quests.imported.length, result.domains.quests.skipped.length, result.domains.quests.errors.length),
+      karma: countsOf(result.domains.karma.imported.length, result.domains.karma.skipped.length, result.domains.karma.errors.length),
+      factions: countsOf(result.domains.factions.imported.length, result.domains.factions.skipped.length, result.domains.factions.errors.length),
+      dialogs: countsOf(result.domains.dialogs.imported.length, result.domains.dialogs.skipped.length, result.domains.dialogs.errors.length),
+      npcs: countsOf(result.domains.npcs.imported.length, result.domains.npcs.skipped.length, result.domains.npcs.errors.length),
+    };
+
+    setReconcileStatus({
+      ranAt: new Date().toISOString(),
+      durationMs,
+      ok: true,
+      perDomain,
+      errorDetails,
+      skippedDetails,
+    });
+
+    // Compact one-liner. Per-domain segment looks like `dialogs=43` when clean
+    // and `dialogs=42 (skipped:1)` or `quests=3 (errors:1)` when not, so
+    // anomalies pop without drowning the log on a healthy boot.
+    const segments: string[] = [];
+    for (const [name, c] of Object.entries(perDomain)) {
+      const tags: string[] = [];
+      if (c.skipped > 0) tags.push(`skipped:${c.skipped}`);
+      if (c.errors > 0) tags.push(`errors:${c.errors}`);
+      segments.push(tags.length === 0 ? `${name}=${c.imported}` : `${name}=${c.imported} (${tags.join(",")})`);
+    }
+    console.log(`[bleepforge/server] reconcile ok in ${durationMs}ms — ${segments.join(" ")}`);
+    for (const e of errorDetails) {
+      console.log(`[bleepforge/server]   error: ${e.domain} ${e.file} — ${e.error}`);
+    }
+    for (const s of skippedDetails) {
+      console.log(`[bleepforge/server]   skipped: ${s.domain} ${s.file} — ${s.reason}`);
+    }
   } catch (err) {
-    console.error(`[bleepforge/server] reconcile FAILED: ${(err as Error).message}`);
+    const message = (err as Error).message;
+    console.error(`[bleepforge/server] reconcile FAILED: ${message}`);
     console.error(`[bleepforge/server] continuing with whatever JSON is currently on disk`);
+    setReconcileStatus({
+      ranAt: new Date().toISOString(),
+      durationMs: Date.now() - t0,
+      ok: false,
+      perDomain: emptyPerDomain(),
+      errorDetails: [],
+      skippedDetails: [],
+      error: message,
+    });
   }
 
   startTresWatcher();
 });
+
+function countsOf(imported: number, skipped: number, errors: number) {
+  return { imported, skipped, errors };
+}
+
+function emptyPerDomain() {
+  const z = countsOf(0, 0, 0);
+  return { items: z, quests: z, karma: z, factions: z, dialogs: z, npcs: z };
+}

@@ -159,6 +159,31 @@ export const godotProjectApi = {
   },
 };
 
+// Reports the last boot-time reconcile result. Powers the header diagnostic
+// badge — without it, a single broken .tres silently leaves one domain with
+// stale JSON and the UI gives no signal. Returns null if the server hasn't
+// completed its first reconcile yet (rare: tiny window between listen and
+// the runImport callback finishing).
+export type ReconcileDomain = "items" | "quests" | "karma" | "factions" | "dialogs" | "npcs";
+
+export interface ReconcileStatus {
+  ranAt: string;
+  durationMs: number;
+  ok: boolean;
+  perDomain: Record<ReconcileDomain, { imported: number; skipped: number; errors: number }>;
+  errorDetails: { domain: string; file: string; error: string }[];
+  skippedDetails: { domain: string; file: string; reason: string }[];
+  error?: string;
+}
+
+export const reconcileApi = {
+  getStatus: async (): Promise<ReconcileStatus | null> => {
+    const r = await fetch("/api/reconcile/status");
+    if (!r.ok) throw new Error(`get reconcile status failed: ${r.status}`);
+    return r.json();
+  },
+};
+
 // Singleton-style preferences doc — global themes (color + typography bundles)
 // and the active one. Lives at data/preferences.json.
 export const preferencesApi = {

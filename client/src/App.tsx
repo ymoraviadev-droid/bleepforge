@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router";
+import { reconcileApi, type ReconcileStatus } from "./api";
 import { CatalogDatalists } from "./CatalogDatalists";
 import { ContextMenuHost } from "./ContextMenu";
 import { ModalHost } from "./Modal";
@@ -24,6 +25,7 @@ import { FactionList } from "./faction/List";
 import { FactionEdit } from "./faction/Edit";
 import { GearIcon } from "./preferences/GearIcon";
 import { PreferencesPage } from "./preferences/PreferencesPage";
+import { ReconcilePage } from "./reconcile/StatusPage";
 
 const NAV_BASE = "border-2 px-3 py-1.5 text-sm font-medium transition-colors";
 
@@ -42,6 +44,24 @@ const integrityWarnClass = ({ isActive }: { isActive: boolean }) =>
       ? "border-red-600 bg-red-950/40 text-red-200"
       : "border-red-900/60 bg-red-950/20 text-red-300 hover:border-red-700 hover:bg-red-950/40 hover:text-red-200"
   }`;
+
+// Reconcile diagnostic link — only renders when there's something to fix
+// (boring infrastructure when working, urgent when broken). Red on errors,
+// amber on skip-only.
+const reconcileWarnClass = (tone: "red" | "amber") =>
+  ({ isActive }: { isActive: boolean }) => {
+    const palette =
+      tone === "red"
+        ? {
+            active: "border-red-600 bg-red-950/40 text-red-200",
+            idle: "border-red-900/60 bg-red-950/20 text-red-300 hover:border-red-700 hover:bg-red-950/40 hover:text-red-200",
+          }
+        : {
+            active: "border-amber-600 bg-amber-950/40 text-amber-200",
+            idle: "border-amber-900/60 bg-amber-950/20 text-amber-300 hover:border-amber-700 hover:bg-amber-950/40 hover:text-amber-200",
+          };
+    return `${NAV_BASE} ${isActive ? palette.active : palette.idle}`;
+  };
 
 const prefsNavClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center justify-center border-2 p-1.5 transition-colors ${
@@ -75,6 +95,23 @@ export function App() {
   const issueCount = catalog ? computeIssues(catalog).length : 0;
   const integrityClean = catalog !== null && issueCount === 0;
   const integrityDirty = catalog !== null && issueCount > 0;
+
+  // Boot-reconcile diagnostic. Fetched once on mount; the only writer is
+  // server boot, so polling isn't needed. The link only appears when there
+  // are issues — see reconcileWarnClass.
+  const [reconcile, setReconcile] = useState<ReconcileStatus | null>(null);
+  useEffect(() => {
+    reconcileApi.getStatus().then(setReconcile).catch(() => {});
+  }, []);
+  const reconcileErrors = reconcile?.errorDetails.length ?? 0;
+  const reconcileSkipped = reconcile?.skippedDetails.length ?? 0;
+  const reconcileBroken = reconcile && !reconcile.ok;
+  const reconcileTone: "red" | "amber" | null =
+    reconcileBroken || reconcileErrors > 0
+      ? "red"
+      : reconcileSkipped > 0
+        ? "amber"
+        : null;
 
   if (showSplash) {
     return <SplashScreen onDone={() => setShowSplash(false)} />;
@@ -139,6 +176,24 @@ export function App() {
               </span>
             )}
           </NavLink>
+          {reconcileTone && (
+            <NavLink
+              to="/reconcile"
+              className={reconcileWarnClass(reconcileTone)}
+              title={
+                reconcileBroken
+                  ? "Reconcile aborted — JSON cache may be stale"
+                  : reconcileErrors > 0
+                    ? `${reconcileErrors} reconcile error${reconcileErrors === 1 ? "" : "s"}`
+                    : `${reconcileSkipped} file${reconcileSkipped === 1 ? "" : "s"} skipped during reconcile`
+              }
+            >
+              Reconcile{" "}
+              <span className="ml-0.5 font-mono text-[10px]">
+                ({reconcileErrors > 0 ? reconcileErrors : reconcileSkipped})
+              </span>
+            </NavLink>
+          )}
         </nav>
         <div className="flex-1" />
         <NavLink
@@ -178,6 +233,7 @@ export function App() {
           <Route path="/factions/new" element={<FactionEdit />} />
           <Route path="/factions/:faction" element={<FactionEdit />} />
           <Route path="/integrity" element={<IntegrityPage />} />
+          <Route path="/reconcile" element={<ReconcilePage />} />
           <Route path="/preferences" element={<PreferencesPage />} />
           <Route path="/import" element={<Navigate to="/preferences" replace />} />
         </Routes>

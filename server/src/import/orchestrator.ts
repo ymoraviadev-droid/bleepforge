@@ -101,7 +101,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
       await storage.write(validated);
       items.imported.push(validated.Slug);
     } catch (err) {
-      items.errors.push({ file: filePath, error: String(err) });
+      items.errors.push({ file: filePath, error: (err as Error).message ?? String(err) });
     }
   }
 
@@ -136,7 +136,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
       await storage.write(validated);
       quests.imported.push(validated.Id);
     } catch (err) {
-      quests.errors.push({ file: filePath, error: String(err) });
+      quests.errors.push({ file: filePath, error: (err as Error).message ?? String(err) });
     }
   }
 
@@ -163,7 +163,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
       await storage.write(validated);
       karma.imported.push(validated.Id);
     } catch (err) {
-      karma.errors.push({ file: filePath, error: String(err) });
+      karma.errors.push({ file: filePath, error: (err as Error).message ?? String(err) });
     }
   }
 
@@ -195,7 +195,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
       await storage.write(validated);
       factions.imported.push(validated.Faction);
     } catch (err) {
-      factions.errors.push({ file: filePath, error: String(err) });
+      factions.errors.push({ file: filePath, error: (err as Error).message ?? String(err) });
     }
   }
 
@@ -241,7 +241,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
         dialogs.errors.push({
           folder: bleepforgeFolder,
           file: filePath,
-          error: String(err),
+          error: (err as Error).message ?? String(err),
         });
       }
     }
@@ -285,7 +285,7 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
       await storage.write(validated);
       npcs.imported.push(validated.NpcId);
     } catch (err) {
-      npcs.errors.push({ file: filePath, error: String(err) });
+      npcs.errors.push({ file: filePath, error: (err as Error).message ?? String(err) });
     }
   }
 
