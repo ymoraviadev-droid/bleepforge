@@ -7,7 +7,9 @@
     "dev": "tsx watch --env-file=../.env src/index.ts",
     "build": "tsc",
     "start": "node --env-file=../.env dist/index.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "harness": "tsx --env-file=../.env src/tres/harness.ts",
+    "canary": "tsx --env-file=../.env src/tres/canary.ts"
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",

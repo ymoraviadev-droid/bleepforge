@@ -3,3 +3,5 @@ dist
 *.log
 .env
 .DS_Store
+.tres-staging/
+.tres-harness-report.txt
