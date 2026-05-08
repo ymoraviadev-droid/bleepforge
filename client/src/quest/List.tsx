@@ -4,7 +4,7 @@ import { npcsApi, questsApi } from "../api";
 import { ButtonLink } from "../Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { textInput } from "../ui";
-import { useViewMode, ViewToggle } from "../ViewToggle";
+import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../ViewToggle";
 import { QuestCard } from "./QuestCard";
 import { QuestRow } from "./QuestRow";
 
@@ -141,7 +141,7 @@ export function QuestList() {
           </span>
         </h1>
         <div className="flex items-center gap-2">
-          <ViewToggle mode={view} onChange={setView} />
+          <ViewToggle mode={view} onChange={setView} options={CARDS_LIST_OPTIONS} />
           <ButtonLink to="/quests/new">New</ButtonLink>
         </div>
       </div>

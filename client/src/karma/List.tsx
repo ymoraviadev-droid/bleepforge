@@ -4,7 +4,7 @@ import { factionsApi, karmaApi } from "../api";
 import { ButtonLink } from "../Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { textInput } from "../ui";
-import { useViewMode, ViewToggle } from "../ViewToggle";
+import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../ViewToggle";
 import { KarmaCard } from "./KarmaCard";
 import { KarmaRow } from "./KarmaRow";
 
@@ -119,7 +119,7 @@ export function KarmaList() {
           </span>
         </h1>
         <div className="flex items-center gap-2">
-          <ViewToggle mode={view} onChange={setView} />
+          <ViewToggle mode={view} onChange={setView} options={CARDS_LIST_OPTIONS} />
           <ButtonLink to="/karma/new">New</ButtonLink>
         </div>
       </div>

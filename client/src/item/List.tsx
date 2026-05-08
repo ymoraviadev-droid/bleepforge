@@ -4,7 +4,7 @@ import { itemsApi } from "../api";
 import { ButtonLink } from "../Button";
 import { textInput } from "../ui";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { useViewMode, ViewToggle } from "../ViewToggle";
+import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../ViewToggle";
 import { ItemCard } from "./ItemCard";
 import { ItemRow } from "./ItemRow";
 
@@ -87,7 +87,7 @@ export function ItemList() {
           </span>
         </h1>
         <div className="flex items-center gap-2">
-          <ViewToggle mode={view} onChange={setView} />
+          <ViewToggle mode={view} onChange={setView} options={CARDS_LIST_OPTIONS} />
           <ButtonLink to="/items/new">New</ButtonLink>
         </div>
       </div>

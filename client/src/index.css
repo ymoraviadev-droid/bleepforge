@@ -17,6 +17,32 @@
   --radius-lg: 0px;
   --radius-xl: 2px;
   --radius-2xl: 2px;
+
+  /* Dialog source-type accents. NPC = warm/orangish, Terminal = cool/greenish.
+     Used by the SourceFilter buttons, the FolderTabs type dots, the per-row
+     SourceType badge in the dialog list, and the Terminal-tinted node chrome
+     in the graph. Pointed at amber + green by default; per-theme blocks below
+     can re-point to avoid clashes with the active accent (amber theme is the
+     one obvious conflict). Same trick the emerald accent uses. */
+  --color-source-npc-200: var(--color-amber-200);
+  --color-source-npc-300: var(--color-amber-300);
+  --color-source-npc-400: var(--color-amber-400);
+  --color-source-npc-500: var(--color-amber-500);
+  --color-source-npc-600: var(--color-amber-600);
+  --color-source-npc-700: var(--color-amber-700);
+  --color-source-npc-800: var(--color-amber-800);
+  --color-source-npc-900: var(--color-amber-900);
+  --color-source-npc-950: var(--color-amber-950);
+
+  --color-source-terminal-200: var(--color-green-200);
+  --color-source-terminal-300: var(--color-green-300);
+  --color-source-terminal-400: var(--color-green-400);
+  --color-source-terminal-500: var(--color-green-500);
+  --color-source-terminal-600: var(--color-green-600);
+  --color-source-terminal-700: var(--color-green-700);
+  --color-source-terminal-800: var(--color-green-800);
+  --color-source-terminal-900: var(--color-green-900);
+  --color-source-terminal-950: var(--color-green-950);
 }
 
 /* ---- Themes ----------------------------------------------------------------
@@ -202,6 +228,17 @@ html {
   --color-emerald-800: var(--color-amber-800);
   --color-emerald-900: var(--color-amber-900);
   --color-emerald-950: var(--color-amber-950);
+  /* Source-NPC defaults to amber, but the accent is amber here — re-point
+     to orange so the NPC badges/dots stay distinct from "active" chrome. */
+  --color-source-npc-200: var(--color-orange-200);
+  --color-source-npc-300: var(--color-orange-300);
+  --color-source-npc-400: var(--color-orange-400);
+  --color-source-npc-500: var(--color-orange-500);
+  --color-source-npc-600: var(--color-orange-600);
+  --color-source-npc-700: var(--color-orange-700);
+  --color-source-npc-800: var(--color-orange-800);
+  --color-source-npc-900: var(--color-orange-900);
+  --color-source-npc-950: var(--color-orange-950);
   /* Neutrals tinted toward warm yellow (hue ≈ 75). */
   --color-neutral-50:  oklch(0.97 0.005 75);
   --color-neutral-100: oklch(0.94 0.010 75);

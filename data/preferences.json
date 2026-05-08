@@ -15,5 +15,6 @@
       "letterSpacing": 0.07
     }
   ],
-  "activeName": "my_favourite"
+  "activeName": "my_favourite",
+  "godotProjectRoot": ""
 }

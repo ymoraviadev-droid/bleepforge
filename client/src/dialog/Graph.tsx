@@ -47,7 +47,9 @@ import { showConfirm, showPrompt } from "../Modal";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { useTheme } from "../Theme";
 import { useThemeColors, type ThemeColors } from "../themeColors";
+import { GRAPH_LIST_OPTIONS, ViewToggle } from "../ViewToggle";
 import { FolderTabs } from "./FolderTabs";
+import { SourceFilter, useDialogSourceFilter } from "./SourceFilter";
 
 type SeqNodeData = {
   seq: DialogSequence;
@@ -226,15 +228,16 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
     return () => ro.disconnect();
   }, [id, seq.Lines, handleCount, updateNodeInternals]);
 
-  // Visual distinction for Terminal sequences: sky-tinted border + a small
-  // "TERMINAL" pill in the header. NPCs keep the default neutral chrome so
-  // the everyday case stays unchanged.
+  // Visual distinction for Terminal sequences: greenish-tinted border + a
+  // small "TERMINAL" pill in the header. NPCs keep the default neutral chrome
+  // so the everyday case stays unchanged. Tint resolves through theme-aware
+  // --color-source-terminal-* so the node mood matches the rest of the UI.
   const isTerminal = seq.SourceType === "Terminal";
   const nodeBorderClass = isTerminal
-    ? "border-sky-700 bg-sky-950/20"
+    ? "border-source-terminal-700 bg-source-terminal-950/20"
     : "border-neutral-700 bg-neutral-900";
   const headerBorderClass = isTerminal
-    ? "border-sky-900/60"
+    ? "border-source-terminal-900/60"
     : "border-neutral-800";
 
   return (
@@ -262,7 +265,7 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
             </span>
             {isTerminal && (
               <span
-                className="shrink-0 border border-sky-700 bg-sky-950/60 px-1 py-0 font-mono text-[9px] uppercase tracking-wider text-sky-300"
+                className="shrink-0 border border-source-terminal-700 bg-source-terminal-950/60 px-1 py-0 font-mono text-[9px] uppercase tracking-wider text-source-terminal-300"
                 title="Source type: Terminal"
               >
                 Terminal
@@ -1021,12 +1024,10 @@ function DialogGraphInner() {
 
   // Filter the graph by DialogSequence.SourceType. "all" shows everything;
   // otherwise hide nodes (and any edges with a hidden endpoint) whose source
-  // type doesn't match. State is session-scoped — sticky persistence isn't
-  // worth the localStorage churn for a top-level UI toggle the user changes
-  // once per session at most.
-  const [sourceFilter, setSourceFilter] = useState<"all" | "Npc" | "Terminal">(
-    "all",
-  );
+  // type doesn't match. Persisted to localStorage so the value survives the
+  // graph ↔ list view toggle (otherwise toggling routes resets the filter
+  // and loses the user's intent).
+  const [sourceFilter, setSourceFilter] = useDialogSourceFilter();
 
   // Folders that contain at least one sequence matching the active source
   // filter. When filter is "all", every folder is visible.
@@ -1583,18 +1584,29 @@ function DialogGraphInner() {
                 Reset layout
               </button>
             )}
-          <Link
-            to={folder ? `/dialogs/list?folder=${encodeURIComponent(folder)}` : "/dialogs/list"}
-            className="text-neutral-400 hover:text-neutral-200"
-          >
-            List view
-          </Link>
+          <ViewToggle
+            mode="graph"
+            onChange={(m) => {
+              if (m === "graph") return;
+              navigate(
+                folder
+                  ? `/dialogs/list?folder=${encodeURIComponent(folder)}`
+                  : "/dialogs/list",
+              );
+            }}
+            options={GRAPH_LIST_OPTIONS}
+          />
           <ButtonLink to={folder ? `/dialogs/new?folder=${encodeURIComponent(folder)}` : "/dialogs/new"}>New</ButtonLink>
         </div>
       </div>
 
       <div className="flex shrink-0 items-center justify-between gap-3">
-        <FolderTabs folders={visibleFolders} selected={folder} basePath="/dialogs" />
+        <FolderTabs
+          folders={visibleFolders}
+          selected={folder}
+          basePath="/dialogs"
+          typesByFolder={folderTypeIndex}
+        />
         <SourceFilter value={sourceFilter} onChange={setSourceFilter} />
       </div>
 
@@ -1678,45 +1690,3 @@ function DialogGraphInner() {
 }
 
 
-// 3-state segmented control for the SourceType filter. Mirrors the
-// FolderTabs visual rhythm so the two read as a paired control row.
-function SourceFilter({
-  value,
-  onChange,
-}: {
-  value: "all" | "Npc" | "Terminal";
-  onChange: (v: "all" | "Npc" | "Terminal") => void;
-}) {
-  const options: { id: "all" | "Npc" | "Terminal"; label: string }[] = [
-    { id: "all", label: "All" },
-    { id: "Npc", label: "NPC" },
-    { id: "Terminal", label: "Terminal" },
-  ];
-  return (
-    <div className="flex shrink-0 gap-1 text-xs" role="radiogroup" aria-label="Source type filter">
-      {options.map((o) => {
-        const active = value === o.id;
-        return (
-          <button
-            key={o.id}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(o.id)}
-            className={`border px-2 py-1 transition-colors ${
-              active
-                ? o.id === "Terminal"
-                  ? "border-sky-600 bg-sky-950/40 text-sky-200"
-                  : o.id === "Npc"
-                    ? "border-emerald-600 bg-emerald-950/40 text-emerald-200"
-                    : "border-neutral-500 bg-neutral-800 text-neutral-100"
-                : "border-neutral-800 text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200"
-            }`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
