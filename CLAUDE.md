@@ -1,6 +1,6 @@
 # Bleepforge
 
-**A graph-based project organizer / planning tool** for Yonatan's Godot game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name). Visualizes and documents **dialogues** (the headline feature: a graph view), plus **quests**, **items**, **karma impacts**, **NPCs**, **factions**, and **balloons** (the small "Hi there!" lines NPCs say when the player walks up). Also serves as the project bible — see [data/concept.json](data/concept.json) for the canonical pitch, acts structure, and faction roles.
+**A schema-driven content authoring studio for Godot projects.** Currently bootstrapped against Yehonatan's game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name); the long-term direction is to be generic for any Godot project's content (see "Genericize for any Godot project" under Editor scope / next steps). Authors **dialogues** (graph view + multi-folder), **quests**, **items**, **karma impacts**, **NPCs**, **factions**, and **balloons** (the small "Hi there!" lines NPCs say when the player walks up), plus an **assets gallery + image editor** (crop, tint, bg removal, Magic crop) for the project's images. Also serves as the project bible — see [data/concept.json](data/concept.json) for the canonical pitch, acts structure, and faction roles.
 
 **`.tres` is canonical, JSON in `data/` is a derived cache.** The Godot `.tres` files are what the game runtime loads, so they're the source of truth: anything that ships is what's in `astro-man/`. Bleepforge's JSON in `dialoguer/data/{dialogs,quests,items,karma,npcs,factions,balloons}/` is a cache rebuilt from `.tres` on every server start, kept in sync afterward by the live watcher, and pushed back to `.tres` on every save. We still commit the JSONs to git as a redundant safety net (so historical states are queryable from either side), but they should never be edited by hand — any drift gets reconciled away on the next boot. Three Bleepforge-only files are **not** part of the cache and are authoritative state: `data/concept.json`, `data/preferences.json`, and per-folder `data/dialogs/<folder>/_layout.json` (graph node positions and edge styles).
 
@@ -473,7 +473,7 @@ Plus `pnpm harness` walks every `.tres` in the project and confirms parser+emitt
 
 **Reorder-safe via `_subId`:** every sub-resource-backed JSON entry (DialogLine, DialogChoice, KarmaDelta, QuestObjective, QuestReward) carries an optional `_subId` mirroring the Godot sub_resource id. The importer populates it; mappers use it for stable-identity matching across reorder, add, update, and remove. Existing JSON was migrated via `pnpm --filter @bleepforge/server migrate-subids` (idempotent). New entries authored in Bleepforge UI have no `_subId` until first save, when one is minted.
 
-**Save-to-Godot wiring (always on):** the save endpoints — `PUT /api/items/:slug`, `/api/karma/:id`, `/api/quests/:id`, `/api/npcs/:id`, `/api/factions/:id`, `/api/dialogs/:folder/:id`, `/api/balloons/:folder/:basename` — first write the JSON cache, then call the matching mapper to update the live `.tres` in `GODOT_PROJECT_ROOT`. Atomic write (temp file + rename). The save response shape is `{ entity, tresWrite }` where `tresWrite` is `{ attempted, ok, path, warnings, error }` — clients can ignore it for now (api.ts logs to console). Server logs every attempt. Since `GODOT_PROJECT_ROOT` is required at boot, `tresWrite.attempted` is effectively always `true` for game-domain saves. Every successful attempt also gets recorded into the Diagnostics → Saves activity feed (see "Saves tab" above).
+**Save-to-Godot wiring (always on):** the save endpoints — `PUT /api/items/:slug`, `/api/karma/:id`, `/api/quests/:id`, `/api/npcs/:id`, `/api/factions/:id`, `/api/dialogs/:folder/:id`, `/api/balloons/:folder/:id` — first write the JSON cache, then call the matching mapper to update the live `.tres` in `GODOT_PROJECT_ROOT`. Atomic write (temp file + rename). The save response shape is `{ entity, tresWrite }` where `tresWrite` is `{ attempted, ok, path, warnings, error }` — clients can ignore it for now (api.ts logs to console). Server logs every attempt. Since `GODOT_PROJECT_ROOT` is required at boot, `tresWrite.attempted` is effectively always `true` for game-domain saves. Every successful attempt also gets recorded into the Diagnostics → Saves activity feed (see "Saves tab" above).
 
 **Boot-time cache reconcile (always on):** on every server start, after `app.listen` opens the port, the orchestrator runs once over the whole Godot project and rewrites every JSON in `data/<domain>/`. This catches any edits made in Godot while Bleepforge was off. Cheap (~60ms on the current ~90 .tres files), idempotent, runs before the live watcher starts so we don't double-process churn during startup. If reconcile fails (e.g. a parser regression on one file) the server logs the error and continues with whatever JSON is on disk — better degraded than down.
 
@@ -494,7 +494,7 @@ UI subscribers: every list/edit page wires `useSyncRefresh` for its domain (item
 - **Orphan ext-resources** are not cleaned up when their last reference is removed. Godot tolerates them; minor lint, not a correctness issue.
 - **`load_steps` header attribute** isn't maintained (this corpus doesn't use it). If Godot starts emitting it on save, our writer will need to update it.
 - **No `.tres` deletion** when JSON is deleted. The orphan stays in Godot; user removes manually if desired.
-- **Concurrent edit conflict**: if Yonatan edits the same entity in Bleepforge and in Godot at the same time, the watcher's reimport silently overwrites the in-progress form data when the client refetches. Single-user local workflow makes this rare; future work could surface a "modified externally" banner.
+- **Concurrent edit conflict**: if Yehonatan edits the same entity in Bleepforge and in Godot at the same time, the watcher's reimport silently overwrites the in-progress form data when the client refetches. Single-user local workflow makes this rare; future work could surface a "modified externally" banner.
 
 ## Open questions
 
@@ -503,7 +503,7 @@ UI subscribers: every list/edit page wires `useSyncRefresh` for its domain (item
 - Empty `DialogChoice.NextSequenceId` — end conversation, or fall through to next line?
 - Conditions / flag *checks* — only `SetsFlag` is visible. Is there a `RequiresFlag` / `ShowIfFlag` mechanism elsewhere, or is gating not built yet?
 - Mid-sequence choices — used in practice or only on last line?
-- NPC schema — what file is authored, where do `QuestGiverId` and `TargetId` resolve to?
+- ~~**NPC schema — what file is authored, where do `QuestGiverId` and `TargetId` resolve to?**~~ — resolved. NPCs are authored as `NpcData.tres` (one per NPC, at `characters/npcs/<robot_model>/data/<npc_id>_npc_data.tres`). `Quest.QuestGiverId` is a string ref to `NpcData.NpcId`. `QuestObjective.TargetId` is type-discriminated: a string ref to `NpcId` for `TalkToNpc` / `KillNpc`; a free-form location id (still no schema) for `ReachLocation`; unused for other types. `EnemyType` for `KillEnemyType` is a free-form string.
 - Why does `NpcQuestEntry` duplicate `QuestActiveFlag` / `QuestTurnedInFlag` rather than reading them off the referenced `Quest`?
 - ~~**`NpcQuestEntry` file model**~~ — resolved. They're an inline `Quests[]` sub_resource array on `NpcData`. Authored in the NPC edit form (QuestId + 2 flag fields + 5 dialog refs per entry); writeback handles add/update/remove via `applyNpcQuests`.
 - ~~**Dialog folder path**~~ — resolved. Discovery walks the Godot project at boot and groups DialogSequence `.tres` by parent-dir basename, so the editor mirrors `DialogFolders.AllFolders` automatically.
@@ -526,7 +526,8 @@ UI subscribers: every list/edit page wires `useSyncRefresh` for its domain (item
 - **Image editor extensions** — deferred until needed: integer-multiple resize / scale (pixel-art upscaling), recolor (palette-swap one color → another), 1-pixel outline. All fit the existing destructive-op pipeline + Undo stack.
 - **Audio support (Phase 2)** — deferred. Corpus has zero audio files today. When the first lands: extend assets discovery to `.ogg` / `.wav` / `.mp3`, add a tab to `/assets`, build an audio player on `PixelSlider` for the seek bar. Asset router already supports HTTP Range requests via Express's `sendFile`.
 - **Wrap with Electron** — the next big move. See "Next big move" at the top.
-- v1 polish on existing UIs (deferred — Yonatan: "we'll polish with time").
+- **Genericize for any Godot project** (post-1.0, future direction) — Bleepforge currently ships hardcoded against Flock of Bleeps' seven domain schemas + per-domain edit forms + per-domain `.tres` mappers. The bones are project-agnostic: `.tres` parser / emitter / writer / watcher, JSON CRUD machinery, asset surface, diagnostics shell, UI primitives, theming, the three SSE infrastructure channels — none of those know anything about this specific game. The schema layer is the only project-specific code (seven zod schemas in `shared/src/`, the per-domain mappers under `server/src/internal/tres/domains/`, the hand-coded edit forms in `client/src/features/<domain>/`, plus the dialog-specific graph view). Genericization path: make the schema layer runtime-configurable, ideally by reading the user's project's `[GlobalClass]` resource types directly to auto-generate forms / integrity checks / a configurable graph view that recognizes any "next"-style reference. Coupling is by configuration, not by architecture — that's why the lift is reasonable.
+- v1 polish on existing UIs (deferred — Yehonatan: "we'll polish with time").
 
 ## Client `src/` structure
 
@@ -555,7 +556,8 @@ client/src/
                 (ImageEditor + CropCanvas + CropControls + FolderPicker +
                 imageOps + cropMath + UsagesDrawer + useAssetMenu).
   App.tsx       entry component — header nav, routes, mounts the singleton
-                hosts (ModalHost, ToastHost, ContextMenuHost, CatalogDatalists)
+                hosts (ModalHost, ToastHost, ContextMenuHost,
+                ImageEditorHost, CatalogDatalists)
   main.tsx      Vite entry — boots BrowserRouter, opens the three SSE channels
                 (sync + saves + assets), imports the global CSS
 ```
@@ -629,4 +631,4 @@ facing invocations are unchanged.
 
 ## Collaboration
 
-Per Yonatan's global CLAUDE.md: docs are built together, I'm expected to have opinions and push back. This file evolves as we learn — not a static spec.
+Per Yehonatan's global CLAUDE.md: docs are built together, I'm expected to have opinions and push back. This file evolves as we learn — not a static spec.
