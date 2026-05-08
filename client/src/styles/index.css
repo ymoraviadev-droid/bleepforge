@@ -43,6 +43,22 @@
   --color-source-terminal-800: var(--color-green-800);
   --color-source-terminal-900: var(--color-green-900);
   --color-source-terminal-950: var(--color-green-950);
+
+  /* Dialog graph choice connectors — handles on each choice + the edges
+     they emit. Pointed at amber by default (warm, distinct from the
+     emerald accent and the green Terminal wash). Theme-aware via the
+     same re-pointing pattern as source-npc / source-terminal; the amber
+     theme re-points to orange below to keep choice connectors visually
+     separate from the active accent. */
+  --color-choice-200: var(--color-amber-200);
+  --color-choice-300: var(--color-amber-300);
+  --color-choice-400: var(--color-amber-400);
+  --color-choice-500: var(--color-amber-500);
+  --color-choice-600: var(--color-amber-600);
+  --color-choice-700: var(--color-amber-700);
+  --color-choice-800: var(--color-amber-800);
+  --color-choice-900: var(--color-amber-900);
+  --color-choice-950: var(--color-amber-950);
 }
 
 /* ---- Themes ----------------------------------------------------------------
@@ -239,6 +255,17 @@ html {
   --color-source-npc-800: var(--color-orange-800);
   --color-source-npc-900: var(--color-orange-900);
   --color-source-npc-950: var(--color-orange-950);
+  /* Choice connectors default to amber too — re-point to orange to keep
+     them separate from the amber accent in this theme. */
+  --color-choice-200: var(--color-orange-200);
+  --color-choice-300: var(--color-orange-300);
+  --color-choice-400: var(--color-orange-400);
+  --color-choice-500: var(--color-orange-500);
+  --color-choice-600: var(--color-orange-600);
+  --color-choice-700: var(--color-orange-700);
+  --color-choice-800: var(--color-orange-800);
+  --color-choice-900: var(--color-orange-900);
+  --color-choice-950: var(--color-orange-950);
   /* Neutrals tinted toward warm yellow (hue ≈ 75). */
   --color-neutral-50:  oklch(0.97 0.005 75);
   --color-neutral-100: oklch(0.94 0.010 75);

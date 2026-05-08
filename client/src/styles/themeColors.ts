@@ -33,6 +33,11 @@ export interface ThemeColors {
   danger600: string;
   danger700: string;
   danger800: string;
+  choice400: string;
+  choice500: string;
+  choice600: string;
+  choice700: string;
+  choice900: string;
 }
 
 function readVar(name: string): string {
@@ -71,6 +76,11 @@ export function useThemeColors(): ThemeColors {
       danger600: readVar("--color-red-600"),
       danger700: readVar("--color-red-700"),
       danger800: readVar("--color-red-800"),
+      choice400: readVar("--color-choice-400"),
+      choice500: readVar("--color-choice-500"),
+      choice600: readVar("--color-choice-600"),
+      choice700: readVar("--color-choice-700"),
+      choice900: readVar("--color-choice-900"),
     }),
     // Re-read on every theme change. The `theme` value is included so React
     // re-runs the memo even though the JS calls don't reference it directly.

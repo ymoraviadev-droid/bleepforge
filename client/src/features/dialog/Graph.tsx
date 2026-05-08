@@ -93,25 +93,7 @@ const NODE_HEADER = 52;
 const NODE_LINE_BASE = 22;
 const NODE_LINE_TEXT = 36;
 const NODE_CHOICE = 20;
-const NODE_LINE_GAP = 8; // matches space-y-2
-const NODE_BODY_PAD = 6;
 const NODE_PADDING = 14;
-
-// Initial-paint fallback for handle Y positions before useLayoutEffect runs
-// the real DOM measurement. Approximate — actual line heights vary with font,
-// UI scale, line-clamp, and choices count, all of which differ at runtime.
-function lineRowMidYFallback(
-  lines: DialogSequence["Lines"],
-  idx: number,
-): number {
-  let y = NODE_HEADER + NODE_BODY_PAD;
-  for (let i = 0; i < idx; i++) {
-    y += NODE_LINE_BASE + NODE_LINE_TEXT;
-    y += lines[i]!.Choices.length * NODE_CHOICE;
-    y += NODE_LINE_GAP;
-  }
-  return y + (NODE_LINE_BASE + NODE_LINE_TEXT) / 2;
-}
 
 // Used by dagre for initial auto-layout collision spacing only — once a layout
 // position is saved per-node, this estimate stops mattering.
@@ -172,26 +154,41 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
       ],
     });
   };
-  // If empty, we still render one source handle (anchored to the placeholder
-  // text) so the user can drag-to-empty and create the first line.
-  const handleCount = Math.max(seq.Lines.length, 1);
+  // Anchor list — one entry per source handle we'll render. Per-choice
+  // when a line has choices (each choice gets its own connector), placeholder
+  // when a line has none (so drag-to-empty still works to create the first
+  // choice). The id is what we encode into edge.sourceHandle and is what
+  // onConnect parses back out.
+  const anchors: { id: string; isChoice: boolean }[] = [];
+  if (seq.Lines.length === 0) {
+    anchors.push({ id: "line-0", isChoice: false });
+  } else {
+    seq.Lines.forEach((line, lineIdx) => {
+      if (line.Choices.length === 0) {
+        anchors.push({ id: `line-${lineIdx}`, isChoice: false });
+      } else {
+        line.Choices.forEach((_, choiceIdx) => {
+          anchors.push({
+            id: `choice-${lineIdx}-${choiceIdx}`,
+            isChoice: true,
+          });
+        });
+      }
+    });
+  }
 
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+  // Map keyed by anchor id → the DOM element whose vertical center we use to
+  // place the matching Handle. Either the line div (placeholder anchor) or
+  // the choice <li> (choice anchor).
+  const anchorRefs = useRef<Map<string, HTMLElement | null>>(new Map());
   const updateNodeInternals = useUpdateNodeInternals();
 
-  // Handle Y positions. Initial values are the constant-based fallback so the
-  // first paint is approximately right; useLayoutEffect immediately replaces
-  // them with measured DOM positions before the user sees anything.
+  // Handle Y positions, one per anchor in the same order. Starts at 0 and
+  // gets replaced by useLayoutEffect before first paint, so 0 is fine here
+  // — the layout effect runs synchronously after DOM commit.
   const [handleTops, setHandleTops] = useState<number[]>(() =>
-    Array.from({ length: handleCount }, (_, i) =>
-      lineRowMidYFallback(
-        seq.Lines.length > 0
-          ? seq.Lines
-          : [{ SpeakerName: "", Text: "", Portrait: "", Choices: [] }],
-        i,
-      ),
-    ),
+    anchors.map(() => 0),
   );
 
   useLayoutEffect(() => {
@@ -199,9 +196,10 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
     if (!container) return;
 
     const measure = () => {
-      const next = lineRefs.current
-        .slice(0, handleCount)
-        .map((el) => (el ? el.offsetTop + el.offsetHeight / 2 : 0));
+      const next = anchors.map((a) => {
+        const el = anchorRefs.current.get(a.id);
+        return el ? el.offsetTop + el.offsetHeight / 2 : 0;
+      });
       setHandleTops((prev) => {
         if (
           prev.length === next.length &&
@@ -222,16 +220,28 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
     // re-trigger React renders by themselves but do change DOM layout.
     const ro = new ResizeObserver(measure);
     ro.observe(container);
-    for (const el of lineRefs.current) {
+    for (const el of anchorRefs.current.values()) {
       if (el) ro.observe(el);
     }
     return () => ro.disconnect();
-  }, [id, seq.Lines, handleCount, updateNodeInternals]);
+    // anchors is rebuilt on every render but the effect only needs to re-run
+    // when its content actually changes; depending on seq.Lines covers that.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, seq.Lines, updateNodeInternals]);
 
   // Visual distinction for Terminal sequences: greenish-tinted border + a
   // small "TERMINAL" pill in the header. NPCs keep the default neutral chrome
   // so the everyday case stays unchanged. Tint resolves through theme-aware
   // --color-source-terminal-* so the node mood matches the rest of the UI.
+  //
+  // Atmosphere — per-source body texture so the source-type reads as *mood*,
+  // not just a marker. Terminal nodes get faint horizontal scanlines (CRT
+  // character on top of the existing terminal-950/20 wash); NPC nodes get a
+  // soft warm radial pool near the top of the body (overhead-light vibe).
+  // Both layered via color-mix so alpha lands cleanly against the theme's
+  // oklch palette without manual rgba conversion. Same source variables
+  // (--color-source-terminal-* / --color-source-npc-*) the rest of the UI
+  // uses, so a theme swap retints the atmosphere automatically.
   const isTerminal = seq.SourceType === "Terminal";
   const nodeBorderClass = isTerminal
     ? "border-source-terminal-700 bg-source-terminal-950/20"
@@ -239,6 +249,23 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
   const headerBorderClass = isTerminal
     ? "border-source-terminal-900/60"
     : "border-neutral-800";
+  const bodyAtmosphereStyle: React.CSSProperties = isTerminal
+    ? {
+        backgroundImage: `repeating-linear-gradient(
+          to bottom,
+          color-mix(in srgb, var(--color-source-terminal-300) 7%, transparent) 0,
+          color-mix(in srgb, var(--color-source-terminal-300) 7%, transparent) 1px,
+          transparent 1px,
+          transparent 3px
+        )`,
+      }
+    : {
+        backgroundImage: `radial-gradient(
+          ellipse at top,
+          color-mix(in srgb, var(--color-source-npc-500) 8%, transparent) 0%,
+          transparent 65%
+        )`,
+      };
 
   return (
     <div
@@ -283,100 +310,140 @@ function SequenceNode({ id, data }: NodeProps<SeqNode>) {
         </div>
       </header>
 
-      <div className="space-y-2 px-2 py-1.5">
+      <div className="space-y-2 px-2 py-1.5" style={bodyAtmosphereStyle}>
         {seq.Lines.length === 0 ? (
           <div
             ref={(el) => {
-              lineRefs.current[0] = el;
+              if (el) anchorRefs.current.set("line-0", el);
+              else anchorRefs.current.delete("line-0");
             }}
             className="text-[10px] italic text-neutral-600"
           >
             No lines yet — drag from the handle to add one.
           </div>
         ) : (
-          seq.Lines.map((line, idx) => (
-            <div
-              key={idx}
-              ref={(el) => {
-                lineRefs.current[idx] = el;
-              }}
-              className="space-y-1"
-            >
-              <div>
-                {line.SpeakerName && (
-                  <span className="mr-1 italic text-neutral-400">
-                    {line.SpeakerName}:
-                  </span>
-                )}
-                <span className="line-clamp-2 inline align-top text-neutral-200">
-                  {line.Text || (
-                    <span className="italic text-neutral-600">(empty)</span>
+          seq.Lines.map((line, idx) => {
+            const placeholderId = `line-${idx}`;
+            // For lines without choices the placeholder ref attaches to the
+            // outer line container so the handle anchors to the dialog text.
+            // For lines with choices, the per-choice <li> elements carry the
+            // refs and the outer container needs no ref.
+            const setLineRef = (el: HTMLDivElement | null) => {
+              if (line.Choices.length > 0) return;
+              if (el) anchorRefs.current.set(placeholderId, el);
+              else anchorRefs.current.delete(placeholderId);
+            };
+            return (
+              <div key={idx} ref={setLineRef} className="space-y-1">
+                <div>
+                  {line.SpeakerName && (
+                    <span className="mr-1 italic text-neutral-400">
+                      {line.SpeakerName}:
+                    </span>
                   )}
-                </span>
-              </div>
-              {line.Choices.length > 0 && (
-                <ul className="ml-1 space-y-0.5">
-                  {line.Choices.map((choice, ci) => (
-                    <li
-                      key={ci}
-                      className="flex items-baseline gap-1 text-[11px]"
-                    >
-                      <span className="text-neutral-500">→</span>
-                      <span className="truncate text-neutral-300">
-                        {choice.Text || (
-                          <span className="italic text-neutral-600">
-                            (no text)
-                          </span>
-                        )}
-                      </span>
-                      {choice.SetsFlag && (
-                        <span
-                          className="shrink-0 text-[10px] text-emerald-400"
-                          title={`Choice sets flag "${choice.SetsFlag}" when taken`}
+                  <span className="line-clamp-2 inline align-top text-neutral-200">
+                    {line.Text || (
+                      <span className="italic text-neutral-600">(empty)</span>
+                    )}
+                  </span>
+                </div>
+                {line.Choices.length > 0 && (
+                  <ul className="ml-1 space-y-0.5 border-t border-neutral-800/70 pt-1">
+                    {line.Choices.map((choice, ci) => {
+                      const choiceId = `choice-${idx}-${ci}`;
+                      const setChoiceRef = (el: HTMLLIElement | null) => {
+                        if (el) anchorRefs.current.set(choiceId, el);
+                        else anchorRefs.current.delete(choiceId);
+                      };
+                      return (
+                        <li
+                          key={ci}
+                          ref={setChoiceRef}
+                          className="flex items-baseline gap-1 text-[11px]"
                         >
-                          ⚑ {choice.SetsFlag}
-                        </span>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          ))
+                          <span className="text-choice-500">→</span>
+                          <span className="truncate text-neutral-300">
+                            {choice.Text || (
+                              <span className="italic text-neutral-600">
+                                (no text)
+                              </span>
+                            )}
+                          </span>
+                          {choice.SetsFlag && (
+                            <span
+                              className="shrink-0 text-[10px] text-emerald-400"
+                              title={`Choice sets flag "${choice.SetsFlag}" when taken`}
+                            >
+                              ⚑ {choice.SetsFlag}
+                            </span>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 
-      <PerLineHandles tops={handleTops} count={handleCount} />
+      <PerHandle anchors={anchors} tops={handleTops} />
     </div>
   );
 }
 
-function PerLineHandles({
+// One Handle per anchor — choice anchors get a prominent filled square in
+// the choice color; placeholder anchors (lines without choices) get a
+// smaller outlined marker so the eye reads them as "potential" rather than
+// "active connection". Both still serve as drag sources for adding choices.
+function PerHandle({
+  anchors,
   tops,
-  count,
 }: {
+  anchors: { id: string; isChoice: boolean }[];
   tops: number[];
-  count: number;
 }) {
   const colors = useThemeColors();
   return (
     <>
-      {Array.from({ length: count }, (_, idx) => (
-        <Handle
-          key={idx}
-          type="source"
-          position={Position.Right}
-          id={`line-${idx}`}
-          style={{
-            top: tops[idx] ?? 0,
-            background: colors.accent500,
-            width: 10,
-            height: 10,
-            border: `2px solid ${colors.accent900}`,
-            borderRadius: 0,
-          }}
-        />
-      ))}
+      {anchors.map((a, idx) => {
+        const top = tops[idx] ?? 0;
+        if (a.isChoice) {
+          return (
+            <Handle
+              key={a.id}
+              type="source"
+              position={Position.Right}
+              id={a.id}
+              style={{
+                top,
+                background: colors.choice500,
+                width: 10,
+                height: 10,
+                border: `2px solid ${colors.choice900}`,
+                borderRadius: 0,
+              }}
+            />
+          );
+        }
+        return (
+          <Handle
+            key={a.id}
+            type="source"
+            position={Position.Right}
+            id={a.id}
+            style={{
+              top,
+              background: colors.neutral900,
+              width: 8,
+              height: 8,
+              border: `2px dashed ${colors.choice700}`,
+              borderRadius: 0,
+            }}
+          />
+        );
+      })}
     </>
   );
 }
@@ -531,7 +598,7 @@ function ChoiceEdgeComponent({
     labelY = mid.y;
   }
 
-  const strokeColor = dangling ? colors.danger600 : colors.neutral500;
+  const strokeColor = dangling ? colors.danger600 : colors.choice500;
   const dashArray = dashed || dangling ? "6 4" : undefined;
   const baseStyle: React.CSSProperties = {
     stroke: strokeColor,
@@ -816,7 +883,7 @@ function buildGraph(
         edges.push({
           id: edgeId,
           source: seq.Id,
-          sourceHandle: `line-${lineIdx}`,
+          sourceHandle: `choice-${lineIdx}-${choiceIdx}`,
           target: choice.NextSequenceId,
           type: "choice",
           data: {
@@ -832,7 +899,7 @@ function buildGraph(
           },
           markerEnd: {
             type: MarkerType.ArrowClosed,
-            color: dangling ? colors.danger600 : colors.neutral500,
+            color: dangling ? colors.danger600 : colors.choice500,
           },
           interactionWidth: 28,
           selectable: true,
@@ -903,6 +970,11 @@ interface SavedViewport {
   zoom: number;
 }
 const VIEWPORT_KEY_PREFIX = "bleepforge:graphViewport:";
+// Saved last-selected folder so a full leave-and-return to /dialogs (header
+// nav / bookmark / new tab) restores the folder you were on. The URL is
+// still the source of truth — this only kicks in when the URL has no
+// ?folder= and we need to pick a default.
+const LAST_FOLDER_KEY = "bleepforge:lastDialogFolder";
 // Padding for the first-visit fitView. 0.4 leaves a generous margin around
 // the bounding box of all sequences — reads as "zoomed out, here's the
 // whole map" rather than "tightly cropped to nodes".
@@ -950,7 +1022,7 @@ function DialogGraphInner() {
   const [nodes, setNodes, onNodesChange] = useNodesState<SeqNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<ChoiceEdge>([]);
   const [error, setError] = useState<string | null>(null);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { screenToFlowPosition, setViewport, fitView } = useReactFlow();
   const { theme } = useTheme();
@@ -963,6 +1035,31 @@ function DialogGraphInner() {
 
   const folderParam = searchParams.get("folder");
   const folder = folderParam ?? folders?.[0] ?? null;
+
+  // Restore the last-selected folder when the URL doesn't carry ?folder=
+  // (e.g. arriving via the header nav). Wins only when there's no URL param
+  // and the saved folder still exists in the project. Replaces the URL so
+  // back/forward navigation behaves naturally.
+  useEffect(() => {
+    if (folderParam) return;
+    if (!folders || folders.length === 0) return;
+    let saved: string | null = null;
+    try {
+      saved = window.localStorage.getItem(LAST_FOLDER_KEY);
+    } catch {}
+    if (saved && folders.includes(saved)) {
+      setSearchParams({ folder: saved }, { replace: true });
+    }
+  }, [folderParam, folders, setSearchParams]);
+
+  // Save the active folder so a return visit can restore it. Skipped when
+  // folder is null (folders not loaded yet).
+  useEffect(() => {
+    if (!folder) return;
+    try {
+      window.localStorage.setItem(LAST_FOLDER_KEY, folder);
+    } catch {}
+  }, [folder]);
 
   const speakerPortrait = useMemo(() => {
     const m = new Map<string, string>();
@@ -1191,8 +1288,18 @@ function DialogGraphInner() {
 
       let lineIdx = source.Lines.length - 1;
       if (sourceHandle) {
-        const m = sourceHandle.match(/^line-(\d+)$/);
-        if (m) lineIdx = parseInt(m[1]!, 10);
+        // New per-choice handle format: "choice-<lineIdx>-<choiceIdx>".
+        // We only need lineIdx — drag always appends a new choice to the
+        // source line, so the choice index of the originating handle is
+        // informational, not used for routing.
+        const choiceMatch = sourceHandle.match(/^choice-(\d+)-\d+$/);
+        if (choiceMatch) {
+          lineIdx = parseInt(choiceMatch[1]!, 10);
+        } else {
+          // Placeholder handle (line with no choices yet): "line-<lineIdx>".
+          const lineMatch = sourceHandle.match(/^line-(\d+)$/);
+          if (lineMatch) lineIdx = parseInt(lineMatch[1]!, 10);
+        }
       }
       let lines = source.Lines;
       if (lines.length === 0) {
