@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Item, ItemCategory } from "@bleepforge/shared";
 import { itemsApi } from "../../lib/api";
 import { ButtonLink } from "../../components/Button";
+import { EmptyState, WorkshopEmpty } from "../../components/EmptyState";
 import { textInput } from "../../styles/classes";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
@@ -141,7 +142,18 @@ export function ItemList() {
       </div>
 
       {items.length === 0 ? (
-        <p className="text-neutral-500">No items yet.</p>
+        <EmptyState
+          illustration={<WorkshopEmpty className="size-32" />}
+          title="The workshop is quiet"
+          body={
+            <>
+              No items yet. Create your first one, or drop an{" "}
+              <span className="font-mono">ItemData</span> .tres into the Godot
+              project — Bleepforge picks it up on next server start.
+            </>
+          }
+          action={{ label: "+ Create item", href: "/items/new" }}
+        />
       ) : totalShown === 0 ? (
         <p className="text-neutral-500">No items match the current filter.</p>
       ) : (

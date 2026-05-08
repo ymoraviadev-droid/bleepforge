@@ -2,7 +2,9 @@ import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router";
 import { CatalogDatalists } from "./components/CatalogDatalists";
 import { ContextMenuHost } from "./components/ContextMenu";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ModalHost } from "./components/Modal";
+import { NotFoundPage } from "./components/NotFoundPage";
 import { SplashScreen } from "./components/SplashScreen";
 import { ToastHost } from "./components/Toast";
 import { useSyncToasts } from "./lib/sync/syncToasts";
@@ -199,6 +201,7 @@ export function App() {
       <ContextMenuHost />
       <ToastHost />
       <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Navigate to="/concept" replace />} />
           <Route path="/concept" element={<ConceptView />} />
@@ -233,8 +236,21 @@ export function App() {
           <Route path="/reconcile" element={<Navigate to="/diagnostics/reconcile" replace />} />
           <Route path="/preferences" element={<PreferencesPage />} />
           <Route path="/import" element={<Navigate to="/preferences" replace />} />
+          {/* Easter egg — visit /boom to verify the ErrorBoundary by tripping
+              a synchronous render-phase throw. Kept around as a manual-test
+              hook (and because it's funny). */}
+          <Route path="/boom" element={<Boom />} />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </ErrorBoundary>
       </main>
     </div>
   );
+}
+
+// Easter-egg page that throws synchronously during render so /boom always
+// trips the ErrorBoundary. Useful as a manual-test hook for the boundary's
+// fallback UI; small enough that it doesn't earn its own file.
+function Boom(): never {
+  throw new Error("Boom — test error for ErrorBoundary verification");
 }

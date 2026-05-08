@@ -4,6 +4,7 @@ import { ButtonLink } from "../../components/Button";
 import type { Faction, KarmaDelta, KarmaImpact } from "@bleepforge/shared";
 import { karmaApi } from "../../lib/api";
 import { showConfirm } from "../../components/Modal";
+import { NotFoundPage } from "../../components/NotFoundPage";
 import { SliderField } from "../../components/SliderField";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { button, fieldLabel, textInput } from "../../styles/classes";
@@ -39,6 +40,7 @@ export function KarmaEdit() {
     },
   });
 
+  if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (impact === null) return <div className="text-neutral-500">Loading…</div>;
 

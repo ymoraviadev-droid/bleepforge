@@ -11,6 +11,7 @@ import { dialogsApi } from "../../lib/api";
 import { AssetPicker } from "../../components/AssetPicker";
 import { DL } from "../../components/CatalogDatalists";
 import { showConfirm } from "../../components/Modal";
+import { NotFoundPage } from "../../components/NotFoundPage";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
@@ -69,6 +70,7 @@ export function DialogEdit() {
     },
   });
 
+  if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (seq === null) return <div className="text-neutral-500">Loading…</div>;
 

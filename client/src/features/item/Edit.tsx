@@ -8,6 +8,7 @@ import { ItemIcon } from "../../components/ItemIcon";
 import { DL } from "../../components/CatalogDatalists";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { showConfirm } from "../../components/Modal";
+import { NotFoundPage } from "../../components/NotFoundPage";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 const CATEGORIES: ItemCategory[] = [
@@ -57,6 +58,7 @@ export function ItemEdit() {
     },
   });
 
+  if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (item === null) return <div className="text-neutral-500">Loading…</div>;
 

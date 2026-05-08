@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Npc, Quest } from "@bleepforge/shared";
 import { npcsApi, questsApi } from "../../lib/api";
 import { ButtonLink } from "../../components/Button";
+import { EmptyState, NoticeboardEmpty } from "../../components/EmptyState";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { textInput } from "../../styles/classes";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
@@ -186,7 +187,12 @@ export function QuestList() {
       </div>
 
       {quests.length === 0 ? (
-        <p className="text-neutral-500">No quests yet.</p>
+        <EmptyState
+          illustration={<NoticeboardEmpty className="size-32" />}
+          title="The board is bare"
+          body="No quests posted yet. Pin your first one — assign a giver, draft objectives, set rewards."
+          action={{ label: "+ Create quest", href: "/quests/new" }}
+        />
       ) : totalShown === 0 ? (
         <p className="text-neutral-500">No quests match the current filter.</p>
       ) : (

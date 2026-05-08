@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Balloon, Npc } from "@bleepforge/shared";
 import { balloonsApi, npcsApi, type BalloonFolderGroup } from "../../lib/api";
 import { ButtonLink } from "../../components/Button";
+import { EmptyState, TerminalSilent } from "../../components/EmptyState";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { textInput } from "../../styles/classes";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
@@ -303,12 +304,21 @@ export function BalloonList() {
       </div>
 
       {flat.length === 0 ? (
-        <p className="text-neutral-500">
-          No balloons yet. Create a <span className="font-mono">BalloonLine</span>{" "}
-          .tres in Godot under{" "}
-          <span className="font-mono">characters/npcs/&lt;model&gt;/balloons/</span>{" "}
-          and it'll appear here on the next save.
-        </p>
+        <EmptyState
+          illustration={<TerminalSilent className="size-32" />}
+          title="All quiet on the comms"
+          body={
+            <>
+              No balloon lines yet. Create one here, or drop a{" "}
+              <span className="font-mono">BalloonLine</span> .tres into{" "}
+              <span className="font-mono">
+                characters/npcs/&lt;model&gt;/balloons/
+              </span>{" "}
+              — picks up on next save.
+            </>
+          }
+          action={{ label: "+ Create balloon", href: "/balloons/new" }}
+        />
       ) : totalShown === 0 ? (
         <p className="text-neutral-500">No balloons match the current filter.</p>
       ) : (

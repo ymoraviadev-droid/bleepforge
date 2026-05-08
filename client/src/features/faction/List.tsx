@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FactionData } from "@bleepforge/shared";
 import { factionsApi } from "../../lib/api";
 import { ButtonLink } from "../../components/Button";
+import { EmptyState, WorkshopEmpty } from "../../components/EmptyState";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
 import { FactionCard } from "./FactionCard";
@@ -48,10 +49,21 @@ export function FactionList() {
       </div>
 
       {factions.length === 0 ? (
-        <p className="text-neutral-500">
-          No factions yet. Run <span className="font-mono">Preferences → Import from Godot</span>{" "}
-          to import the four <span className="font-mono">FactionData</span> files from the project.
-        </p>
+        <EmptyState
+          illustration={<WorkshopEmpty className="size-32" />}
+          title="No factions registered"
+          body={
+            <>
+              Bleepforge picks up <span className="font-mono">FactionData</span>{" "}
+              .tres files from{" "}
+              <span className="font-mono">
+                shared/components/factions/&lt;name&gt;/
+              </span>
+              . If your project has them, restart the server to import.
+            </>
+          }
+          action={{ label: "+ Create faction", href: "/factions/new" }}
+        />
       ) : (
         view === "cards" ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Npc } from "@bleepforge/shared";
 import { npcsApi } from "../../lib/api";
 import { ButtonLink } from "../../components/Button";
+import { BunkerEmpty, EmptyState } from "../../components/EmptyState";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { textInput } from "../../styles/classes";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
@@ -163,11 +164,19 @@ export function NpcList() {
       </div>
 
       {npcs.length === 0 ? (
-        <p className="text-neutral-500">
-          No NPCs yet. Run{" "}
-          <span className="font-mono">Preferences → Import from Godot</span> to
-          import the <span className="font-mono">NpcData</span> .tres files.
-        </p>
+        <EmptyState
+          illustration={<BunkerEmpty className="size-32" />}
+          title="Nobody home"
+          body={
+            <>
+              No NPCs yet. Create one here, or drop{" "}
+              <span className="font-mono">NpcData</span> .tres files into{" "}
+              <span className="font-mono">characters/npcs/&lt;model&gt;/data/</span>
+              {" "}— they'll appear on next server start.
+            </>
+          }
+          action={{ label: "+ Create NPC", href: "/npcs/new" }}
+        />
       ) : totalShown === 0 ? (
         <p className="text-neutral-500">No NPCs match the current filter.</p>
       ) : (

@@ -15,6 +15,7 @@ import { DL } from "../../components/CatalogDatalists";
 import { useCatalog } from "../../lib/useCatalog";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { showConfirm } from "../../components/Modal";
+import { NotFoundPage } from "../../components/NotFoundPage";
 import { SliderField } from "../../components/SliderField";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
@@ -71,6 +72,7 @@ export function NpcEdit() {
     },
   });
 
+  if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (npc === null) return <div className="text-neutral-500">Loading…</div>;
 

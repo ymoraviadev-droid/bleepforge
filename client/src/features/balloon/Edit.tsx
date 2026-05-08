@@ -4,6 +4,7 @@ import type { Balloon, Npc } from "@bleepforge/shared";
 import { balloonsApi, npcsApi } from "../../lib/api";
 import { ButtonLink } from "../../components/Button";
 import { showConfirm } from "../../components/Modal";
+import { NotFoundPage } from "../../components/NotFoundPage";
 import { SliderField } from "../../components/SliderField";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { button, fieldLabel, textInput } from "../../styles/classes";
@@ -71,6 +72,7 @@ export function BalloonEdit() {
     [ref, npcs],
   );
 
+  if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (balloon === null) return <div className="text-neutral-500">Loading…</div>;
 

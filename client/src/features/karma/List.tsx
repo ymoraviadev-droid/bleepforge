@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Faction, FactionData, KarmaImpact } from "@bleepforge/shared";
 import { factionsApi, karmaApi } from "../../lib/api";
 import { ButtonLink } from "../../components/Button";
+import { BunkerEmpty, EmptyState } from "../../components/EmptyState";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { textInput } from "../../styles/classes";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
@@ -164,7 +165,12 @@ export function KarmaList() {
       </div>
 
       {impacts.length === 0 ? (
-        <p className="text-neutral-500">No karma impacts yet.</p>
+        <EmptyState
+          illustration={<BunkerEmpty className="size-32" />}
+          title="No karma tracked yet"
+          body="No karma impacts yet. Create one to define how an action shifts faction reputation."
+          action={{ label: "+ Create impact", href: "/karma/new" }}
+        />
       ) : totalShown === 0 ? (
         <p className="text-neutral-500">
           No karma impacts match the current filter.

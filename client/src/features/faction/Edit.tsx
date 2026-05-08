@@ -7,6 +7,7 @@ import { AssetThumb } from "../../components/AssetThumb";
 import { ButtonLink } from "../../components/Button";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { showConfirm } from "../../components/Modal";
+import { NotFoundPage } from "../../components/NotFoundPage";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 const FACTIONS: Faction[] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
@@ -48,6 +49,7 @@ export function FactionEdit() {
     },
   });
 
+  if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (data === null) return <div className="text-neutral-500">Loading…</div>;
 
