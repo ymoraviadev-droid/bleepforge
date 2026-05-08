@@ -7,7 +7,7 @@
 // "updated" → entity edit page; "deleted" → list/graph page (the entity
 // is gone, so 404'ing the edit route would be hostile).
 
-import type { SaveAction, SaveDomain } from "../api";
+import type { SaveAction, SaveDomain } from "../lib/api";
 
 interface DomainRoute {
   label: string;

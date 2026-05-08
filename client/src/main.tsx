@@ -2,13 +2,13 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router";
 import { App } from "./App";
-import "./Theme"; // applies saved theme on load (sets data-theme on <html>)
-import "./Font"; // applies saved font + UI scale + letter spacing
-import "./GlobalTheme"; // reconciles legacy keys → server-backed preferences
-import "./index.css";
+import "./styles/Theme"; // applies saved theme on load (sets data-theme on <html>)
+import "./styles/Font"; // applies saved font + UI scale + letter spacing
+import "./styles/GlobalTheme"; // reconciles legacy keys → server-backed preferences
+import "./styles/index.css";
 import { startSyncStream } from "./sync/stream";
 import { startSavesStream } from "./saves/stream";
-import { refreshCatalog } from "./catalog-bus";
+import { refreshCatalog } from "./lib/catalog-bus";
 
 // Open the live-sync SSE channel once at startup. Components subscribe via
 // window's "Bleepforge:sync" CustomEvent.

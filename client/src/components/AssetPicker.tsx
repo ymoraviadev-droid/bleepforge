@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { AssetThumb } from "./AssetThumb";
-import { button, textInput } from "./ui";
+import { button, textInput } from "../styles/classes";
 
 interface PickerProps {
   path: string;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { watcherApi, type WatcherEvent, type WatcherStatus } from "../api";
+import { watcherApi, type WatcherEvent, type WatcherStatus } from "../lib/api";
 
 // chokidar status + a recent-events feed. The interesting thing the user
 // usually wants to know: "is the watcher firing when I save in Godot?"

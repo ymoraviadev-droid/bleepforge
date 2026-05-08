@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { ButtonLink } from "../Button";
+import { ButtonLink } from "../components/Button";
 import type { DialogSequence, DialogSourceType } from "@bleepforge/shared";
-import { dialogsApi } from "../api";
+import { dialogsApi } from "../lib/api";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { GRAPH_LIST_OPTIONS, ViewToggle } from "../ViewToggle";
+import { GRAPH_LIST_OPTIONS, ViewToggle } from "../components/ViewToggle";
 import { FolderTabs } from "./FolderTabs";
 import { SourceFilter, useDialogSourceFilter } from "./SourceFilter";
 

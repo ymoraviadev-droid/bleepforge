@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { pushToast } from "../Toast";
+import { pushToast } from "../components/Toast";
 import type { SyncDomain, SyncEvent } from "./stream";
 
 // Maps every sync event coming off the SSE stream into a toast. Mounted once

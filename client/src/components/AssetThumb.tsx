@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { assetUrl } from "./api";
+import { assetUrl } from "../lib/api";
 
 interface Props {
   path: string;

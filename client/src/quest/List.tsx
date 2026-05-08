@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Npc, Quest } from "@bleepforge/shared";
-import { npcsApi, questsApi } from "../api";
-import { ButtonLink } from "../Button";
+import { npcsApi, questsApi } from "../lib/api";
+import { ButtonLink } from "../components/Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { textInput } from "../ui";
-import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../ViewToggle";
+import { textInput } from "../styles/classes";
+import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../components/ViewToggle";
 import { QuestCard } from "./QuestCard";
 import { QuestRow } from "./QuestRow";
 

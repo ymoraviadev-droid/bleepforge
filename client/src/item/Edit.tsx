@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Item, ItemCategory } from "@bleepforge/shared";
-import { itemsApi } from "../api";
-import { AssetPicker } from "../AssetPicker";
-import { ButtonLink } from "../Button";
-import { ItemIcon } from "../ItemIcon";
-import { DL } from "../CatalogDatalists";
+import { itemsApi } from "../lib/api";
+import { AssetPicker } from "../components/AssetPicker";
+import { ButtonLink } from "../components/Button";
+import { ItemIcon } from "../components/ItemIcon";
+import { DL } from "../components/CatalogDatalists";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { showConfirm } from "../Modal";
-import { button, fieldLabel, textInput } from "../ui";
+import { showConfirm } from "../components/Modal";
+import { button, fieldLabel, textInput } from "../styles/classes";
 
 const CATEGORIES: ItemCategory[] = [
   "Misc",

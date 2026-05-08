@@ -1,8 +1,8 @@
 import { Link } from "react-router";
 import type { Faction, FactionData } from "@bleepforge/shared";
-import { assetUrl } from "../api";
-import { AssetThumb } from "../AssetThumb";
-import { BannerPlaceholder, IconPlaceholder } from "../PixelPlaceholder";
+import { assetUrl } from "../lib/api";
+import { AssetThumb } from "../components/AssetThumb";
+import { BannerPlaceholder, IconPlaceholder } from "../components/PixelPlaceholder";
 
 interface Props {
   faction: FactionData;

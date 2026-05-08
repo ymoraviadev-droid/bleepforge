@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import type { Concept } from "@bleepforge/shared";
-import { conceptApi, assetUrl } from "../api";
-import { AssetThumb } from "../AssetThumb";
+import { conceptApi, assetUrl } from "../lib/api";
+import { AssetThumb } from "../components/AssetThumb";
 import {
   BannerPlaceholder,
   IconPlaceholder,
   LogoPlaceholder,
-} from "../PixelPlaceholder";
-import { button } from "../ui";
+} from "../components/PixelPlaceholder";
+import { button } from "../styles/classes";
 
 // Read-only homepage view of the concept doc. The "Edit" button takes you to
 // /concept/edit. Mirrors the items/quests pattern (list = preview-ish, edit

@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Faction, FactionData, KarmaImpact } from "@bleepforge/shared";
-import { factionsApi, karmaApi } from "../api";
-import { ButtonLink } from "../Button";
+import { factionsApi, karmaApi } from "../lib/api";
+import { ButtonLink } from "../components/Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { textInput } from "../ui";
-import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../ViewToggle";
+import { textInput } from "../styles/classes";
+import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../components/ViewToggle";
 import { KarmaCard } from "./KarmaCard";
 import { KarmaRow } from "./KarmaRow";
 

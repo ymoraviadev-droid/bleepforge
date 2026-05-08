@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import type { Faction, FactionData, KarmaImpact } from "@bleepforge/shared";
-import { AssetThumb } from "../AssetThumb";
-import { IconPlaceholder } from "../PixelPlaceholder";
+import { AssetThumb } from "../components/AssetThumb";
+import { IconPlaceholder } from "../components/PixelPlaceholder";
 
 interface Props {
   impact: KarmaImpact;

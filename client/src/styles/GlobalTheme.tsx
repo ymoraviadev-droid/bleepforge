@@ -4,7 +4,7 @@ import {
   type GlobalTheme,
   type Preferences,
 } from "@bleepforge/shared";
-import { preferencesApi } from "./api";
+import { preferencesApi } from "../lib/api";
 import {
   FONT_SIZE,
   LETTER_SPACING,

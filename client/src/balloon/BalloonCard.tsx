@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import type { Balloon, Npc } from "@bleepforge/shared";
-import { AssetThumb } from "../AssetThumb";
-import { PortraitPlaceholder } from "../PixelPlaceholder";
+import { AssetThumb } from "../components/AssetThumb";
+import { PortraitPlaceholder } from "../components/PixelPlaceholder";
 
 // Speech-balloon card. Visually mimics an in-game balloon — VT323 mono
 // text in a chunky pixel-art frame with a stepped tail pointing down-left.

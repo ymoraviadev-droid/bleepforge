@@ -1,18 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
-import { ButtonLink } from "../Button";
+import { ButtonLink } from "../components/Button";
 import type {
   DialogChoice,
   DialogLine,
   DialogSequence,
   DialogSourceType,
 } from "@bleepforge/shared";
-import { dialogsApi } from "../api";
-import { AssetPicker } from "../AssetPicker";
-import { DL } from "../CatalogDatalists";
-import { showConfirm } from "../Modal";
+import { dialogsApi } from "../lib/api";
+import { AssetPicker } from "../components/AssetPicker";
+import { DL } from "../components/CatalogDatalists";
+import { showConfirm } from "../components/Modal";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { button, fieldLabel, textInput } from "../ui";
+import { button, fieldLabel, textInput } from "../styles/classes";
 
 const emptyChoice = (): DialogChoice => ({
   Text: "",

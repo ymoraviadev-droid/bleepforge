@@ -7,15 +7,15 @@ import type {
   LootEntry,
   Pickup,
 } from "@bleepforge/shared";
-import { itemsApi, npcsApi, pickupsApi } from "../api";
-import { AssetPicker } from "../AssetPicker";
-import { AssetThumb } from "../AssetThumb";
-import { Button, ButtonLink } from "../Button";
-import { DL } from "../CatalogDatalists";
-import { useCatalog } from "../useCatalog";
+import { itemsApi, npcsApi, pickupsApi } from "../lib/api";
+import { AssetPicker } from "../components/AssetPicker";
+import { AssetThumb } from "../components/AssetThumb";
+import { Button, ButtonLink } from "../components/Button";
+import { DL } from "../components/CatalogDatalists";
+import { useCatalog } from "../lib/useCatalog";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { showConfirm } from "../Modal";
-import { button, fieldLabel, textInput } from "../ui";
+import { showConfirm } from "../components/Modal";
+import { button, fieldLabel, textInput } from "../styles/classes";
 
 const empty = (): Npc => ({
   NpcId: "",

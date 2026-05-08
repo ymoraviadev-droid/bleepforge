@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { processApi, type ProcessInfo } from "../api";
+import { processApi, type ProcessInfo } from "../lib/api";
 
 // Read-only "what is the running server" view. Useful when you suspect the
 // process you're talking to isn't the one you expect — common after editing

@@ -1,4 +1,4 @@
-import type { Catalog } from "../useCatalog";
+import type { Catalog } from "../lib/useCatalog";
 
 export interface Issue {
   domain: "Dialog" | "Quest" | "Item" | "Npc";

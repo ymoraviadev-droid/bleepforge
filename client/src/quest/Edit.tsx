@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ButtonLink } from "../Button";
+import { ButtonLink } from "../components/Button";
 import type {
   ObjectiveType,
   Quest,
@@ -8,11 +8,11 @@ import type {
   QuestReward,
   RewardType,
 } from "@bleepforge/shared";
-import { questsApi } from "../api";
-import { DL } from "../CatalogDatalists";
-import { showConfirm } from "../Modal";
+import { questsApi } from "../lib/api";
+import { DL } from "../components/CatalogDatalists";
+import { showConfirm } from "../components/Modal";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { button, fieldLabel, textInput } from "../ui";
+import { button, fieldLabel, textInput } from "../styles/classes";
 
 const OBJECTIVE_TYPES: ObjectiveType[] = [
   "CollectItem",

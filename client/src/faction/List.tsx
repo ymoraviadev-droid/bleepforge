@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import type { FactionData } from "@bleepforge/shared";
-import { factionsApi } from "../api";
-import { ButtonLink } from "../Button";
+import { factionsApi } from "../lib/api";
+import { ButtonLink } from "../components/Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../ViewToggle";
+import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../components/ViewToggle";
 import { FactionCard } from "./FactionCard";
 import { FactionRow } from "./FactionRow";
 

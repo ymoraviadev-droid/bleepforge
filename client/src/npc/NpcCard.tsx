@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import type { Npc } from "@bleepforge/shared";
-import { AssetThumb } from "../AssetThumb";
-import { PortraitPlaceholder } from "../PixelPlaceholder";
+import { AssetThumb } from "../components/AssetThumb";
+import { PortraitPlaceholder } from "../components/PixelPlaceholder";
 
 interface Props {
   npc: Npc;

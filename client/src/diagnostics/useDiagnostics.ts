@@ -4,9 +4,9 @@ import {
   reconcileApi,
   type LogEntry,
   type ReconcileStatus,
-} from "../api";
+} from "../lib/api";
 import { computeIssues } from "../integrity/issues";
-import { useCatalog } from "../useCatalog";
+import { useCatalog } from "../lib/useCatalog";
 
 // Aggregate diagnostic signal used by:
 //   - The unified header icon (one indicator instead of two text links)

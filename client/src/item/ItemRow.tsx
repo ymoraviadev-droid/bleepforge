@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import type { Item, ItemCategory } from "@bleepforge/shared";
-import { ItemIcon } from "../ItemIcon";
+import { ItemIcon } from "../components/ItemIcon";
 
 interface Props {
   item: Item;

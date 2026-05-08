@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { logsApi, type LogEntry } from "../api";
-import { Button } from "../Button";
-import { showConfirm } from "../Modal";
+import { logsApi, type LogEntry } from "../lib/api";
+import { Button } from "../components/Button";
+import { showConfirm } from "../components/Modal";
 
 // Server-log viewer. Reads from the in-memory ring buffer at /api/logs.
 // v1 is fetch-on-demand (manual refresh button + a fresh fetch every time

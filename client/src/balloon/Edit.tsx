@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import type { Balloon, Npc } from "@bleepforge/shared";
-import { balloonsApi, npcsApi } from "../api";
-import { ButtonLink } from "../Button";
-import { showConfirm } from "../Modal";
+import { balloonsApi, npcsApi } from "../lib/api";
+import { ButtonLink } from "../components/Button";
+import { showConfirm } from "../components/Modal";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { button, fieldLabel, textInput } from "../ui";
+import { button, fieldLabel, textInput } from "../styles/classes";
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router";
-import { CatalogDatalists } from "./CatalogDatalists";
-import { ContextMenuHost } from "./ContextMenu";
-import { ModalHost } from "./Modal";
-import { SplashScreen } from "./SplashScreen";
-import { ToastHost } from "./Toast";
+import { CatalogDatalists } from "./components/CatalogDatalists";
+import { ContextMenuHost } from "./components/ContextMenu";
+import { ModalHost } from "./components/Modal";
+import { SplashScreen } from "./components/SplashScreen";
+import { ToastHost } from "./components/Toast";
 import { useSyncToasts } from "./sync/syncToasts";
 import { ConceptView } from "./concept/View";
 import { ConceptEdit } from "./concept/Edit";

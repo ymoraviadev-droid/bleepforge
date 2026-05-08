@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Balloon, Npc } from "@bleepforge/shared";
-import { balloonsApi, npcsApi, type BalloonFolderGroup } from "../api";
-import { ButtonLink } from "../Button";
+import { balloonsApi, npcsApi, type BalloonFolderGroup } from "../lib/api";
+import { ButtonLink } from "../components/Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { textInput } from "../ui";
-import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../ViewToggle";
+import { textInput } from "../styles/classes";
+import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../components/ViewToggle";
 import { BalloonCard } from "./BalloonCard";
 import { BalloonRow } from "./BalloonRow";
 

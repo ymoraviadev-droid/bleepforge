@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { reconcileApi, type ReconcileStatus } from "../api";
+import { reconcileApi, type ReconcileStatus } from "../lib/api";
 
 // Boot-reconcile diagnostic tab. Same content as the previous /reconcile page
 // minus the page chrome (header lives in HealthPage). Read-only — rebuilding

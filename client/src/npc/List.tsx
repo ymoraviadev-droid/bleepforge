@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Npc } from "@bleepforge/shared";
-import { npcsApi } from "../api";
-import { ButtonLink } from "../Button";
+import { npcsApi } from "../lib/api";
+import { ButtonLink } from "../components/Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { textInput } from "../ui";
-import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../ViewToggle";
+import { textInput } from "../styles/classes";
+import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../components/ViewToggle";
 import { NpcCard } from "./NpcCard";
 import { NpcRow } from "./NpcRow";
 

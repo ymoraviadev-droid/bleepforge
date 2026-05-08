@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import type { Concept } from "@bleepforge/shared";
-import { conceptApi } from "../api";
-import { AssetPicker } from "../AssetPicker";
-import { ButtonLink } from "../Button";
-import { button, fieldLabel, textInput } from "../ui";
+import { conceptApi } from "../lib/api";
+import { AssetPicker } from "../components/AssetPicker";
+import { ButtonLink } from "../components/Button";
+import { button, fieldLabel, textInput } from "../styles/classes";
 
 // Edit form for the singleton concept doc. After save, navigate back to the
 // /concept view so the user sees the result. Cancel = same.

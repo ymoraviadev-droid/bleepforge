@@ -6,7 +6,7 @@
 //
 // EventSource auto-reconnects on network blips with no extra code.
 
-import type { SaveEntry } from "../api";
+import type { SaveEntry } from "../lib/api";
 
 declare global {
   interface WindowEventMap {

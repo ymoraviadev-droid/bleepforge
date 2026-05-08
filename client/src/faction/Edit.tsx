@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Faction, FactionData } from "@bleepforge/shared";
-import { factionsApi } from "../api";
-import { AssetPicker } from "../AssetPicker";
-import { AssetThumb } from "../AssetThumb";
-import { ButtonLink } from "../Button";
+import { factionsApi } from "../lib/api";
+import { AssetPicker } from "../components/AssetPicker";
+import { AssetThumb } from "../components/AssetThumb";
+import { ButtonLink } from "../components/Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { showConfirm } from "../Modal";
-import { button, fieldLabel, textInput } from "../ui";
+import { showConfirm } from "../components/Modal";
+import { button, fieldLabel, textInput } from "../styles/classes";
 
 const FACTIONS: Faction[] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
 

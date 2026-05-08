@@ -1,4 +1,4 @@
-import { useCatalog } from "./useCatalog";
+import { useCatalog } from "../lib/useCatalog";
 
 export const DL = {
   npcIds: "dlc-npc-ids",

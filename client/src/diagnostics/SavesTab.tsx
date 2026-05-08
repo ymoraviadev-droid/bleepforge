@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { savesApi, type SaveEntry } from "../api";
-import { Button } from "../Button";
-import { showConfirm } from "../Modal";
+import { savesApi, type SaveEntry } from "../lib/api";
+import { Button } from "../components/Button";
+import { showConfirm } from "../components/Modal";
 import {
   displayKey,
   labelForDomain,

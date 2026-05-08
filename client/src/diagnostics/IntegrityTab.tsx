@@ -1,7 +1,7 @@
 import { Link } from "react-router";
-import { refreshCatalog } from "../catalog-bus";
-import { useCatalog } from "../useCatalog";
-import { button } from "../ui";
+import { refreshCatalog } from "../lib/catalog-bus";
+import { useCatalog } from "../lib/useCatalog";
+import { button } from "../styles/classes";
 import { computeIssues } from "../integrity/issues";
 
 // Authored-data integrity tab. Same logic as the previous standalone

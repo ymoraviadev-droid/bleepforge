@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Item, ItemCategory } from "@bleepforge/shared";
-import { itemsApi } from "../api";
-import { ButtonLink } from "../Button";
-import { textInput } from "../ui";
+import { itemsApi } from "../lib/api";
+import { ButtonLink } from "../components/Button";
+import { textInput } from "../styles/classes";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../ViewToggle";
+import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../components/ViewToggle";
 import { ItemCard } from "./ItemCard";
 import { ItemRow } from "./ItemRow";
 

@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { showContextMenu } from "../ContextMenu";
+import { showContextMenu } from "../components/ContextMenu";
 import {
   BaseEdge,
   Background,
@@ -40,14 +40,14 @@ import {
   npcsApi,
   type DialogLayout,
   type EdgeStyle,
-} from "../api";
-import { AssetThumb } from "../AssetThumb";
-import { ButtonLink } from "../Button";
-import { showConfirm, showPrompt } from "../Modal";
+} from "../lib/api";
+import { AssetThumb } from "../components/AssetThumb";
+import { ButtonLink } from "../components/Button";
+import { showConfirm, showPrompt } from "../components/Modal";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { useTheme } from "../Theme";
-import { useThemeColors, type ThemeColors } from "../themeColors";
-import { GRAPH_LIST_OPTIONS, ViewToggle } from "../ViewToggle";
+import { useTheme } from "../styles/Theme";
+import { useThemeColors, type ThemeColors } from "../styles/themeColors";
+import { GRAPH_LIST_OPTIONS, ViewToggle } from "../components/ViewToggle";
 import { FolderTabs } from "./FolderTabs";
 import { SourceFilter, useDialogSourceFilter } from "./SourceFilter";
 

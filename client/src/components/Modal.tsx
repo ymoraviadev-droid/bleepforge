@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "./Button";
-import { textInput } from "./ui";
+import { textInput } from "../styles/classes";
 
 export interface ConfirmOptions {
   title: string;

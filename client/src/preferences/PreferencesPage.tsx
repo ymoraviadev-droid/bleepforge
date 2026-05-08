@@ -3,8 +3,8 @@ import {
   godotProjectApi,
   type GodotProjectInfo,
   type GodotProjectValidation,
-} from "../api";
-import { FONT_SIZE, FONTS, LETTER_SPACING, useFont, useFontSize, useLetterSpacing } from "../Font";
+} from "../lib/api";
+import { FONT_SIZE, FONTS, LETTER_SPACING, useFont, useFontSize, useLetterSpacing } from "../styles/Font";
 import {
   DEFAULT_THEME_NAME,
   setActiveColorTheme,
@@ -13,11 +13,11 @@ import {
   setActiveLetterSpacing,
   useGlobalThemes,
   useGodotProjectRoot,
-} from "../GlobalTheme";
-import { showConfirm, showPrompt } from "../Modal";
-import { THEMES, useTheme } from "../Theme";
-import { Button } from "../Button";
-import { fieldLabel, textInput } from "../ui";
+} from "../styles/GlobalTheme";
+import { showConfirm, showPrompt } from "../components/Modal";
+import { THEMES, useTheme } from "../styles/Theme";
+import { Button } from "../components/Button";
+import { fieldLabel, textInput } from "../styles/classes";
 
 export function PreferencesPage() {
   return (

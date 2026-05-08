@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { ButtonLink } from "../Button";
+import { ButtonLink } from "../components/Button";
 import type { Faction, KarmaDelta, KarmaImpact } from "@bleepforge/shared";
-import { karmaApi } from "../api";
-import { showConfirm } from "../Modal";
+import { karmaApi } from "../lib/api";
+import { showConfirm } from "../components/Modal";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
-import { button, fieldLabel, textInput } from "../ui";
+import { button, fieldLabel, textInput } from "../styles/classes";
 
 const FACTIONS: Faction[] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
 
