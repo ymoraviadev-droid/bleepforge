@@ -17,6 +17,7 @@ import {
 import { showConfirm, showPrompt } from "../../components/Modal";
 import { THEMES, useTheme } from "../../styles/Theme";
 import { Button } from "../../components/Button";
+import { PixelSlider } from "../../components/PixelSlider";
 import { fieldLabel, textInput } from "../../styles/classes";
 
 export function PreferencesPage() {
@@ -418,14 +419,13 @@ function RangeField({
           </button>
         </div>
       </div>
-      <input
-        type="range"
+      <PixelSlider
         min={min}
         max={max}
         step={step}
         value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-emerald-500"
+        onChange={onChange}
+        aria-label={label}
       />
       {hint && <p className="text-xs text-neutral-500">{hint}</p>}
     </div>

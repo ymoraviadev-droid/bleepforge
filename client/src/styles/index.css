@@ -424,3 +424,144 @@ html {
 ::-webkit-scrollbar-corner {
   background: var(--color-neutral-900);
 }
+
+/* ---- Pixel slider ----------------------------------------------------------
+   Used by <PixelSlider> (components/PixelSlider.tsx). Fill is 5 stepped
+   chunks of emerald (700 → 300, brightening left-to-right) separated by 2%
+   transparent gaps so the color transitions read as pixel-art segmentation
+   rather than a smooth gradient. A second mask layer covers the chunks past
+   `--pct` with the track bg, so the bar "fills up" by revealing chunks
+   rather than stretching them. Theme-aware via --color-emerald-* /
+   --color-neutral-*; every theme override re-points emerald and the chunks
+   recolor with no extra work. */
+.pixel-range {
+  --pct: 0%;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+}
+.pixel-range:focus { outline: none; }
+.pixel-range::-moz-focus-outer { border: 0; }
+
+/* The chunked fill — emerald-700 → emerald-300, with 2% transparent gaps at
+   the color transitions. Reused by both webkit and moz tracks below. */
+.pixel-range::-webkit-slider-runnable-track {
+  height: 14px;
+  background-color: var(--color-neutral-900);
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent var(--pct),
+      var(--color-neutral-900) var(--pct),
+      var(--color-neutral-900) 100%
+    ),
+    linear-gradient(
+      to right,
+      var(--color-emerald-700) 0 19.6%,
+      transparent 19.6% 20%,
+      var(--color-emerald-600) 20% 39.6%,
+      transparent 39.6% 40%,
+      var(--color-emerald-500) 40% 59.6%,
+      transparent 59.6% 60%,
+      var(--color-emerald-400) 60% 79.6%,
+      transparent 79.6% 80%,
+      var(--color-emerald-300) 80% 100%
+    );
+  border: 2px solid var(--color-neutral-700);
+  box-shadow: inset 1px 1px 0 0 var(--color-neutral-950);
+}
+
+.pixel-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 22px;
+  background: var(--color-emerald-500);
+  border: 0;
+  border-radius: 0;
+  /* Pixel-bevel: light top+left, dark bottom+right, plus outer dark ring. */
+  box-shadow:
+    inset 2px 2px 0 0 var(--color-emerald-300),
+    inset -2px -2px 0 0 var(--color-emerald-700),
+    0 0 0 2px var(--color-neutral-950);
+  /* Center 22px thumb on 14px track — track sits 4px from the top of the
+     22px input (border (2) + 2 of inset shadow), thumb is 4px taller, so
+     -4px lifts it to wrap the track exactly. */
+  margin-top: -4px;
+  cursor: pointer;
+}
+.pixel-range:hover::-webkit-slider-thumb {
+  background: var(--color-emerald-400);
+}
+.pixel-range:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    inset 2px 2px 0 0 var(--color-emerald-200),
+    inset -2px -2px 0 0 var(--color-emerald-700),
+    0 0 0 2px var(--color-neutral-950),
+    0 0 0 4px var(--color-emerald-400);
+}
+.pixel-range:active::-webkit-slider-thumb {
+  background: var(--color-emerald-300);
+  box-shadow:
+    inset 2px 2px 0 0 var(--color-emerald-200),
+    inset -2px -2px 0 0 var(--color-emerald-600),
+    0 0 0 2px var(--color-neutral-950);
+}
+
+/* Firefox — same chunked-fill trick. We don't use ::-moz-range-progress
+   (which would auto-size the fill but also stretch the chunks) because we
+   want the chunks anchored to the track and revealed left-to-right as the
+   value rises, matching the Chromium look exactly. */
+.pixel-range::-moz-range-track {
+  height: 14px;
+  background-color: var(--color-neutral-900);
+  background-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      transparent var(--pct),
+      var(--color-neutral-900) var(--pct),
+      var(--color-neutral-900) 100%
+    ),
+    linear-gradient(
+      to right,
+      var(--color-emerald-700) 0 19.6%,
+      transparent 19.6% 20%,
+      var(--color-emerald-600) 20% 39.6%,
+      transparent 39.6% 40%,
+      var(--color-emerald-500) 40% 59.6%,
+      transparent 59.6% 60%,
+      var(--color-emerald-400) 60% 79.6%,
+      transparent 79.6% 80%,
+      var(--color-emerald-300) 80% 100%
+    );
+  border: 2px solid var(--color-neutral-700);
+  box-shadow: inset 1px 1px 0 0 var(--color-neutral-950);
+}
+.pixel-range::-moz-range-progress {
+  /* Suppress Firefox's default progress fill — the chunked layer on the
+     track already represents fill via the --pct mask. */
+  background: transparent;
+}
+.pixel-range::-moz-range-thumb {
+  width: 18px;
+  height: 22px;
+  background: var(--color-emerald-500);
+  border: 0;
+  border-radius: 0;
+  box-shadow:
+    inset 2px 2px 0 0 var(--color-emerald-300),
+    inset -2px -2px 0 0 var(--color-emerald-700),
+    0 0 0 2px var(--color-neutral-950);
+  cursor: pointer;
+}
+.pixel-range:hover::-moz-range-thumb {
+  background: var(--color-emerald-400);
+}
+.pixel-range:active::-moz-range-thumb {
+  background: var(--color-emerald-300);
+}
