@@ -1,0 +1,16 @@
+{
+  "Id": "patrol_bot",
+  "DisplayName": "Patrol Bot",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/characters/enemies/patrol_bot/patrol_bot.png",
+  "Description": "AI patrol enemy. Walks a defined route until it detects the player, then chases if CanChasePlayer=true. Stomp-killable. Configurable MoveSpeed, ChaseSpeed, ContactDamage, MaxHp.",
+  "Path": "characters/enemies/patrol_bot/",
+  "Properties": {
+    "script": "PatrolBot.cs",
+    "behavior": "Patrol \u2192 detect \u2192 chase (optional) \u2192 stomp-killable",
+    "tags": [
+      "enemy",
+      "patrol",
+      "stomp-killable"
+    ]
+  }
+}

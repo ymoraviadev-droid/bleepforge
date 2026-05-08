@@ -1,0 +1,14 @@
+{
+  "Id": "equipment_system",
+  "DisplayName": "Weapon Equipment",
+  "Image": "",
+  "Description": "Dual-slot weapon system. Two WeaponSlots; equip/unequip swaps with InventoryComponent. Each weapon ItemData defines its slot affinity and behavior.",
+  "Path": "shared/components/inventory/EquipmentComponent.cs",
+  "Properties": {
+    "entry_point": "EquipmentComponent.cs",
+    "tags": [
+      "inventory",
+      "weapons"
+    ]
+  }
+}

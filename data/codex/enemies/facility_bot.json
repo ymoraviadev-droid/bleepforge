@@ -1,0 +1,14 @@
+{
+  "Id": "facility_bot",
+  "DisplayName": "Facility Bot",
+  "Image": "",
+  "Description": "Generic enemy type referenced by KillEnemyType objectives (e.g. korjack_facility_cleanup). May represent multiple chassis types under one EnemyType string — quest objective counts all kills tagged with this type.",
+  "Path": "(no dedicated folder — referenced from Quest.QuestObjective.EnemyType)",
+  "Properties": {
+    "behavior": "Quest-tagged kill counter (no dedicated AI yet)",
+    "tags": [
+      "enemy",
+      "quest-target"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "Id": "robotek_terminal",
+  "DisplayName": "Robotek Terminal",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/computers/art/robotek_terminal.png",
+  "Description": "The standard Robotek terminal is the company's general-purpose interface for facility control, machinery activation, data retrieval, and personnel verification. Variants exist in domestic, industrial, and military configurations, but the core architecture has remained unchanged for over thirty years \u2014 including the green-on-black command interface and the boot-screen logo recognized across the Inner Rim.\n\nTerminals operate on isolated networks. Robotek's design philosophy, dating to the regulatory backlash of the late 2370s, holds that commercial facility infrastructure should never share a network with public communications. Each facility's terminals connect only to local subsystems. There is no internet, and no remote access by default.\n\nThis isolation is a security feature in principle. In practice, it has produced a generation of administrators who treat physical access as the only meaningful threat model. Authentication on most consumer-grade terminals is weak. Industrial-grade terminals are stronger but rarely patched. Military-grade terminals are genuinely difficult.\n\nA sufficiently equipped operator with on-site access and the right tools can extract information, override locks, redirect machinery, or \u2014 in some documented cases \u2014 issue instructions to systems the terminal was never authorized to address.",
+  "Path": "shared/components/memory_core/entries/computers/robotek_terminal.tres",
+  "Properties": {
+    "type": "Computer",
+    "title": "Robotek Terminal",
+    "tags": [
+      "robotek",
+      "interface",
+      "hackable"
+    ]
+  }
+}

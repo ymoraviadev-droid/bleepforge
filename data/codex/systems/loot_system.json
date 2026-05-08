@@ -1,0 +1,14 @@
+{
+  "Id": "loot_system",
+  "DisplayName": "Loot & Drops",
+  "Image": "",
+  "Description": "Probabilistic loot table system tied to enemy death. LootDropperComponent rolls LootTable entries by chance and amount. NPCs author their LootTable inline (see NpcData.LootTable in Bleepforge); enemies and breakables use the same component.",
+  "Path": "shared/components/loot/",
+  "Properties": {
+    "entry_point": "LootDropperComponent.cs",
+    "tags": [
+      "combat",
+      "reward"
+    ]
+  }
+}

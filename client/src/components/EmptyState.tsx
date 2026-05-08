@@ -226,6 +226,55 @@ export function TerminalSilent({
   );
 }
 
+// 48x32 — empty book. Open notebook with bare lined pages and a small
+// bookmark ribbon hanging off the spine. Reads as "this is the project
+// notebook — but no entries yet."
+// Used for: codex (Game Codex domain).
+export function BookEmpty({
+  className = "",
+  title = "Empty notebook",
+}: IllustrationProps): ReactElement {
+  return (
+    <svg
+      viewBox="0 0 48 32"
+      shapeRendering="crispEdges"
+      className={`${className} block`}
+      role="img"
+      aria-label={title}
+    >
+      <title>{title}</title>
+      {/* Surface shadow under the book */}
+      <rect x="4" y="28" width="40" height="1" fill="currentColor" opacity="0.18" />
+      {/* Left page (back) */}
+      <rect x="4" y="6" width="20" height="22" fill="currentColor" opacity="0.5" />
+      {/* Right page (back) */}
+      <rect x="24" y="6" width="20" height="22" fill="currentColor" opacity="0.5" />
+      {/* Page surface — slightly lighter to read as paper */}
+      <rect x="5" y="7" width="18" height="20" fill="currentColor" opacity="0.18" />
+      <rect x="25" y="7" width="18" height="20" fill="currentColor" opacity="0.18" />
+      {/* Spine (darker seam) */}
+      <rect x="23" y="6" width="2" height="22" fill="currentColor" opacity="0.7" />
+      {/* Page rule lines (faint) */}
+      {[10, 13, 16, 19, 22, 25].map((y) => (
+        <g key={y}>
+          <rect x="6" y={y} width="16" height="1" fill="currentColor" opacity="0.15" />
+          <rect x="26" y={y} width="16" height="1" fill="currentColor" opacity="0.15" />
+        </g>
+      ))}
+      {/* Top edge highlight */}
+      <rect x="4" y="6" width="40" height="1" fill="currentColor" opacity="0.7" />
+      {/* Bookmark ribbon hanging off the spine */}
+      <rect x="23" y="4" width="2" height="6" fill="currentColor" opacity="0.85" />
+      <rect x="23" y="10" width="1" height="2" fill="currentColor" opacity="0.85" />
+      <rect x="24" y="10" width="1" height="2" fill="currentColor" opacity="0.85" />
+      {/* Tiny pencil resting on the right page (bottom-right) — reads as
+          "ready to write, nothing written yet" */}
+      <rect x="35" y="25" width="6" height="1" fill="currentColor" opacity="0.6" />
+      <rect x="34" y="25" width="1" height="1" fill="currentColor" opacity="0.85" />
+    </svg>
+  );
+}
+
 // 48x32 — empty bunker. A lone chair under a hanging light, door closed,
 // nobody home. Reads as "no robots in this room yet."
 // Used for: NPCs, karma impacts.

@@ -1,0 +1,16 @@
+{
+  "Id": "hub_1",
+  "DisplayName": "Hub-1",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/locations/art/hub_1.png",
+  "Description": "Hub-1 is the largest continuous human settlement in the region and, by most accounts, the only one of meaningful size still operating at pre-collapse capacity. Originally designated Robotek Administrative Hub 01 during the company's expansion years, the name shortened in common use and never reverted. Population estimates range from two to four million, depending on whether unregistered residents are counted. Hub-1 itself does not count them.\n\nThe city is fully walled. The wall was never decommissioned after the surrounding regions were lost, and after the resettlement legislation of 2424 it was reinforced and extended. No robotic units of any class are permitted within. Enforcement is automated, comprehensive, and consistently fatal.\n\nInside, life proceeds. Markets operate, transit moves, residents work. Hub-1 imports food and exports manufactured goods through three sealed transit corridors along its perimeter, none of which have ever been entered or exited by anything that did not pass extensive scanning. Robotek maintains a major corporate presence within the walls and is widely understood to be the city's largest employer, though the company does not publish figures.\n\nRobots refer to Hub-1 by various names depending on faction. The Free Robots call it \"the wall.\" The R.F.F. calls it \"the prize.\" The Scavengers call it \"the larder,\" though it is unclear whether they intend the joke.",
+  "Path": "shared/components/memory_core/entries/locations/hub_1.tres",
+  "Properties": {
+    "type": "Location",
+    "title": "Hub-1",
+    "tags": [
+      "walled-city",
+      "human-only",
+      "robotek"
+    ]
+  }
+}

@@ -22,6 +22,7 @@ import { assetRouter } from "./lib/asset/router.js";
 import { assetsRouter } from "./lib/assets/router.js";
 import { rebuildAssetCache } from "./lib/assets/cache.js";
 import { balloonRouter } from "./features/balloon/router.js";
+import { codexRouter } from "./features/codex/router.js";
 import { conceptRouter } from "./features/concept/router.js";
 import { dialogRouter } from "./features/dialog/router.js";
 import { godotProjectRouter } from "./lib/godotProject/router.js";
@@ -85,6 +86,7 @@ const factionStorage = makeJsonStorage(
 // into the saves activity feed).
 app.use("/api/dialogs", dialogRouter);
 app.use("/api/balloons", balloonRouter);
+app.use("/api/codex", codexRouter);
 app.use(
   "/api/quests",
   makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres, "quest"),

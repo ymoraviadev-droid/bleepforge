@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import type {
   Balloon,
+  CodexCategoryGroup,
+  CodexCategoryMeta,
+  CodexEntry,
   DialogSequence,
   FactionData,
   Item,
@@ -11,6 +14,7 @@ import type {
 } from "@bleepforge/shared";
 import {
   balloonsApi,
+  codexApi,
   dialogsApi,
   factionsApi,
   itemsApi,
@@ -40,6 +44,11 @@ export interface Catalog {
   /** Flat list of balloons across all folders, with Bleepforge-id form for
    *  quick lookup by NpcData.CasualRemarks entries. */
   balloonRefs: { id: string; folder: string; balloon: Balloon }[];
+  /** Per-category Codex groups. Each carries its meta (schema) plus
+   *  current entries. Empty when no categories have been created yet. */
+  codexCategories: CodexCategoryGroup[];
+  /** Flat per-entry list, useful for app search and integrity checks. */
+  codexEntries: { category: string; meta: CodexCategoryMeta; entry: CodexEntry }[];
   flags: string[];
 }
 
@@ -82,8 +91,9 @@ export function useCatalog(): Catalog | null {
       pickupsApi.list(),
       dialogsApi.listAll(),
       balloonsApi.listAll(),
+      codexApi.listAll(),
     ])
-      .then(([npcs, items, quests, karma, factions, pickups, dialogs, balloons]) => {
+      .then(([npcs, items, quests, karma, factions, pickups, dialogs, balloons, codexCategories]) => {
         if (cancelled) return;
         const sequences = dialogs.flatMap((g) => g.sequences);
         const balloonRefs = balloons.flatMap((g) =>
@@ -91,6 +101,13 @@ export function useCatalog(): Catalog | null {
             id: `${g.folder}/${b.Id}`,
             folder: g.folder,
             balloon: b,
+          })),
+        );
+        const codexEntries = codexCategories.flatMap((g) =>
+          g.entries.map((entry) => ({
+            category: g.category,
+            meta: g.meta,
+            entry,
           })),
         );
         const flags = collectFlags(sequences, quests);
@@ -105,6 +122,8 @@ export function useCatalog(): Catalog | null {
           sequences,
           balloons,
           balloonRefs,
+          codexCategories,
+          codexEntries,
           flags,
         });
       })

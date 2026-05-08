@@ -1,0 +1,15 @@
+{
+  "Id": "cut_door",
+  "DisplayName": "Cutting Door",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/hazards/cut_door/cut_door.png",
+  "Description": "Oscillating laser/cutting blade. Damages ONLY on specific animation frames (HarmfulFrames array) \u2014 state-driven idle/active animations. Can be flag-gated.",
+  "Path": "world/hazards/cut_door/",
+  "Properties": {
+    "script": "CutDoor.cs",
+    "tags": [
+      "periodic",
+      "laser",
+      "frame-gated"
+    ]
+  }
+}

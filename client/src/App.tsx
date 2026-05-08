@@ -19,6 +19,9 @@ import { DialogGraph } from "./features/dialog/Graph";
 import { AssetList } from "./features/asset/List";
 import { BalloonList } from "./features/balloon/List";
 import { BalloonEdit } from "./features/balloon/Edit";
+import { CategoryEdit as CodexCategoryEdit } from "./features/codex/CategoryEdit";
+import { Edit as CodexEntryEdit } from "./features/codex/Edit";
+import { List as CodexList } from "./features/codex/List";
 import { DiagnosticsIcon } from "./features/diagnostics/DiagnosticsIcon";
 import { DiagnosticsPage } from "./features/diagnostics/DiagnosticsPage";
 import { useDiagnostics } from "./features/diagnostics/useDiagnostics";
@@ -169,6 +172,9 @@ export function App() {
           <NavLink to="/items" className={navLinkClass}>
             Items
           </NavLink>
+          <NavLink to="/codex" className={navLinkClass}>
+            Game codex
+          </NavLink>
           <NavLink to="/assets" className={navLinkClass}>
             Assets
           </NavLink>
@@ -238,6 +244,11 @@ export function App() {
           <Route path="/factions" element={<FactionList />} />
           <Route path="/factions/new" element={<FactionEdit />} />
           <Route path="/factions/:faction" element={<FactionEdit />} />
+          <Route path="/codex" element={<CodexList />} />
+          <Route path="/codex/new" element={<CodexCategoryEdit />} />
+          <Route path="/codex/:category/_meta" element={<CodexCategoryEdit />} />
+          <Route path="/codex/:category/new" element={<CodexEntryEdit />} />
+          <Route path="/codex/:category/:id" element={<CodexEntryEdit />} />
           <Route path="/assets" element={<AssetList />} />
           <Route path="/diagnostics/*" element={<DiagnosticsPage />} />
           <Route path="/health" element={<Navigate to="/diagnostics" replace />} />

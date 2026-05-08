@@ -1,0 +1,15 @@
+{
+  "Id": "credits",
+  "DisplayName": "Credits",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/items/art/credits.png",
+  "Description": "Pre-collapse human currency cards, each linked at issuance to an individual financial account. Once the human population departed the surface and the supporting institutions collapsed, every account in the system was simultaneously orphaned, leaving the cards themselves cryptographically valid but financially meaningless.\n\nHumans, accustomed to the cards being central to their economic lives, did not develop the habit of treating them as worthless. They threw them away by the millions during the evacuation, on the assumption that whatever came next would not involve them. Robots, who arrived on the surface afterward and required some unit of exchange, picked them up.\n\nThe result is an active currency that nobody manufactured and nobody can manufacture more of. Credits are universally recognized among robotic factions. They are not respected \u2014 a robot offered credits in trade understands that they are accepting nothing but a token in a game everyone agrees to play \u2014 but they are accepted, because everyone needs the game to work.\n\nThe supply will eventually run out. By most estimates, this is decades away.",
+  "Path": "shared/components/memory_core/entries/items/credits.tres",
+  "Properties": {
+    "type": "Item",
+    "title": "Credits",
+    "tags": [
+      "currency",
+      "post-collapse"
+    ]
+  }
+}

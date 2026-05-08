@@ -1,0 +1,15 @@
+{
+  "Id": "optical_assembly_fragment",
+  "DisplayName": "Optical Assembly Fragment",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/items/art/optical_assembly_fragment.png",
+  "Description": "A modular component of standard robotic vision systems. Optical assemblies on most Robotek units are built from interchangeable fragments \u2014 sensors, lens elements, processing modules \u2014 designed for fast field replacement during maintenance.\n\nA loose fragment by itself is rarely useful to anyone except the unit it came from. Optical assemblies are unit-specific: a fragment from one model is unlikely to fit another, and the recalibration overhead of mismatched parts is, by industry consensus, \"more trouble than the eyesight is worth.\"\n\nA robot missing one is functionally blind in the relevant sector. A robot missing several is, in the technical sense, asking nicely.",
+  "Path": "shared/components/memory_core/entries/items/optical_assembly_fragment.tres",
+  "Properties": {
+    "type": "Item",
+    "title": "Optical Assembly Fragment",
+    "tags": [
+      "quest",
+      "fragment"
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "Id": "ammo",
+  "DisplayName": "Ammo",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/ammo/ammo.png",
+  "Description": "Charge pack pickup. Replenishes the player's ammunition (the universal Robotek round shared across the RA-series).",
+  "Path": "world/collectibles/ammo/",
+  "Properties": {
+    "tags": [
+      "consumable",
+      "ammo"
+    ]
+  }
+}

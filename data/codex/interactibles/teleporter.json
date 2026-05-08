@@ -1,0 +1,15 @@
+{
+  "Id": "teleporter",
+  "DisplayName": "Teleporter",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/interactibles/teleporter/teleporter.png",
+  "Description": "Portal that transports player and NPCs to a linked teleporter via Slug \u2194 TargetSlug pairing. Locks player input during the animation; requires full-zone containment so half-bodies don't transport. Three states: Idle / Teleporting / Stopping.",
+  "Path": "world/interactibles/teleporter/",
+  "Properties": {
+    "script": "Teleporter.cs",
+    "starts_active": true,
+    "tags": [
+      "traversal",
+      "portal"
+    ]
+  }
+}

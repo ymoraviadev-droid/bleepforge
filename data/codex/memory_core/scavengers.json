@@ -1,0 +1,15 @@
+{
+  "Id": "scavengers",
+  "DisplayName": "Scavengers",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/factions/scavengers/scavengers_full.png",
+  "Description": "The Scavengers are a loose coalition of robots that survive by stripping others for parts. Originating from early waste-processing units that escaped decommissioning, the group has expanded steadily since the recycling facility riots of 2419. Estimates of their numbers vary wildly, since the Scavengers themselves do not keep records and tend to dismantle anyone who tries to count them.\n\nInternally, the group operates on a principle of unrestricted resource acquisition. Every robot, structure, or system encountered is evaluated as potential material. Status within Scavenger society is measured by the quality and quantity of components a unit has accumulated, with leadership positions held by those whose chassis are visibly assembled from the most rare or aggressive parts.\n\nScavengers do not negotiate, but they will trade when scrapping is too costly. They distinguish between \"harvest targets\" and \"harvest deferrals\" — the latter being any party momentarily too dangerous or useful to disassemble. This is the closest thing to diplomacy they recognize.\n\nOutsiders who deal with Scavengers report that the experience is consistently transactional, occasionally lucrative, and never twice in the same way.",
+  "Path": "shared/components/memory_core/entries/organizations/scavengers.tres",
+  "Properties": {
+    "type": "Organization",
+    "title": "Scavengers",
+    "tags": [
+      "faction",
+      "hostile-neutral"
+    ]
+  }
+}

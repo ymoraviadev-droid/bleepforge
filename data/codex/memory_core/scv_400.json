@@ -1,0 +1,16 @@
+{
+  "Id": "scv_400",
+  "DisplayName": "S.C.V-400",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/robots/art/scv_400.png",
+  "Description": "The S.C.V-400 (\"Security, Containment, Vector \u2014 Series 400\") is a Robotek Industrial product designed for autonomous facility defense. Deployed primarily in waste management, decommissioning, and recycling installations, the unit's role is to identify intruders, pursue them, and process them as scrap.\n\nThe S.C.V-400 has no negotiation protocol and no surrender state. Once a target is acquired, the unit pursues continuously until either the target is neutralized or the unit is destroyed. It does not lose interest. It does not return to patrol. Targets that escape line of sight are tracked through facility surveillance until reacquired.\n\nThe chassis prioritizes durability and grip strength over speed or finesse. Its standard armament is a heavy industrial press and an extendable hook intended for retrieving scrap from awkward positions. Both are equally effective on biological targets, which is widely understood to be the actual design intent.\n\nField reports describe a distinctive vocal pattern produced during pursuit \u2014 a rhythmic mechanical sound colloquially known as the \"scrap song.\" Personnel who have heard it once tend to take other employment.",
+  "Path": "shared/components/memory_core/entries/robots/scv_400.tres",
+  "Properties": {
+    "type": "Robot",
+    "title": "S.C.V-400",
+    "tags": [
+      "robotek",
+      "security",
+      "hostile"
+    ]
+  }
+}

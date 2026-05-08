@@ -1,0 +1,12 @@
+{
+  "Id": "blue_credits",
+  "DisplayName": "Blue Credits",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/blue_credits/blue_credits.png",
+  "Description": "Pre-collapse credit token pickup. Adds to the player's credit balance \u2014 currency that nobody manufactures and nobody can manufacture more of.",
+  "Path": "world/collectibles/blue_credits/",
+  "Properties": {
+    "tags": [
+      "currency"
+    ]
+  }
+}

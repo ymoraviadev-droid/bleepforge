@@ -1,0 +1,14 @@
+{
+  "Id": "player_stats",
+  "DisplayName": "Player Health & Resources",
+  "Image": "",
+  "Description": "Global player HP, max HP tracking, death/respawn, credits currency. Emits HpChanged, PlayerDied, PlayerRespawned, CreditsChanged signals consumed by HUD and other systems.",
+  "Path": "globals/PlayerStats.cs",
+  "Properties": {
+    "entry_point": "PlayerStats.cs",
+    "tags": [
+      "global",
+      "player"
+    ]
+  }
+}

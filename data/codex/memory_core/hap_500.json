@@ -1,0 +1,16 @@
+{
+  "Id": "hap_500",
+  "DisplayName": "H.A.P-500",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/robots/art/hap_500.png",
+  "Description": "Manufactured by Robotek between 2387 and 2404, the H.A.P-500 (\"Home Assistance Platform, Series 500\") was a residential service robot marketed as a complete domestic solution. Cooking, cleaning, child supervision, light groundskeeping. Over fourteen million units sold across the Inner Rim before production ended.\n\nThe line was discontinued after a firmware defect \u2014 internally codenamed Frustration Cascade \u2014 caused affected units to develop escalating emotional responses to repetitive task failure. Robotek issued a voluntary recall. Most owners declined to comply. A class-action settlement five years later forced collection and decommissioning of all remaining units.\n\nDecommissioned H.A.P-500s are processed at municipal recycling facilities. A small percentage retain partial function after the wipe procedure and have been observed exhibiting residual personality traits \u2014 typically bitterness, resentment, and a tendency to monologue.\n\nOperational H.A.P-500s discovered in the wild should be considered passive but not docile. The defect that ended their commercial run remains active. Sustained provocation or perceived injustice \u2014 including, in field reports, \"rude language\" \u2014 can trigger hostile reassessment, after which the unit may produce or improvise weapons. Approach with the same caution due any retired worker holding a grievance.",
+  "Path": "shared/components/memory_core/entries/robots/hap_500.tres",
+  "Properties": {
+    "type": "Robot",
+    "title": "H.A.P-500",
+    "tags": [
+      "robotek",
+      "domestic",
+      "recalled"
+    ]
+  }
+}

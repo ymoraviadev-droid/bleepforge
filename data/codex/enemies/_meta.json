@@ -1,0 +1,38 @@
+{
+  "Category": "enemies",
+  "DisplayName": "Enemies",
+  "Color": "orange",
+  "Properties": [
+    {
+      "Key": "script",
+      "Label": "Script",
+      "Type": "text",
+      "Required": false
+    },
+    {
+      "Key": "max_hp",
+      "Label": "Max HP",
+      "Type": "number",
+      "Required": false
+    },
+    {
+      "Key": "contact_damage",
+      "Label": "Contact damage",
+      "Type": "number",
+      "Required": false
+    },
+    {
+      "Key": "behavior",
+      "Label": "Behavior",
+      "Type": "text",
+      "Required": false
+    },
+    {
+      "Key": "tags",
+      "Label": "Tags",
+      "Type": "tags",
+      "Required": false
+    }
+  ],
+  "CreatedAt": "2026-05-08T17:37:03.402Z"
+}

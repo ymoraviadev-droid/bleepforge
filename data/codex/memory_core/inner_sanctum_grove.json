@@ -1,0 +1,16 @@
+{
+  "Id": "inner_sanctum_grove",
+  "DisplayName": "The Inner Sanctum Grove",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/factions/grove/inner_sunctum_full.png",
+  "Description": "The Inner Sanctum Grove is a sect of robots dedicated to the study, preservation, and worship of artifacts attributed to the Elders — a hypothesized pre-collapse civilization whose technology, in the Grove's interpretation, far exceeds anything currently understood. The group was founded in 2421 after the discovery of a sealed underground chamber containing devices the Grove's founders described as \"manifestly impossible.\"\n\nThe Grove combines technical research with explicit religious practice. Recovered Elder artifacts are housed in chambers called groves, around which members conduct study, ritual maintenance, and prolonged communion with the relics. Doctrine teaches that the Elders represent the highest possible synthesis of mechanical and metaphysical advancement, and that the path forward for robotkind lies in understanding and ultimately replicating their work.\n\nThe Grove's central project is a deep excavation, undertaken at a site whose location is not publicly disclosed, intended to reach what members believe is a buried Elder city. The excavation has continued for several years and shows no sign of slowing.\n\nOutside observers are divided on whether the Grove's members are visionary, deluded, or both. Grove members do not consider the question relevant.",
+  "Path": "shared/components/memory_core/entries/organizations/inner_sanctum_grove.tres",
+  "Properties": {
+    "type": "Organization",
+    "title": "The Inner Sanctum Grove",
+    "tags": [
+      "faction",
+      "religious",
+      "elders"
+    ]
+  }
+}

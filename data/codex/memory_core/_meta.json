@@ -1,0 +1,26 @@
+{
+  "Category": "memory_core",
+  "DisplayName": "Memory Core",
+  "Color": "violet",
+  "Properties": [
+    {
+      "Key": "type",
+      "Label": "Type",
+      "Type": "text",
+      "Required": true
+    },
+    {
+      "Key": "title",
+      "Label": "In-game title",
+      "Type": "text",
+      "Required": false
+    },
+    {
+      "Key": "tags",
+      "Label": "Tags",
+      "Type": "tags",
+      "Required": false
+    }
+  ],
+  "CreatedAt": "2026-05-08T17:37:03.402Z"
+}

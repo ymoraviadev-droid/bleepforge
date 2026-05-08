@@ -1,0 +1,27 @@
+{
+  "Category": "collectibles",
+  "DisplayName": "Collectibles",
+  "Color": "amber",
+  "Properties": [
+    {
+      "Key": "scene",
+      "Label": "Scene",
+      "Type": "text",
+      "Required": false
+    },
+    {
+      "Key": "wraps_item",
+      "Label": "Wraps item",
+      "Type": "ref",
+      "RefDomain": "item",
+      "Required": false
+    },
+    {
+      "Key": "tags",
+      "Label": "Tags",
+      "Type": "tags",
+      "Required": false
+    }
+  ],
+  "CreatedAt": "2026-05-08T17:37:03.402Z"
+}

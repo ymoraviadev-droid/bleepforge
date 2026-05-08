@@ -1,0 +1,16 @@
+{
+  "Id": "elc_200",
+  "DisplayName": "E.L.C-200",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/robots/art/elc_200.png",
+  "Description": "The E.L.C-200 (\"Electrical Logistics Coordinator \u2014 Series 200\") is a Robotek Industrial maintenance unit responsible for power distribution, cable inspection, and high-voltage repair across large facilities. Most installations of any meaningful size run at least one. Many run dozens.\n\nThe unit is non-aggressive by design. It does not pursue, attack, or respond to verbal input. It moves along predetermined service routes, performs scheduled maintenance, and returns to its docking station. From a behavioral standpoint, it is among the safest robots Robotek manufactures.\n\nPhysical contact is another matter. The E.L.C-200's external chassis carries continuous current as part of its inspection methodology \u2014 a design choice that allows the unit to test conductivity through direct touch without specialized instruments. Standard operating voltage is sufficient to incapacitate or kill any organic that makes contact.\n\nWarning labels are present on all units. Facility safety protocols universally require a minimum three-meter clearance during operation. The E.L.C-200 does not announce its presence and does not move out of the way.\n\nIt is not malicious. It simply does its job, and its job is incompatible with you.",
+  "Path": "shared/components/memory_core/entries/robots/elc_200.tres",
+  "Properties": {
+    "type": "Robot",
+    "title": "E.L.C-200",
+    "tags": [
+      "robotek",
+      "industrial",
+      "passive-hazard"
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "Category": "systems",
+  "DisplayName": "Game Systems",
+  "Color": "blue",
+  "Properties": [
+    {
+      "Key": "entry_point",
+      "Label": "Entry point",
+      "Type": "text",
+      "Required": false
+    },
+    {
+      "Key": "tags",
+      "Label": "Tags",
+      "Type": "tags",
+      "Required": false
+    }
+  ],
+  "CreatedAt": "2026-05-08T17:37:03.402Z"
+}

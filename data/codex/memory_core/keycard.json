@@ -1,0 +1,15 @@
+{
+  "Id": "keycard",
+  "DisplayName": "KeyCard",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/items/art/keycard.png",
+  "Description": "Keycards are short-range identification tokens used by Robotek facility doors, vehicle locks, and tier-locked machinery. Each card carries an embedded credential keyed to specific access tiers and, for higher security applications, specific facilities or specific zones within a facility.\n\nThe card system was originally introduced in 2371 as a replacement for biometric access, after a series of high-profile cases in which biometric scanners failed to distinguish between authorized personnel and units that had recently consumed them. Keycards solved the problem by storing identity in something a robot couldn't accidentally eat.\n\nCards are not copy-protected to a useful standard. The cryptographic standard used by most Robotek doors has been broken since 2398, but full system replacement was deemed economically unjustified. As a result, working keycards retain considerable value among parties who cannot otherwise pass through specific doors. They are also tradeable \u2014 though the practice of looting them from former owners has produced a robust secondary market, and a quieter primary one.\n\nEach keycard recovered grants access only to whatever it was issued for. Collecting them is a matter of finding the right card for the right door.",
+  "Path": "shared/components/memory_core/entries/items/keycard.tres",
+  "Properties": {
+    "type": "Item",
+    "title": "KeyCard",
+    "tags": [
+      "access",
+      "tier"
+    ]
+  }
+}

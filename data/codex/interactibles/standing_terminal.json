@@ -1,0 +1,15 @@
+{
+  "Id": "standing_terminal",
+  "DisplayName": "Standing Terminal",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/interactibles/standing_terminal/standing_terminal.png",
+  "Description": "Stationary computer terminal. Triggers a DialogSequence on player interact; shows a HintMessage when the player approaches; can be gated by a flag (ActivatesOnFlag). The Terminal source-type styling in dialog graph nodes traces back to these.",
+  "Path": "world/interactibles/standing_terminal/",
+  "Properties": {
+    "script": "StandingTerminal.cs",
+    "starts_active": true,
+    "tags": [
+      "dialog",
+      "terminal"
+    ]
+  }
+}

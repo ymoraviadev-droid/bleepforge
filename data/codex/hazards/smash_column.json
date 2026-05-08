@@ -1,0 +1,14 @@
+{
+  "Id": "smash_column",
+  "DisplayName": "Smash Column",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/hazards/smash_column/smash_column.png",
+  "Description": "Animated crushing column with PhaseOffset timing (0-1). Periodically smashes downward when active. HazardComponent child emits Activated/Deactivated signals.",
+  "Path": "world/hazards/smash_column/",
+  "Properties": {
+    "script": "SmashColumn.cs",
+    "tags": [
+      "periodic",
+      "crush"
+    ]
+  }
+}

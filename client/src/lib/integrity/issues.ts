@@ -1,7 +1,8 @@
 import type { Catalog } from "../useCatalog";
+import { validateCodexEntryFlat } from "../../features/codex/propertyValidator";
 
 export interface Issue {
-  domain: "Dialog" | "Quest" | "Item" | "Npc";
+  domain: "Dialog" | "Quest" | "Item" | "Npc" | "Codex";
   severity: "error" | "warning";
   description: string;
   link?: string;
@@ -143,6 +144,24 @@ export function computeIssues(catalog: Catalog): Issue[] {
             });
           }
         });
+      });
+    }
+  }
+
+  // ---- Codex entries: schema validation + dangling FK refs ----
+  // Each entry is checked against its category's _meta.json. Required
+  // fields, type-vs-value mismatches, and FK refs to nonexistent
+  // entities all surface here. Dangling refs are the most common case
+  // — a referenced NPC gets renamed in Godot and the Codex entry's ref
+  // goes stale.
+  for (const e of catalog.codexEntries) {
+    const flatErrors = validateCodexEntryFlat(e.meta, e.entry, catalog);
+    for (const message of flatErrors) {
+      issues.push({
+        domain: "Codex",
+        severity: "error",
+        description: `${e.meta.DisplayName || e.category} / ${e.entry.Id}: ${message}`,
+        link: `/codex/${encodeURIComponent(e.category)}/${encodeURIComponent(e.entry.Id)}`,
       });
     }
   }

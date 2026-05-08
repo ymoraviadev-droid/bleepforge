@@ -1,0 +1,15 @@
+{
+  "Id": "charge_pack",
+  "DisplayName": "Charge Pack",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/items/art/charge_pack.png",
+  "Description": "Universal ammunition format used by Robotek Arms across the entire RA-series weapon line. Each pack contains a number of pre-charged cells. Standard packs hold ten; military packs hold thirty; industrial packs hold less and weigh more.\n\nRobotek's \"one round, every weapon\" policy was adopted in 2390 after consolidation of three separate ammunition standards. The change was framed as a logistics improvement and is, in fact, a logistics improvement \u2014 but it has also produced a market in which any operator with any Robotek weapon competes for the same supply. Charge packs are accordingly the single most stolen item in the Inner Rim.\n\nA charge pack found in the wild is rarely full. Looting tends to take the visible cells and leave the casing.",
+  "Path": "shared/components/memory_core/entries/items/charge_pack.tres",
+  "Properties": {
+    "type": "Item",
+    "title": "Charge Pack",
+    "tags": [
+      "consumable",
+      "ammo"
+    ]
+  }
+}

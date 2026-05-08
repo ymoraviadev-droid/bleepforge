@@ -1,0 +1,14 @@
+{
+  "Id": "medkit",
+  "DisplayName": "Medkit (small)",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/medkit/medkit.png",
+  "Description": "Field repair pack pickup. Restores player HP on contact. Scene file: medkit_small.tscn.",
+  "Path": "world/collectibles/medkit/",
+  "Properties": {
+    "scene": "medkit_small.tscn",
+    "tags": [
+      "consumable",
+      "heal"
+    ]
+  }
+}

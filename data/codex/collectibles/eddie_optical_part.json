@@ -1,0 +1,13 @@
+{
+  "Id": "eddie_optical_part",
+  "DisplayName": "Eddie's Optical Part",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/eddie_optical_part/eddie_optical_part.png",
+  "Description": "Eddie's missing optical assembly fragment. Quest item \u2014 used in the Eddie quest line, almost certainly a one-shot pickup.",
+  "Path": "world/collectibles/eddie_optical_part/",
+  "Properties": {
+    "tags": [
+      "quest",
+      "key-item"
+    ]
+  }
+}

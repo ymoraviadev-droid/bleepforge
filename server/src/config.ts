@@ -61,4 +61,5 @@ export const folderAbs = {
   npc: path.join(dataRoot, "npcs"),
   faction: path.join(dataRoot, "factions"),
   balloon: path.join(dataRoot, "balloons"),
+  codex: path.join(dataRoot, "codex"),
 };

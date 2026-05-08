@@ -1,0 +1,16 @@
+{
+  "Id": "robotek",
+  "DisplayName": "Robotek",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/factions/robotek/robotek_full.png",
+  "Description": "Founded in 2349, Robotek is the largest robotics manufacturer in the Inner Rim and has been for over two centuries. Its product lines span domestic, industrial, agricultural, medical, and defense applications. By volume, more than half of all functional robots in known space carry the Robotek emblem.\n\nThe company operates over four hundred manufacturing facilities, dozens of which are dedicated entirely to a single product line. Robotek's terminals — the green-on-black command interfaces installed in every facility, vehicle, and consumer-grade unit — are themselves a recognizable feature of the modern landscape. The boot sequence, including the company's stylized logo, has remained unchanged for forty years.\n\nRobotek has weathered eleven major scandals, three federal investigations, and one attempted hostile takeover. None resulted in meaningful structural change. The company's standard response to product failures — voluntary recalls, settlement payouts, and discreet decommissioning programs — is widely regarded as a template later adopted by other industries.\n\nCritics note that Robotek's market dominance has effectively eliminated competition in several robotics sectors. Defenders note that the lights are still on.",
+  "Path": "shared/components/memory_core/entries/organizations/robotek.tres",
+  "Properties": {
+    "type": "Organization",
+    "title": "Robotek",
+    "tags": [
+      "faction",
+      "corporate",
+      "human-affiliated"
+    ]
+  }
+}

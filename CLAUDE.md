@@ -1,8 +1,8 @@
 # Bleepforge
 
-**A schema-driven content authoring studio for Godot projects.** Currently bootstrapped against Yehonatan's game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name); the long-term direction is to be generic for any Godot project's content (see "Genericize for any Godot project" under Editor scope / next steps). Authors **dialogues** (graph view + multi-folder), **quests**, **items**, **karma impacts**, **NPCs**, **factions**, and **balloons** (the small "Hi there!" lines NPCs say when the player walks up), plus an **assets gallery + image editor** (crop, tint, bg removal, Magic crop) for the project's images. Also serves as the project bible — see [data/concept.json](data/concept.json) for the canonical pitch, acts structure, and faction roles.
+**A schema-driven content authoring studio for Godot projects.** Currently bootstrapped against Yehonatan's game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name); the long-term direction is to be generic for any Godot project's content (see "Genericize for any Godot project" under Editor scope / next steps). Authors **dialogues** (graph view + multi-folder), **quests**, **items**, **karma impacts**, **NPCs**, **factions**, and **balloons** (the small "Hi there!" lines NPCs say when the player walks up), plus a **Game Codex** (Bleepforge-only notebook for project-specific concepts that don't fit a hardcoded domain — Hazards, Locations, etc., with user-defined property schemas) and an **assets gallery + image editor** (crop, tint, bg removal, Magic crop) for the project's images. Also serves as the project bible — see [data/concept.json](data/concept.json) for the canonical pitch, acts structure, and faction roles.
 
-**`.tres` is canonical, JSON in `data/` is a derived cache.** The Godot `.tres` files are what the game runtime loads, so they're the source of truth: anything that ships is what's in `astro-man/`. Bleepforge's JSON in `dialoguer/data/{dialogs,quests,items,karma,npcs,factions,balloons}/` is a cache rebuilt from `.tres` on every server start, kept in sync afterward by the live watcher, and pushed back to `.tres` on every save. We still commit the JSONs to git as a redundant safety net (so historical states are queryable from either side), but they should never be edited by hand — any drift gets reconciled away on the next boot. Three Bleepforge-only files are **not** part of the cache and are authoritative state: `data/concept.json`, `data/preferences.json`, and per-folder `data/dialogs/<folder>/_layout.json` (graph node positions and edge styles).
+**`.tres` is canonical, JSON in `data/` is a derived cache** (for the seven hardcoded game-domain surfaces). The Godot `.tres` files are what the game runtime loads, so they're the source of truth: anything that ships is what's in `astro-man/`. Bleepforge's JSON in `dialoguer/data/{dialogs,quests,items,karma,npcs,factions,balloons}/` is a cache rebuilt from `.tres` on every server start, kept in sync afterward by the live watcher, and pushed back to `.tres` on every save. We still commit the JSONs to git as a redundant safety net (so historical states are queryable from either side), but they should never be edited by hand — any drift gets reconciled away on the next boot. Bleepforge-only files are **not** part of the cache and are authoritative state: `data/concept.json`, `data/preferences.json`, per-folder `data/dialogs/<folder>/_layout.json` (graph node positions and edge styles), and the entire **`data/codex/`** tree (Game Codex categories + entries — Bleepforge-only, never round-tripped to Godot).
 
 **Godot project on disk**: `/home/ymoravia/Data/Projects/Godot/astro-man/`. The project root is **required** — Bleepforge refuses to start without it (no project root → nothing to read or write, so we fail fast instead of presenting an empty UI). Resolution order at boot: `data/preferences.json#godotProjectRoot` (set in-app via Preferences) → `GODOT_PROJECT_ROOT` env var → fail. The env var is the bootstrap fallback for first run before preferences exist; once you save a path in Preferences, that takes priority. Changes to the saved value require a server restart (no hot-swap — the resolved value is captured once at module init). Defense in depth: the writer refuses any target outside the resolved root. The schema sections below mirror the Godot Resource fields 1:1 so the mappers can apply JSON edits to the corresponding `.tres` properties.
 
@@ -14,7 +14,7 @@
 
 ## v1 plan (decided)
 
-**Scope** — seven data domains (Godot-mirrored) plus a Bleepforge-only concept doc:
+**Scope** — seven Godot-mirrored data domains, one Bleepforge-only multi-category authoring surface, and a Bleepforge-only concept doc:
 
 1. Dialogs (`DialogSequence` / `DialogLine` / `DialogChoice`) — **CRUD + interactive graph view + multi-folder implemented**
 2. Quests (`Quest` / `QuestObjective` / `QuestReward`) — **implemented**
@@ -23,10 +23,11 @@
 5. NPCs (`NpcData` — full authoring; `LootTable` editor + `Quests[]` editor + `CasualRemarks[]` array editor implemented) — **implemented**
 6. Factions (`FactionData`) — **implemented**
 7. Balloons (`BalloonLine`) — **implemented**
+8. Game Codex — Bleepforge-only authoring surface for user-defined categories (e.g. Hazards) with custom property schemas. Never round-tripped to Godot. — **implemented**
 
 Plus **Game concept** — a single Bleepforge-only doc (`data/concept.json`) used as the app homepage, *not* exported to Godot. Holds title, tagline, description, logo/icon/splash images, genre, setting, status, inspirations, notes. Covered in the "Architecture decisions" section below.
 
-Plus **Assets gallery + image editor** — eighth Bleepforge surface, architecturally distinct from the seven data domains: there's no `.tres` source of truth and no authored schema, because the assets ARE the files on disk. Browses every image in the Godot project, surfaces "used by N" scene + resource references on first paint, ships an in-app editor (crop, bg removal, tint, flip, auto-trim, Magic crop) that writes PNG bytes back to the project, and is reused inside the AssetPicker so every image-field in the rest of the app gets the same Edit / Duplicate / Delete + Import + create-folder affordances. Covered in the "Assets gallery + image editor" section below.
+Plus **Assets gallery + image editor** — Bleepforge's ninth surface, architecturally distinct from the seven Godot-mirrored data domains AND from Codex: there's no `.tres` source of truth and no authored schema, because the assets ARE the files on disk. Browses every image in the Godot project, surfaces "used by N" scene + resource references on first paint, ships an in-app editor (crop, bg removal, tint, flip, auto-trim, Magic crop) that writes PNG bytes back to the project, and is reused inside the AssetPicker so every image-field in the rest of the app gets the same Edit / Duplicate / Delete + Import + create-folder affordances. Covered in the "Assets gallery + image editor" section below.
 
 **Graph view interactions:**
 
@@ -344,9 +345,65 @@ BalloonLine
 
 **Integrity check**: any `NpcData.CasualRemarks` entry that doesn't resolve to an existing balloon flags an error ([client/src/lib/integrity/issues.ts](client/src/lib/integrity/issues.ts)).
 
+### Domain 8 — Game Codex
+
+Bleepforge-only multi-category authoring surface. The user defines their own *categories* (e.g. "Hazards", "Locations") with custom property schemas, then creates entries within them. Never round-tripped to Godot — pure JSON under `data/codex/`. If a category eventually earns a real schema with `.tres` writeback, it graduates out of the Codex into a proper hardcoded domain — Codex's role is the **staging ground** for that graduation, not a parallel production pipeline. Pairs with **Game Concept** (homepage doc): both are Bleepforge-only meta-surfaces "about the project itself."
+
+```text
+CodexCategoryMeta (per-category schema, lives at `data/codex/<category>/_meta.json`)
+  Category    : string  // [a-zA-Z0-9_-]+, matches folder name
+  DisplayName : string
+  Color       : enum { emerald, amber, red, blue, violet, cyan, orange, pink }
+  Properties  : CodexPropertyDef[]
+  CreatedAt   : ISO timestamp (immutable)
+
+CodexPropertyDef
+  Key         : string  // [a-zA-Z][a-zA-Z0-9_]*
+  Label       : string
+  Type        : enum { text, multiline, number, boolean, image, ref, tags }
+  RefDomain?  : enum { npc, item, quest, faction, dialog, balloon }  // when Type=ref
+  Required    : boolean
+  DefaultValue: JsonValue (optional)
+
+CodexEntry (one per file at `data/codex/<category>/<id>.json`)
+  Id          : string  // [a-zA-Z0-9_-]+, NOT "_meta"
+  DisplayName : string  // default ""
+  Image       : string  // optional absolute path, served via /api/asset
+  Description : string  // multi-line plain text
+  Path        : string  // free-form documentary string ("scripts/hazards/lava.gd")
+  Properties  : Record<string, JsonValue>  // keyed by CodexPropertyDef.Key
+```
+
+**On-disk layout**: `data/codex/<category>/_meta.json` (schema) + `data/codex/<category>/<entryId>.json` (one per entry). `_meta` is a reserved entry id (server-side guard in [server/src/features/codex/storage.ts](server/src/features/codex/storage.ts) — without it the entry route would clobber the schema file). Routes are folder-aware in the same shape as balloon's, with two extra endpoints for the meta and a category-level DELETE; meta routes are registered before the generic `/:category/:id` pair so Express's first-match-wins picks them up.
+
+**Property-type → form control** (in [client/src/features/codex/Edit.tsx](client/src/features/codex/Edit.tsx)):
+
+- `text` / `multiline` / `number` → standard inputs
+- `boolean` → checkbox
+- `image` → `AssetPicker` (reuses the universal click-rule from CLAUDE.md)
+- `ref` → `<input list=...>` autocomplete via the catalog's existing datalists (`DL.npcIds`, `DL.itemSlugs`, etc.)
+- `tags` → `TagInput` chip control (comma or Enter commits, Backspace on empty draft removes the last chip)
+
+**Three default fields on every entry** — `Image` (optional), `Description` (multi-line), `Path` (optional documentary string). Image renders as a thumbnail in cards and rows with `IconPlaceholder` fallback when empty; Path is free-form text with no validation or Godot coupling (kept it documentary so the user has a place to write "where to find this in the project" without dragging in `res://` semantics).
+
+**Per-category color** is one of eight named Tailwind palettes (the same set the AppSearch kind-badges use, [client/src/features/codex/categoryColor.ts](client/src/features/codex/categoryColor.ts)). The color tints the section header on the list page, the top stripe on each card, and the swatch in the color picker; AppSearch's per-row badge stays a fixed slate so the per-kind color stays stable regardless of how many categories exist (the category's display name lives in the row's side-context slot).
+
+**Validation in two layers**:
+
+1. Structural type-vs-value (in `validatePropertyValue` / `validateEntryAgainstMeta`, [shared/src/codex.ts](shared/src/codex.ts) — shared between server's `writeEntry` and client's form). Required fields, type mismatches.
+2. FK-ref existence (client-only, in [client/src/features/codex/propertyValidator.ts](client/src/features/codex/propertyValidator.ts)). Layered on top using the existing `useCatalog`. Surfaces both as inline form errors and integrity-tab errors. Server doesn't repeat this check because the cross-domain catalog isn't materialized server-side.
+
+**App search integration**: every Codex entry is indexed by `DisplayName` (or `Id` when display name is empty) in [client/src/lib/search/buildIndex.ts](client/src/lib/search/buildIndex.ts), with the category's display name as the side context. Kind label `"Codex"`, fixed slate badge color in [client/src/components/AppSearch.tsx](client/src/components/AppSearch.tsx).
+
+**No saves-feed integration, no `.tres` round-trip, no watcher hook** — Codex is intentionally outside all the Godot-mirrored infra. PUT /api/codex/* writes JSON directly; errors surface via Logs (`console.error` capture) and inline form validation. The PUT response wraps the entity in `{ entity, tresWrite: { attempted: false } }` for shape-parity with the other domains, which is what the client's `unwrapSavedResponse` adapter expects.
+
+**Navbar placement**: between Items and Assets — `Game concept | ... | Items | Game codex | Assets`. Codex + Assets become the trailing "catch-all" pair: Codex for design content without a schema, Assets for files. `Game concept` stays leftmost as the homepage; the linguistic pair (`Game concept` + `Game codex`) is acknowledged but not visually clustered, since their shapes (single doc vs multi-category authoring) are different enough that users won't expect them to behave the same.
+
+**Atlas-region extraction (recurring pattern when seeding from Godot)**: Bleepforge's `Image` field renders flat PNG paths only. Many Godot resources reference an `AtlasTexture` sub_resource — a rectangle inside a sprite sheet — which Bleepforge can't slice on the fly. When seeding Codex (or any image field) from a `.tres` / `.tscn` that uses an atlas region, the workflow is: read the source's `region = Rect2(x, y, w, h)` and source atlas path, crop with PIL (`Image.open(atlas).crop((x, y, x+w, y+h)).save(...)`), and write the standalone PNG into the Godot project alongside the resource that references it (matching the existing per-domain `art/` convention — `shared/components/memory_core/entries/<type>/art/<id>.png`, `world/hazards/<id>/<id>.png`, etc.). Then point the JSON's `Image` at that absolute filesystem path. **For `AnimatedSprite2D` scenes**, parse the `SpriteFrames` resource and pick the right frame: prefer an animation literally named `default`, then `idle`, then the first animation; use that animation's first frame's AtlasTexture region. Static `Sprite2D` scenes just use the single `region` directly. Live atlas-slicing in the asset router was considered (`/api/asset?atlas=...&region=...`) but rejected for v1 — extraction is one-time work, the resulting PNGs are independently useful (Godot can reference them too), and avoiding the schema bifurcation (`Image: string | { atlas, region }`) keeps the editor simple.
+
 ## Assets gallery + image editor
 
-The eighth surface, but architecturally a different shape from the seven data domains. Routed at `/assets`. Read-only browse + cross-system reference search + a writeback editor (crop / bg-remove / tint / flip / auto-trim / Magic crop) that produces PNG bytes. Same editor is mounted inside [AssetPicker.tsx](client/src/components/AssetPicker.tsx) so the field-level image picker (NPC.Portrait, Item.Icon, Faction.Icon/Banner, DialogLine.Portrait, Concept hero images) gets the same right-click → Edit / Duplicate / Delete and `+ Import` + create-folder affordances; saves auto-pick the new file for the field.
+The ninth surface, but architecturally a different shape from the seven Godot-mirrored domains AND from Codex. Routed at `/assets`. Read-only browse + cross-system reference search + a writeback editor (crop / bg-remove / tint / flip / auto-trim / Magic crop) that produces PNG bytes. Same editor is mounted inside [AssetPicker.tsx](client/src/components/AssetPicker.tsx) so the field-level image picker (NPC.Portrait, Item.Icon, Faction.Icon/Banner, DialogLine.Portrait, Concept hero images) gets the same right-click → Edit / Duplicate / Delete and `+ Import` + create-folder affordances; saves auto-pick the new file for the field.
 
 **Server surface** at `/api/assets/*` (in [server/src/lib/assets/router.ts](server/src/lib/assets/router.ts)):
 
@@ -530,6 +587,7 @@ UI subscribers: every list/edit page wires `useSyncRefresh` for its domain (item
 - ~~**ML background removal (Phase 3.6)**~~ — done, browser-side via [`@imgly/background-removal`](https://www.npmjs.com/package/@imgly/background-removal) (BRIA RMBG `isnet_fp16`). The original plan was server-side `onnxruntime-node`, but the Node variant of the lib was 2 years stale on npm; the browser variant is actively maintained and competitive on speed thanks to WebGPU when available. For a single-user tool, the model lives in the user's browser CacheStorage (~44MB downloaded once on first use) instead of a server-side disk cache, which removes ~50MB of native ONNX binaries from the dependency tree and dodges the platform-binary headache when we wrap in Electron later. Lazy-imports the lib so the editor's first paint doesn't pay the load. Magic crop stays the default for pixel art; ML is the "hard cases" fallback (gradient bgs, photographic sources).
 - **Image editor extensions** — deferred until needed: integer-multiple resize / scale (pixel-art upscaling), recolor (palette-swap one color → another), 1-pixel outline. All fit the existing destructive-op pipeline + Undo stack.
 - **Audio support (Phase 2)** — deferred. Corpus has zero audio files today. When the first lands: extend assets discovery to `.ogg` / `.wav` / `.mp3`, add a tab to `/assets`, build an audio player on `PixelSlider` for the seek bar. Asset router already supports HTTP Range requests via Express's `sendFile`.
+- ~~**Game Codex (Domain 8)**~~ — done. Bleepforge-only multi-category authoring surface for project-specific concepts that don't fit a hardcoded domain. User defines categories with custom property schemas (text / number / boolean / image / FK ref / tags); entries are pure JSON, never round-tripped to Godot. Per-category color, dynamic edit form driven by `_meta.json`, two-layer validation (structural + FK existence), full app-search + integrity integration. See "Domain 8 — Game Codex" above.
 - **Wrap with Electron** — the next big move. See "Next big move" at the top.
 - **Genericize for any Godot project** (post-1.0, future direction) — Bleepforge currently ships hardcoded against Flock of Bleeps' seven domain schemas + per-domain edit forms + per-domain `.tres` mappers. The bones are project-agnostic: `.tres` parser / emitter / writer / watcher, JSON CRUD machinery, asset surface, diagnostics shell, UI primitives, theming, the three SSE infrastructure channels — none of those know anything about this specific game. The schema layer is the only project-specific code (seven zod schemas in `shared/src/`, the per-domain mappers under `server/src/internal/tres/domains/`, the hand-coded edit forms in `client/src/features/<domain>/`, plus the dialog-specific graph view). Genericization path: make the schema layer runtime-configurable, ideally by reading the user's project's `[GlobalClass]` resource types directly to auto-generate forms / integrity checks / a configurable graph view that recognizes any "next"-style reference. Coupling is by configuration, not by architecture — that's why the lift is reasonable.
 - v1 polish on existing UIs (deferred — Yehonatan: "we'll polish with time").

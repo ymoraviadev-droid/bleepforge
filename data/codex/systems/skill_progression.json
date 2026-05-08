@@ -1,0 +1,14 @@
+{
+  "Id": "skill_progression",
+  "DisplayName": "Skill Unlocks",
+  "Image": "",
+  "Description": "Five unlockable movement skills (DoubleJump, WallJump, Dash, Grapple, Hover) acquired during play. SkillManager.Skill enum gates which abilities are available; unlocks are persistent across save/load.",
+  "Path": "globals/SkillManager.cs",
+  "Properties": {
+    "entry_point": "SkillManager.cs",
+    "tags": [
+      "progression",
+      "movement"
+    ]
+  }
+}

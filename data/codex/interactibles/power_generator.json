@@ -1,0 +1,16 @@
+{
+  "Id": "power_generator",
+  "DisplayName": "Power Generator",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/interactibles/power_generator/power_generator.png",
+  "Description": "Toggleable platform the player stomps to flip on/off. Sets flags on each transition (SetsFlagOnStomp, SetsFlagOnOff) \u2014 used for environmental puzzles where powering things on/off opens new paths.",
+  "Path": "world/interactibles/power_generator/",
+  "Properties": {
+    "script": "PowerGenerator.cs",
+    "starts_active": false,
+    "tags": [
+      "puzzle",
+      "switch",
+      "flag"
+    ]
+  }
+}

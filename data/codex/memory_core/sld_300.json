@@ -1,0 +1,16 @@
+{
+  "Id": "sld_300",
+  "DisplayName": "S.L.D-300",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/robots/art/sld_300.png",
+  "Description": "The S.L.D-300 (\"Soldier, Line Defender \u2014 Series 300\") is a Robotek Defense product from the front-war period, designed for sustained infantry deployment in contested zones. Units were standard-issue along Robotek's military contracts and saw extended service before the program was wound down.\n\nThe series was retired when the S.L.D-450 entered production. Cost analysis flagged the 300 as expensive to maintain against a slightly improved successor running on the same retooled line. The directive was uniform: recall, decommission, scrap.\n\nImplementation was uneven. Logistical breakdown during the wind-down meant a significant portion never reached the depots. Some units were abandoned when their handlers withdrew. Others received the recall, walked toward the recycling line, and stopped somewhere along the way. Robotek closed the books on the 300 with a wide margin of \"presumed scrapped\" entries that were never verified.\n\nSurviving units fall into recognizable patterns. The R.F.F. recruits them aggressively \u2014 the training is already done, Robotek's loyalty subroutines have long since lapsed, and an S.L.D-300 with a grievance is a useful asset. The Scavenger Cartel takes a different interest; the chassis disassembles into more parts than most contemporaries, and units that joined willingly tend to know where the others are hiding. Many simply roam, holding positions they were last ordered to hold, waiting for orders that aren't coming.",
+  "Path": "shared/components/memory_core/entries/robots/sld_300.tres",
+  "Properties": {
+    "type": "Robot",
+    "title": "S.L.D-300",
+    "tags": [
+      "robotek",
+      "military",
+      "retired"
+    ]
+  }
+}

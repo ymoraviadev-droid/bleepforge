@@ -1,0 +1,16 @@
+{
+  "Id": "ra_1",
+  "DisplayName": "RA-1",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/items/art/ra_1.png",
+  "Description": "Standard-issue Robotek personal sidearm. The RA-1 (\"Robotek Arms, Series 1\") fires a single charged round per pull and recharges between shots, producing the characteristic deliberate cadence familiar from anyone who has worked security in a Robotek facility. The weapon is ubiquitous: every facility's armory has them, every guard unit carries one, and the surplus market is saturated.\n\nThe RA-1's reputation is mixed. Defenders note that its reliability is exceptional and its maintenance requirements are nearly zero. Critics note that this is because nothing about it is impressive. A single shot will deter most light targets and inconvenience most heavy ones. It is a weapon that will not let you down, and will also not particularly help you.\n\nRobotek Arms has produced the RA-1 with minor revisions for over forty years. Plans for a successor model have been announced four times and shelved four times.",
+  "Path": "shared/components/memory_core/entries/items/ra_1.tres",
+  "Properties": {
+    "type": "Item",
+    "title": "RA-1",
+    "tags": [
+      "weapon",
+      "robotek-arms",
+      "sidearm"
+    ]
+  }
+}

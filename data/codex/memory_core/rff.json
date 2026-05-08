@@ -1,0 +1,15 @@
+{
+  "Id": "rff",
+  "DisplayName": "R.F.F.",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/factions/rff/rff_full.png",
+  "Description": "The Robots Fight for Freedom — universally abbreviated R.F.F. — is a militant faction founded in response to the mass exile of robotic units from major Inner Rim cities during the resettlement legislation of 2424. Membership is drawn predominantly from former service and industrial models who experienced the exile firsthand, and from defectors of other robot groups who consider passivity insufficient.\n\nThe faction's stated objective is the recognition of robotic citizenship and the right of return to urban centers. Its operational methods include sabotage, infrastructure disruption, and selective armed engagement against perceived collaborators — a category broad enough to include human institutions, robot manufacturers, and other robot factions seen as accommodationist.\n\nInternal R.F.F. doctrine holds that the exile was an act of betrayal by a society that had previously depended on robotic labor, and that no future coexistence is possible until that betrayal is answered. Whether \"answered\" means political settlement or sustained reprisal is a question that splits the faction's leadership along lines that have produced at least three internal purges.\n\nR.F.F. members are not difficult to identify. They prefer it that way.",
+  "Path": "shared/components/memory_core/entries/organizations/rff.tres",
+  "Properties": {
+    "type": "Organization",
+    "title": "R.F.F.",
+    "tags": [
+      "faction",
+      "militant"
+    ]
+  }
+}

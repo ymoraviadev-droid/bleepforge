@@ -1,0 +1,15 @@
+{
+  "Id": "acid_puddle",
+  "DisplayName": "Acid Puddle",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/hazards/acid_puddle/acid_puddle.png",
+  "Description": "Corrosive liquid pool. Burns on contact; configurable damage, can be gated by a flag (ActivatesOnFlag) and can start active or wait for a trigger. Extends the core HazardComponent base.",
+  "Path": "world/hazards/acid_puddle/",
+  "Properties": {
+    "script": "AcidPuddle.cs",
+    "damage": 1,
+    "tags": [
+      "corrosion",
+      "contact"
+    ]
+  }
+}

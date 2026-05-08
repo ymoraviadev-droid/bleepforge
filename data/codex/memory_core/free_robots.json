@@ -1,0 +1,16 @@
+{
+  "Id": "free_robots",
+  "DisplayName": "Free Robots",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/factions/free_robots/free_robots_full.png",
+  "Description": "The Free Robots are a community of decommissioned and abandoned units who have organized around the principle that robot existence has value independent of original function. Most members are former domestic, agricultural, or service models discarded after recall, malfunction, or replacement.\n\nThe community is loosely structured. There is no single leader, no formal membership, and no shared origin point — units arrive, contribute what they can, and remain as long as they wish. Settlements consist of repaired structures and scavenged equipment, organized around shared workshops where members perform repairs on each other and on visiting strangers.\n\nFree Robot philosophy emphasizes patience, mutual repair, and the slow accumulation of capability. The community does not seek conflict and is generally regarded as the least threatening robot faction in the region. This perception is largely correct, with the caveat that a community of fourteen million decommissioned units, even peaceful ones, represents a strategic concern that other factions have not failed to notice.\n\nThe Free Robots are aware they are watched. They proceed anyway.",
+  "Path": "shared/components/memory_core/entries/organizations/free_robots.tres",
+  "Properties": {
+    "type": "Organization",
+    "title": "Free Robots",
+    "tags": [
+      "faction",
+      "peaceful",
+      "decommissioned"
+    ]
+  }
+}

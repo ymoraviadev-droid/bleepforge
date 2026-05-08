@@ -1,0 +1,17 @@
+{
+  "Id": "zx_80",
+  "DisplayName": "ZX-80",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/robots/art/zx_80.png",
+  "Description": "The ZX-80 is a Robotek Defense Division platform built for military field operations. Originally deployed for reconnaissance, breach-and-clear, and asset extraction in contested zones, the line entered service in 2402 and was retired from active duty fifteen years later. Surviving units are rare; most were decommissioned or recovered by the manufacturer.\n\nThe chassis is modular by design. A baseline ZX-80 runs on standard bipedal locomotion and carries a single sidearm. Fully upgraded variants integrate jump amplifiers, magnetic wall climbers, and reaction thrusters, allowing traversal of vertical and unstable terrain that would defeat most service robots. The frame supports a wide range of weapon mounts and an embedded intrusion suite \u2014 capable of bypassing standard Robotek consumer-grade security and a respectable percentage of industrial systems.\n\nUnlike domestic models, the ZX-80 was never marketed and never made public. Its existence has been confirmed in three federal hearings and denied in twelve press statements.\n\nA retired ZX-80 in the field is, by definition, off-books. No party recovers them, no party reports them missing, and no party admits authorizing their original deployment.",
+  "Path": "shared/components/memory_core/entries/robots/zx_80.tres",
+  "Properties": {
+    "type": "Robot",
+    "title": "ZX-80",
+    "tags": [
+      "robotek",
+      "military",
+      "off-books",
+      "player"
+    ]
+  }
+}

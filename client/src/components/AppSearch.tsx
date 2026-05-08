@@ -19,6 +19,7 @@ const KIND_LABEL: Record<SearchKind, string> = {
   faction: "Faction",
   dialog: "Dialog",
   balloon: "Balloon",
+  codex: "Codex",
   page: "Page",
 };
 
@@ -36,6 +37,10 @@ const KIND_STYLE: Record<SearchKind, string> = {
   faction: "border-orange-700/60 text-orange-300",
   dialog: "border-blue-700/60 text-blue-300",
   balloon: "border-pink-700/60 text-pink-300",
+  // Codex entries use a fixed slate badge — per-category color lives on the
+  // list page section header, not on the search row. Keeps per-kind color
+  // stable across all categories so the user learns "slate = codex" once.
+  codex: "border-slate-700/60 text-slate-300",
   page: "border-neutral-700/60 text-neutral-400",
 };
 

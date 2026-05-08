@@ -9,6 +9,7 @@ export type SearchKind =
   | "faction"
   | "dialog"
   | "balloon"
+  | "codex"
   | "page";
 
 export interface SearchItem {
@@ -129,6 +130,21 @@ export function buildSearchItems(catalog: Catalog): SearchItem[] {
       sublabel: text ? ref.balloon.Id : undefined,
       context: ref.folder,
       href: `/balloons/${ref.folder}/${ref.balloon.Id}`,
+    });
+  }
+
+  // Codex entries — flat across categories. Display name beats id when set;
+  // the category's own DisplayName is the side context so the user sees
+  // "Lava pool · Hazards" in the row, not the raw folder slug.
+  for (const e of catalog.codexEntries) {
+    const display = e.entry.DisplayName?.trim();
+    items.push({
+      kind: "codex",
+      key: `codex:${e.category}/${e.entry.Id}`,
+      label: display || e.entry.Id,
+      sublabel: display ? e.entry.Id : undefined,
+      context: e.meta.DisplayName || e.category,
+      href: `/codex/${e.category}/${e.entry.Id}`,
     });
   }
 

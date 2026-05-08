@@ -1,0 +1,16 @@
+{
+  "Id": "ra_9",
+  "DisplayName": "RA-9",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/items/art/ra_9.png",
+  "Description": "The RA-9 is Robotek Arms' premier heavy weapon platform, marketed to military, security, and \"qualified industrial\" customers. Three firing modes are user-selectable: single-shot for accuracy, three-round burst for tactical engagements, and full automatic for situations the operator no longer expects to walk away from intact.\n\nThe weapon shares an ammunition standard with the RA-1 \u2014 a deliberate design choice that allows a single round type to be used across the entire Robotek Arms line. Critics have noted that this also allows a single round type to be in shortage across the entire Robotek Arms line. Robotek's response has been to manufacture more ammunition.\n\nThe RA-9 is not a subtle weapon. Possession in a civilian context is illegal in most jurisdictions, possession by a robotic unit is illegal in all of them, and possession by a robotic unit operating off-books has been a recurring topic at federal hearings. None of this has reduced the number of RA-9s in circulation.",
+  "Path": "shared/components/memory_core/entries/items/ra_9.tres",
+  "Properties": {
+    "type": "Item",
+    "title": "RA-9",
+    "tags": [
+      "weapon",
+      "robotek-arms",
+      "heavy"
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "Id": "recycling_facility",
+  "DisplayName": "Recycling Facility",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/locations/art/recycling_facility.png",
+  "Description": "A Robotek-operated processing site established to handle the mass decommissioning that followed the firmware-defect recall era of the 2400s. The facility receives, sorts, and breaks down robotic units flagged for retirement — a category that has, over the years, expanded to include not only defective models but also obsolete designs, units belonging to recalled product lines, and any other robot the Citadel has decided is no longer welcome above ground.\n\nThe site occupies several square kilometers of subsurface and surface infrastructure, organized around a central sorting pit and ringed by intake bays, holding cells, and a network of disposal channels feeding into deep processing chambers below. Operations are largely automated. A small staff of Robotek personnel oversees the site from a fortified administrative wing.\n\nDecommissioning at the recycling facility is, by official policy, irreversible. In practice, a meaningful percentage of units survive the wipe procedure with partial function intact, and a smaller percentage escape the processing chambers altogether. These units, having been declared destroyed in Robotek's records, exist in a regulatory state for which there is no formal term. The facility does not pursue them. The Citadel does not acknowledge them.\n\nThe recycling facility is, by population, the largest gathering of robots on the continent.",
+  "Path": "shared/components/memory_core/entries/locations/recycling_facility.tres",
+  "Properties": {
+    "type": "Location",
+    "title": "Recycling Facility",
+    "tags": [
+      "robotek",
+      "industrial",
+      "starting-zone"
+    ]
+  }
+}

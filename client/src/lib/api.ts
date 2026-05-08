@@ -1,5 +1,8 @@
 import type {
   Balloon,
+  CodexCategoryGroup,
+  CodexCategoryMeta,
+  CodexEntry,
   Concept,
   DialogSequence,
   FactionData,
@@ -497,6 +500,94 @@ export const balloonsApi = {
     );
     if (!r.ok && r.status !== 404) {
       throw new Error(`remove balloon failed: ${r.status}`);
+    }
+    refreshCatalog();
+  },
+};
+
+// Folder-aware API for the Game Codex domain. Each <category> carries
+// its own user-defined property schema (in `_meta.json`) plus N entries.
+// Bleepforge-only — no .tres round-trip.
+export const codexApi = {
+  listAll: async (): Promise<CodexCategoryGroup[]> => {
+    const r = await fetch("/api/codex");
+    if (!r.ok) throw new Error(`list codex failed: ${r.status}`);
+    return r.json();
+  },
+  listCategories: async (): Promise<string[]> => {
+    const r = await fetch("/api/codex/categories");
+    if (!r.ok) throw new Error(`listCategories failed: ${r.status}`);
+    return r.json();
+  },
+  listInCategory: async (category: string): Promise<CodexEntry[]> => {
+    const r = await fetch(`/api/codex/${encodeURIComponent(category)}`);
+    if (!r.ok) throw new Error(`listInCategory failed: ${r.status}`);
+    return r.json();
+  },
+  getMeta: async (category: string): Promise<CodexCategoryMeta | null> => {
+    const r = await fetch(`/api/codex/${encodeURIComponent(category)}/_meta`);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`get meta failed: ${r.status}`);
+    return r.json();
+  },
+  saveMeta: async (meta: CodexCategoryMeta): Promise<CodexCategoryMeta> => {
+    const r = await fetch(
+      `/api/codex/${encodeURIComponent(meta.Category)}/_meta`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(meta),
+      },
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save meta failed: ${r.status} ${body}`);
+    }
+    const data = await r.json();
+    refreshCatalog();
+    return unwrapSavedResponse<CodexCategoryMeta>(data, `codex/${meta.Category}/_meta`);
+  },
+  removeCategory: async (category: string): Promise<void> => {
+    const r = await fetch(`/api/codex/${encodeURIComponent(category)}`, {
+      method: "DELETE",
+    });
+    if (!r.ok && r.status !== 404) {
+      throw new Error(`remove category failed: ${r.status}`);
+    }
+    refreshCatalog();
+  },
+  getEntry: async (category: string, id: string): Promise<CodexEntry | null> => {
+    const r = await fetch(
+      `/api/codex/${encodeURIComponent(category)}/${encodeURIComponent(id)}`,
+    );
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`get entry failed: ${r.status}`);
+    return r.json();
+  },
+  saveEntry: async (category: string, entry: CodexEntry): Promise<CodexEntry> => {
+    const r = await fetch(
+      `/api/codex/${encodeURIComponent(category)}/${encodeURIComponent(entry.Id)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      },
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save entry failed: ${r.status} ${body}`);
+    }
+    const data = await r.json();
+    refreshCatalog();
+    return unwrapSavedResponse<CodexEntry>(data, `codex/${category}/${entry.Id}`);
+  },
+  removeEntry: async (category: string, id: string): Promise<void> => {
+    const r = await fetch(
+      `/api/codex/${encodeURIComponent(category)}/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok && r.status !== 404) {
+      throw new Error(`remove entry failed: ${r.status}`);
     }
     refreshCatalog();
   },

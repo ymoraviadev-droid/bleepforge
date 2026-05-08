@@ -1,0 +1,15 @@
+{
+  "Id": "repair_pack",
+  "DisplayName": "Repair Pack",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/shared/components/memory_core/entries/items/art/repair_pack.png",
+  "Description": "A field-repair kit assembled from common Robotek maintenance components \u2014 conductive gel, micro-welder, splice wiring, a charge cell to power the lot. Sufficient for closing a torn chassis, restoring a damaged servo, or sealing a coolant leak under combat conditions. Will not replace a missing limb or restore a destroyed core, but will keep most ambulatory units ambulatory.\n\nThe kit's contents are stripped from larger maintenance stations and packed into a single transport case. Originally manufactured for civilian repair crews. Heavily looted from Robotek industrial sites during the exile years, after which they entered general circulation as the closest thing the surface has to a personal first-aid solution for robotic units.\n\nA unit that has never opened one is rare. A unit that does not carry one is foolish.",
+  "Path": "shared/components/memory_core/entries/items/repair_pack.tres",
+  "Properties": {
+    "type": "Item",
+    "title": "Repair Pack",
+    "tags": [
+      "consumable",
+      "heal"
+    ]
+  }
+}
