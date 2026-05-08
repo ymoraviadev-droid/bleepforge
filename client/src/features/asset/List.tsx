@@ -350,19 +350,30 @@ export function AssetList() {
         <div className="space-y-6">
           {renderGroups.map((g) => {
             const renderItem = (asset: ImageAsset) => {
+              // Gallery is the dedicated image-management surface →
+              // full menu (Edit + Duplicate + Delete + Preview). Click
+              // = preview (consistent with every other AssetThumb in
+              // the app); editing is via right-click.
               const onContextMenu = makeAssetContextMenuHandler({
                 asset,
                 openEditor: showImageEditor,
+                canEdit: true,
+                canManage: true,
               });
-              const onOpenEditor = () =>
-                showImageEditor({ kind: "edit", assetPath: asset.path });
+              const onPreview = () => {
+                window.open(
+                  `/api/asset?path=${encodeURIComponent(asset.path)}`,
+                  "_blank",
+                  "noopener,noreferrer",
+                );
+              };
               return view === "cards" ? (
                 <AssetCard
                   key={asset.path}
                   asset={asset}
                   usageCount={usageCounts[asset.path] ?? null}
                   onShowUsages={() => handleShowUsages(asset)}
-                  onOpenEditor={onOpenEditor}
+                  onPreview={onPreview}
                   onContextMenu={onContextMenu}
                 />
               ) : (
@@ -371,7 +382,7 @@ export function AssetList() {
                   asset={asset}
                   usageCount={usageCounts[asset.path] ?? null}
                   onShowUsages={() => handleShowUsages(asset)}
-                  onOpenEditor={onOpenEditor}
+                  onPreview={onPreview}
                   onContextMenu={onContextMenu}
                 />
               );

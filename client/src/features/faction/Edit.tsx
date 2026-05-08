@@ -91,7 +91,7 @@ export function FactionEdit() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {data.Icon && <AssetThumb path={data.Icon} size="lg" />}
+          {data.Icon && <AssetThumb path={data.Icon} size="lg" canEdit />}
           <h1 className="text-xl font-semibold">
             {isNew ? "New faction" : data.DisplayName || data.Faction}
           </h1>

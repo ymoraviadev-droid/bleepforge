@@ -2,14 +2,17 @@ import type { ImageAsset } from "../../lib/api";
 import { assetUrl } from "../../lib/api";
 import { CHECKER_STYLE, fmtBytes, fmtDims } from "./format";
 
-// Card view for one image. Big thumbnail on top, metadata + actions below.
-// Pixel-rendered preview (the corpus is pixel-art); checkered bg so
-// transparent pixels are obvious. Whole card is clickable → opens the
-// image editor in Edit mode (same target as the right-click menu's Edit
-// item). The "used by N" pill at the bottom keeps its own click handler
-// (with stopPropagation) so clicking it opens the usages drawer rather
-// than the editor — the pill is small and visually distinct enough that
-// the dual-click affordance reads cleanly.
+// Card view for one image. Big thumbnail on top, metadata + actions
+// below. Pixel-rendered preview (the corpus is pixel-art); checkered
+// bg so transparent pixels are obvious.
+//
+// Universal click rule: click anywhere on the card opens an image
+// preview in a new browser tab (same as clicking the inner thumb on
+// any other surface). Edit / Duplicate / Delete are via right-click —
+// the menu is full management here (canEdit + canManage = true) since
+// the gallery is the dedicated image-management surface. The "used by
+// N" pill keeps its own click handler with stopPropagation so it
+// opens the usages drawer rather than the preview.
 
 interface Props {
   asset: ImageAsset;
@@ -17,7 +20,7 @@ interface Props {
    *  triggers compute, this just shows the count if cached). */
   usageCount: number | null;
   onShowUsages: () => void;
-  onOpenEditor: () => void;
+  onPreview: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
@@ -25,22 +28,22 @@ export function AssetCard({
   asset,
   usageCount,
   onShowUsages,
-  onOpenEditor,
+  onPreview,
   onContextMenu,
 }: Props) {
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={onOpenEditor}
+      onClick={onPreview}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onOpenEditor();
+          onPreview();
         }
       }}
       onContextMenu={onContextMenu}
-      title="Click to edit · Right-click for more"
+      title="Click to preview · Right-click for Edit / Duplicate / Delete"
       className="group flex cursor-pointer flex-col border-2 border-neutral-800 bg-neutral-900 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
       <div

@@ -16,7 +16,14 @@ export function AssetPicker({ path, onChange, placeholder }: PickerProps) {
   const [open, setOpen] = useState(false);
   return (
     <div className="flex items-center gap-2">
-      <AssetThumb path={path} size="md" />
+      {/* Picker is always rendered inside an edit context (NPC edit
+          page's portrait field, etc.), so the field's preview thumb
+          gets the Edit menu item — but no Duplicate / Delete here
+          since destructive ops on a field's referenced file would
+          break references all over the app; that lives in the
+          gallery / browse-modal instead. Click on the thumb still
+          previews (universal rule). */}
+      <AssetThumb path={path} size="md" canEdit />
       <input
         value={path}
         onChange={(e) => onChange(e.target.value)}
@@ -203,6 +210,10 @@ function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
                     key={e.path}
                     onContextMenu={makeAssetContextMenuHandler({
                       asset: { path: e.path, basename: e.name },
+                      // Browse modal is an image-management surface →
+                      // full menu (Edit + Duplicate + Delete + Preview).
+                      canEdit: true,
+                      canManage: true,
                       openEditor: (mode) => {
                         // Duplicate from the picker should auto-pick the
                         // new file; Edit shouldn't (the user is editing

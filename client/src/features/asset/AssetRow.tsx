@@ -9,7 +9,7 @@ interface Props {
   asset: ImageAsset;
   usageCount: number | null;
   onShowUsages: () => void;
-  onOpenEditor: () => void;
+  onPreview: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
@@ -17,22 +17,22 @@ export function AssetRow({
   asset,
   usageCount,
   onShowUsages,
-  onOpenEditor,
+  onPreview,
   onContextMenu,
 }: Props) {
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={onOpenEditor}
+      onClick={onPreview}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
-          onOpenEditor();
+          onPreview();
         }
       }}
       onContextMenu={onContextMenu}
-      title="Click to edit · Right-click for more"
+      title="Click to preview · Right-click for Edit / Duplicate / Delete"
       className="flex cursor-pointer items-center gap-3 border-2 border-neutral-800 bg-neutral-900 px-2 py-1.5 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
       <div

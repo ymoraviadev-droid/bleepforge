@@ -4,23 +4,41 @@ import {
 } from "../../components/ContextMenu";
 import { showConfirm } from "../../components/Modal";
 import { pushToast } from "../../components/Toast";
-import { assetsApi, type ImageAsset } from "../../lib/api";
+import { assetsApi, assetUrl, type ImageAsset } from "../../lib/api";
 import type { EditorMode } from "./ImageEditor";
 
-// One-stop wiring for the asset right-click menu. Used by AssetCard,
-// AssetRow, and the AssetPicker browse modal so all three surfaces share
-// the same Edit/Duplicate/Delete behavior.
+// One-stop wiring for the asset right-click menu. Three surface modes:
 //
-// `openEditor` is passed in by the host so it can decide where the
-// editor renders (the Assets page hosts it inline; the AssetPicker
-// hosts it as a stacked modal). Delete is fully self-contained — fires
-// the API, shows a toast, and the gallery's SSE subscription refreshes.
+//   default          → Preview only          (list/card pages, dialog
+//                                              graph, concept view —
+//                                              "looking at images, not
+//                                              managing them")
+//   canEdit=true     → Edit · Preview        (edit pages, picker
+//                                              text-field thumb —
+//                                              "I'm tweaking the
+//                                              entity's image")
+//   canEdit=true +
+//   canManage=true   → Edit · Duplicate ·    (gallery, picker browse
+//                       Delete · Preview      modal — "image management
+//                                              surface, full toolkit")
+//
+// The split keeps destructive ops (Duplicate creates a new file;
+// Delete removes the file + sidecar from disk) out of edit pages
+// where the user's mental model is "I'm editing one entity"; those
+// actions only appear on dedicated image-management surfaces.
+// Preview is universal and cheap — opens the image in a new browser
+// tab via assetUrl(path). Useful even on outer pages.
 
 export interface AssetMenuOptions {
   asset: ImageAsset | { path: string; basename: string };
   /** Open the editor in the given mode. The host is responsible for
    *  rendering the editor; this hook just builds the menu items. */
   openEditor: (mode: EditorMode) => void;
+  /** When true, the menu includes Edit. Default false → Preview only. */
+  canEdit?: boolean;
+  /** When true (and canEdit=true), the menu also includes Duplicate
+   *  and Delete. Default false. */
+  canManage?: boolean;
   /** Optional: override the default delete confirm with a usage warning.
    *  When set, the hook calls this instead of showConfirm so the host
    *  can fetch usages first and surface them in the message. */
@@ -37,33 +55,42 @@ export function makeAssetContextMenuHandler(
   return (e) => {
     e.preventDefault();
     e.stopPropagation();
-    showContextMenu({
-      x: e.clientX,
-      y: e.clientY,
-      items: buildAssetMenuItems(opts),
-    });
+    const items = buildAssetMenuItems(opts);
+    if (items.length === 0) return; // nothing to show — fall through
+    showContextMenu({ x: e.clientX, y: e.clientY, items });
   };
 }
 
 export function buildAssetMenuItems(opts: AssetMenuOptions): ContextMenuItem[] {
   const path = opts.asset.path;
   const basename = opts.asset.basename;
-  return [
-    {
+  const items: ContextMenuItem[] = [];
+  if (opts.canEdit) {
+    items.push({
       label: "Edit…",
       onClick: () => opts.openEditor({ kind: "edit", assetPath: path }),
-    },
-    {
+    });
+  }
+  if (opts.canEdit && opts.canManage) {
+    items.push({
       label: "Duplicate…",
-      onClick: () =>
-        opts.openEditor({ kind: "duplicate", assetPath: path }),
-    },
-    {
+      onClick: () => opts.openEditor({ kind: "duplicate", assetPath: path }),
+    });
+    items.push({
       label: "Delete…",
       danger: true,
       onClick: opts.onDelete ?? (() => defaultDelete(path, basename)),
+    });
+  }
+  // Preview is always available. Opens the file in a new browser tab
+  // via the same /api/asset?path=... endpoint that powers AssetThumb.
+  items.push({
+    label: "Preview",
+    onClick: () => {
+      window.open(assetUrl(path), "_blank", "noopener,noreferrer");
     },
-  ];
+  });
+  return items;
 }
 
 async function defaultDelete(path: string, basename: string): Promise<void> {

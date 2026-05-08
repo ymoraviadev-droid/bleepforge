@@ -110,7 +110,7 @@ export function NpcEdit() {
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          {npc.Portrait && <AssetThumb path={npc.Portrait} size="lg" />}
+          {npc.Portrait && <AssetThumb path={npc.Portrait} size="lg" canEdit />}
           <h1 className="text-xl font-semibold">
             {isNew ? "New NPC" : npc.DisplayName || npc.NpcId || "(unnamed)"}
           </h1>
