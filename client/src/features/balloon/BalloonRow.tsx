@@ -33,9 +33,12 @@ export function BalloonRow({ balloon, folder, npcs }: BalloonRowProps) {
       </span>
       <span
         className="hidden w-24 shrink-0 truncate font-mono text-[10px] uppercase tracking-wider text-neutral-500 lg:block"
-        title="characters per second / hold seconds"
+        title="characters per second / hold seconds; 0 cps = instant"
       >
-        {fmtNum(balloon.TypeSpeed)} · {fmtNum(balloon.HoldDuration)}s
+        {balloon.TypeSpeed <= 0
+          ? "instant"
+          : `${fmtNum(balloon.TypeSpeed)} cps`}{" "}
+        · {fmtNum(balloon.HoldDuration)}s
       </span>
       <span
         className="hidden w-32 shrink-0 truncate font-mono text-[10px] uppercase tracking-wider text-neutral-500 sm:block"
