@@ -21,6 +21,7 @@ export type DiagnosticsTabId =
   | "integrity"
   | "reconcile"
   | "logs"
+  | "saves"
   | "process"
   | "watcher";
 
@@ -145,10 +146,17 @@ export function useDiagnostics(): DiagnosticsStatus {
     return { id: "logs", label: "Logs", severity: "clean", count: 0 };
   })();
 
-  // Process and Watcher are informational — no severity contribution.
+  // Saves, Process, and Watcher are informational — no severity contribution.
   // They show up in the tab bar but never bump the header icon. Failed
-  // watcher reimports already surface via the Logs tab (console.error
-  // capture); the Watcher tab just gives a focused view of the same data.
+  // watcher reimports and outgoing writes already surface via the Logs tab
+  // (console.error / console.log capture); contributing here would just be
+  // double-counting.
+  const savesTab: TabSignal = {
+    id: "saves",
+    label: "Saves",
+    severity: "clean",
+    count: 0,
+  };
   const processTab: TabSignal = {
     id: "process",
     label: "Process",
@@ -162,7 +170,7 @@ export function useDiagnostics(): DiagnosticsStatus {
     count: 0,
   };
 
-  const tabs = [integrityTab, reconcileTab, logsTab, processTab, watcherTab];
+  const tabs = [integrityTab, reconcileTab, logsTab, savesTab, processTab, watcherTab];
   const worstSeverity = tabs.reduce<TabSignal["severity"]>(
     (worst, t) => (SEVERITY_RANK[t.severity] > SEVERITY_RANK[worst] ? t.severity : worst),
     "clean",

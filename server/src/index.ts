@@ -23,6 +23,7 @@ import { logsRouter } from "./logs/router.js";
 import { processRouter } from "./process/router.js";
 import { reconcileRouter, setReconcileStatus } from "./reconcile/router.js";
 import { itemIconRouter } from "./item/iconRouter.js";
+import { savesRouter } from "./saves/router.js";
 import {
   writeFactionTres,
   writeItemTres,
@@ -57,13 +58,13 @@ const npcStorage = makeJsonStorage(NpcSchema, folderAbs.npc, "NpcId");
 const factionStorage = makeJsonStorage(FactionDataSchema, folderAbs.faction, "Faction");
 
 app.use("/api/dialogs", dialogRouter);
-app.use("/api/quests", makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres));
-app.use("/api/items", makeCrudRouter(ItemSchema, itemStorage, "Slug", writeItemTres));
-app.use("/api/karma", makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id", writeKarmaTres));
-app.use("/api/npcs", makeCrudRouter(NpcSchema, npcStorage, "NpcId", writeNpcTres));
+app.use("/api/quests", makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres, "quest"));
+app.use("/api/items", makeCrudRouter(ItemSchema, itemStorage, "Slug", writeItemTres, "item"));
+app.use("/api/karma", makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id", writeKarmaTres, "karma"));
+app.use("/api/npcs", makeCrudRouter(NpcSchema, npcStorage, "NpcId", writeNpcTres, "npc"));
 app.use(
   "/api/factions",
-  makeCrudRouter(FactionDataSchema, factionStorage, "Faction", writeFactionTres),
+  makeCrudRouter(FactionDataSchema, factionStorage, "Faction", writeFactionTres, "faction"),
 );
 app.use("/api/asset", assetRouter);
 app.use("/api/item-icon", itemIconRouter);
@@ -76,6 +77,7 @@ app.use("/api/reconcile", reconcileRouter);
 app.use("/api/logs", logsRouter);
 app.use("/api/process", processRouter);
 app.use("/api/watcher", watcherRouter);
+app.use("/api/saves", savesRouter);
 
 app.get("/api/health", (_req, res) => {
   res.json({

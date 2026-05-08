@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { DialogSequenceSchema } from "@bleepforge/shared";
 import * as storage from "./storage.js";
+import { recordSave } from "../saves/buffer.js";
 import { writeDialogTres, type TresWriteResult } from "../tres/writer.js";
 
 export const dialogRouter: Router = Router();
@@ -69,6 +70,21 @@ dialogRouter.put("/:folder/:id", async (req, res) => {
     } else {
       console.log(`[tres-write] FAIL dialog ${folder}/${saved.Id}: ${tresWrite.error}`);
     }
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "dialog",
+      key: `${folder}/${saved.Id}`,
+      action: "updated",
+      outcome: tresWrite.ok
+        ? tresWrite.warnings && tresWrite.warnings.length > 0
+          ? "warning"
+          : "ok"
+        : "error",
+      path: tresWrite.path,
+      warnings: tresWrite.warnings,
+      error: tresWrite.error,
+    });
   }
   res.json({ entity: saved, tresWrite });
 });

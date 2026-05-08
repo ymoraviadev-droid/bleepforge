@@ -3,6 +3,7 @@ import { IntegrityTab } from "./IntegrityTab";
 import { LogsTab } from "./LogsTab";
 import { ProcessTab } from "./ProcessTab";
 import { ReconcileTab } from "./ReconcileTab";
+import { SavesTab } from "./SavesTab";
 import { WatcherTab } from "./WatcherTab";
 import {
   useDiagnostics,
@@ -27,6 +28,7 @@ const VALID_TABS: DiagnosticsTabId[] = [
   "integrity",
   "reconcile",
   "logs",
+  "saves",
   "process",
   "watcher",
 ];
@@ -73,6 +75,7 @@ function TabbedView() {
         {active === "integrity" && <IntegrityTab />}
         {active === "reconcile" && <ReconcileTab />}
         {active === "logs" && <LogsTab />}
+        {active === "saves" && <SavesTab />}
         {active === "process" && <ProcessTab />}
         {active === "watcher" && <WatcherTab />}
       </div>

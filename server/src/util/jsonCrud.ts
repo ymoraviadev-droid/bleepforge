@@ -2,6 +2,9 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Router } from "express";
 import type { z } from "zod";
+import { recordSave } from "../saves/buffer.js";
+import type { SaveOutcome } from "../saves/eventBus.js";
+import type { SyncDomain } from "../sync/eventBus.js";
 import type { TresWriteResult } from "../tres/writer.js";
 
 export interface JsonStorage<T> {
@@ -80,6 +83,10 @@ export function makeCrudRouter<S extends z.ZodTypeAny>(
   storage: JsonStorage<z.infer<S>>,
   keyField: string,
   afterWrite?: (entity: z.infer<S>) => Promise<TresWriteResult>,
+  // Tag so PUT can record the save into the activity feed. Optional because
+  // the sole reason to record is the .tres write: a domain without afterWrite
+  // has no save to surface in Diagnostics → Saves.
+  domain?: SyncDomain,
 ): Router {
   const router = Router();
 
@@ -116,6 +123,22 @@ export function makeCrudRouter<S extends z.ZodTypeAny>(
         tresWrite = { attempted: true, ok: false, error: String(err) };
       }
       logTresWrite(keyField, saved, tresWrite);
+      if (domain && tresWrite.attempted) {
+        const key = (saved as Record<string, unknown>)[keyField];
+        if (typeof key === "string") {
+          recordSave({
+            ts: new Date().toISOString(),
+            direction: "outgoing",
+            domain,
+            key,
+            action: "updated",
+            outcome: outcomeOf(tresWrite),
+            path: tresWrite.path,
+            warnings: tresWrite.warnings,
+            error: tresWrite.error,
+          });
+        }
+      }
     }
     res.json({ entity: saved, tresWrite });
   });
@@ -126,6 +149,16 @@ export function makeCrudRouter<S extends z.ZodTypeAny>(
   });
 
   return router;
+}
+
+/** Map a writer result to a Saves-tab outcome. Warnings (orphan ext_resource
+ *  cleanup, etc.) are non-fatal but worth surfacing distinctly from a clean
+ *  save — the user often wants to know "did anything weird happen?" without
+ *  having to expand every row. */
+function outcomeOf(result: TresWriteResult): SaveOutcome {
+  if (!result.ok) return "error";
+  if (result.warnings && result.warnings.length > 0) return "warning";
+  return "ok";
 }
 
 function logTresWrite(

@@ -264,6 +264,49 @@ export const watcherApi = {
   },
 };
 
+// Save activity feed — Diagnostics → Saves tab. Combines two flows:
+//   - "outgoing": Bleepforge → Godot writeback (every PUT that touches a .tres)
+//   - "incoming": Godot → Bleepforge reimport (watcher caught a .tres change)
+// Live updates flow over SSE on /api/saves/events; the snapshot endpoint is
+// the initial fill on tab open.
+export type SaveDirection = "outgoing" | "incoming";
+export type SaveOutcome = "ok" | "warning" | "error";
+export type SaveAction = "updated" | "deleted";
+
+// Mirrors the SyncDomain union — kept as a separate type alias so the
+// client stays decoupled from the sync stream's exports.
+export type SaveDomain =
+  | "item"
+  | "karma"
+  | "quest"
+  | "dialog"
+  | "npc"
+  | "faction";
+
+export interface SaveEntry {
+  ts: string;
+  direction: SaveDirection;
+  domain: SaveDomain;
+  key: string; // "<folder>/<id>" for dialogs; primary key otherwise
+  action: SaveAction;
+  outcome: SaveOutcome;
+  path?: string;
+  warnings?: string[];
+  error?: string;
+}
+
+export const savesApi = {
+  list: async (): Promise<SaveEntry[]> => {
+    const r = await fetch("/api/saves");
+    if (!r.ok) throw new Error(`get saves failed: ${r.status}`);
+    return r.json();
+  },
+  clear: async (): Promise<void> => {
+    const r = await fetch("/api/saves/clear", { method: "POST" });
+    if (!r.ok) throw new Error(`clear saves failed: ${r.status}`);
+  },
+};
+
 // Singleton-style preferences doc — global themes (color + typography bundles)
 // and the active one. Lives at data/preferences.json.
 export const preferencesApi = {

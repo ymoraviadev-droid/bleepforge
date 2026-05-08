@@ -11,6 +11,7 @@ import chokidar, { type FSWatcher } from "chokidar";
 import type { Stats } from "node:fs";
 
 import { config } from "../config.js";
+import { recordSave } from "../saves/buffer.js";
 import { publishSyncEvent } from "../sync/eventBus.js";
 import { detectDomain, deleteJsonFor, reimportOne } from "./reimportOne.js";
 import { isRecentSelfWrite } from "./writer.js";
@@ -160,6 +161,15 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
         outcome: "deleted",
         detail: `${result.domain}=${result.key}`,
       });
+      recordSave({
+        ts,
+        direction: "incoming",
+        domain: result.domain,
+        key: result.key,
+        action: "deleted",
+        outcome: "ok",
+        path: absPath,
+      });
     } else {
       recordEvent({
         ts,
@@ -167,6 +177,18 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
         path: absPath,
         outcome: "failed",
         detail: result.error ?? "delete returned !ok",
+      });
+      // Use the path-derived domain/key from detectDomain so the failure
+      // still surfaces in the Saves feed with enough context to act on.
+      recordSave({
+        ts,
+        direction: "incoming",
+        domain: detected.domain,
+        key: detected.key,
+        action: "deleted",
+        outcome: "error",
+        path: absPath,
+        error: result.error ?? "delete returned !ok",
       });
     }
     return;
@@ -189,6 +211,15 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
       outcome: "reimported",
       detail: `${result.domain}=${result.key}`,
     });
+    recordSave({
+      ts,
+      direction: "incoming",
+      domain: result.domain,
+      key: result.key,
+      action: "updated",
+      outcome: "ok",
+      path: absPath,
+    });
   } else {
     console.log(`[tres-watcher] reimport failed for ${absPath}: ${result.error}`);
     recordEvent({
@@ -197,6 +228,16 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
       path: absPath,
       outcome: "failed",
       detail: result.error,
+    });
+    recordSave({
+      ts,
+      direction: "incoming",
+      domain: detected.domain,
+      key: detected.key,
+      action: "updated",
+      outcome: "error",
+      path: absPath,
+      error: result.error,
     });
   }
 }
