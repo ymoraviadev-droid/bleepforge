@@ -1,0 +1,10 @@
+{
+  "Id": "fonts",
+  "Title": "Body fonts and typography",
+  "Section": "02 Look and feel",
+  "Summary": "Eight body fonts, plus dials for UI scale and letter spacing. Display and mono fonts stay fixed.",
+  "Body": "## What is configurable\n\n[Preferences → Typography](/preferences) carries three knobs:\n\n- **Body font.** Eight options: Pixelify Sans (default), Silkscreen, Jersey 10, Tiny5, DotGothic16, Handjet, Workbench, Sixtyfour. Each option is rendered in its own face in the dropdown so you can preview before picking.\n- **UI scale.** A multiplier on the root `html { font-size }`. Because spacing in this app is expressed in `rem`, scaling the root font size scales padding and gaps in lockstep, giving you a true zoom rather than a text only resize.\n- **Letter spacing.** A small CSS variable on `<body>`. The mono font keeps a hard zero override since spaced out monospace looks broken.\n\n## What is fixed\n\nThe display font (Press Start 2P) and the mono font (VT323) are not configurable. They are part of the brand voice and changing them would un theme the headers and code blocks.\n\n## How knobs apply\n\nChanges are instant. They write to localStorage immediately, then to `data/preferences.json` shortly after. They also become part of whichever global theme is currently active, so saving the global theme captures the typography choice as well.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

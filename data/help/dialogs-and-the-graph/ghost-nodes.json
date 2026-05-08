@@ -1,0 +1,10 @@
+{
+  "Id": "ghost-nodes",
+  "Title": "Ghost nodes and dangling references",
+  "Section": "05 Destructive ops",
+  "Summary": "What it means when a sequence shows up greyed out, and how to clean it.",
+  "Body": "## What a ghost is\n\nA ghost node is a sequence id that some choice references via NextSequenceId, but for which there is no actual sequence file in the current folder. The graph still draws a node with that id (so the broken reference is visible), but it renders muted with a \"missing\" badge.\n\n## How they happen\n\nThree common paths:\n\n- You renamed a sequence on disk and the choices pointing at the old name were not updated.\n- You deleted a sequence and its referencing choices were not updated.\n- A choice points at a sequence that lives in a different folder, and the cross folder lookup was never wired (deliberate scope cut: each folder is its own graph).\n\n## How to fix\n\nPick whichever:\n\n- Right click the ghost and choose \"delete\". This sweeps every choice across the folder whose NextSequenceId matched the ghost id, clearing the reference. Use this when the ghost is leftover noise.\n- Open each red dashed edge's source sequence and update the choice's NextSequenceId to a real target. Use this when the references are real and you just need to point them somewhere correct.\n\nThe [Integrity tab](/diagnostics/integrity) lists every dangling choice across all folders, with a clickable link back to the source sequence.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

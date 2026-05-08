@@ -9,7 +9,7 @@
     },
     {
       "name": "my_favourite",
-      "colorTheme": "cyan",
+      "colorTheme": "blue",
       "font": "pixelify",
       "fontSize": 1,
       "letterSpacing": 0.13

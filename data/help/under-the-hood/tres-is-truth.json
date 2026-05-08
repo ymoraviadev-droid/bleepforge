@@ -1,0 +1,10 @@
+{
+  "Id": "tres-is-truth",
+  "Title": ".tres is truth, JSON is cache",
+  "Section": "01 Data model",
+  "Summary": "The Godot .tres files are canonical. Bleepforge's JSON is a derived cache that gets rebuilt from .tres on every server start.",
+  "Body": "## The model\n\nFor the seven hardcoded game domains (Dialogs, Quests, Items, Karma, NPCs, Factions, Balloons):\n\n- The Godot `.tres` files in your project are canonical. Anything that ships is what is in the Godot project.\n- Bleepforge's JSON cache under `data/<domain>/` is derived. It is rebuilt from `.tres` on every server start, kept in sync afterward by the live watcher, and pushed back to `.tres` on every save you make in Bleepforge.\n\n## What this means in practice\n\n- You can hand edit `.tres` in Godot and Bleepforge will catch up via the watcher within a few hundred ms.\n- You can save in Bleepforge and the change shows up in Godot on the next focus.\n- You should not hand edit the JSON cache. It is rebuilt on every server start and your changes will be silently overwritten.\n\n## Why JSON exists at all\n\nIt is the pivot format that lets the rest of Bleepforge be simple. The client does not parse `.tres`; it talks JSON to the server. The catalog hook (`useCatalog`) loads JSON, not `.tres`. The integrity check runs on JSON. The catalog refresh after a save flushes the JSON cache, not the `.tres`.\n\nJSON is also committed to git as a redundant safety net so historical states are queryable from either side. The git history of `data/items/` is human readable in a way the `.tres` history is not.\n\n## What is not cached\n\nConcept, Preferences, Codex, and Help are Bleepforge only. They have no `.tres` counterpart and do not participate in the reconcile or watcher pipelines. They are authoritative as JSON.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

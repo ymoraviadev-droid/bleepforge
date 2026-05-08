@@ -9,3 +9,4 @@ export * from "./preferences";
 export * from "./pickup";
 export * from "./balloon";
 export * from "./codex";
+export * from "./help";

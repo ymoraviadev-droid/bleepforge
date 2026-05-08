@@ -1,0 +1,10 @@
+{
+  "Id": "crop-tint-flip-trim",
+  "Title": "Crop, tint, flip, auto trim",
+  "Section": "02 The editor",
+  "Summary": "The basic operations. Crop is non destructive; tint, flip, and auto trim mutate the working canvas.",
+  "Body": "## Crop\n\nToggle \"Enable crop\" and drag a rectangle on the canvas. Reposition by dragging inside, resize by dragging edges or corners. Coordinates are integer pixels (snap is configurable: 1, 2, 4, 8, 16, 32). The crop is non destructive: the working canvas is unaffected until you save, at which point the rectangle is applied.\n\nBehaves like Godot's AtlasTexture editor: integer zoom, nearest neighbor render, source pixel locked rect. Wheel zooms centered on the cursor; middle mouse drag pans.\n\n## Tint\n\nThree dials in the Tint section:\n\n- **Power** (0 to 100%): how strongly the chosen color overlays visible pixels. 0 means no tint. 100 means solid color, original RGB fully replaced.\n- **Alpha** (0 to 100%): output opacity multiplier on visible pixels. Independent from Power, so you can fade an untinted image.\n- **Bg extent** (0 to 100%): extends the tint color into transparent pixels. 0 means visible only. 100 means full bg fill in the tint color (the \"subject and bg in the same color\" shortcut).\n\nTint is live preview. It bakes into the saved PNG at save time.\n\n## Flip H / Flip V\n\nMutates the working canvas in place. Pushed to the undo stack.\n\n## Auto trim\n\nRemoves empty transparent border around the subject. Resizes the canvas to the subject's bounding box. Clears any active crop (since coords would be invalid after the resize).\n\n## Undo\n\n24 deep snapshot stack. Each destructive op pushes a snapshot of the working canvas before mutating; Undo pops and replaces. Per section reset buttons exist too: they only reset that section's settings (crop rect and snap, tint dials, etc.), not the destructive ops in the working canvas. Use Reset under Transform for the global \"wipe everything\" path.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

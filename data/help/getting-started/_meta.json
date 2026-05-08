@@ -1,0 +1,8 @@
+{
+  "Category": "getting-started",
+  "DisplayName": "Getting started",
+  "Color": "red",
+  "Description": "First steps. What Bleepforge is, where to point it, and how a save round trips to the Godot project.",
+  "Order": 0,
+  "CreatedAt": "2026-05-08T18:56:32.294Z"
+}

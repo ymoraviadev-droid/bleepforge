@@ -1,0 +1,10 @@
+{
+  "Id": "picking-a-domain",
+  "Title": "Picking the right domain",
+  "Section": "01 Overview",
+  "Summary": "Quick decision tree: which surface should you author your thing on?",
+  "Body": "## The decision tree\n\nAsk, in order:\n\n1. Is it a robot or person the player can talk to or kill? It is an [NPC](/help/game-domains/npcs).\n2. Is it something the player can pick up, equip, or hand in? It is an [Item](/help/game-domains/items).\n3. Is it a structured mission with objectives and rewards? It is a [Quest](/help/game-domains/quests).\n4. Is it an invisible reputation effect? It is a [Karma impact](/help/game-domains/karma).\n5. Is it a player facing reputation group? It is a [Faction](/help/game-domains/factions).\n6. Is it a branching conversation? It is a [Dialog sequence](/help/dialogs-and-the-graph/sequences).\n7. Is it the small line a robot says when the player walks up? It is a [Balloon](/help/balloons/what-balloons-are).\n\nIf none of those fit, you probably want the [Game codex](/help/codex/why-codex-exists) instead. The codex is for project specific concepts (Hazards, Locations, Vehicles) that have no Godot resource counterpart yet.\n\n## What is shared\n\nEvery game domain follows the same surface conventions:\n\n- A list page with cards and rows view modes.\n- An edit page reachable by clicking a card or a row.\n- A back link on the edit page that returns to the right list with the right filter still active.\n- Save flows JSON first, then `.tres`, with the activity surfaced in the [Saves tab](/diagnostics/saves).\n- Catalog autocomplete: fields that reference another entity (NPC id, Item slug, Quest id) get a datalist dropdown so you do not have to remember exact ids.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

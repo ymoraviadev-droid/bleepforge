@@ -1,0 +1,10 @@
+{
+  "Id": "process",
+  "Title": "Process tab",
+  "Section": "02 The six tabs",
+  "Summary": "Read only snapshot of what the running server thinks it is.",
+  "Body": "## What it shows\n\nBleepforge version, Node version, platform, PID, port, start time, formatted uptime, data root, asset root, the resolved Godot project root, and the source of that root (preferences vs env vs null).\n\n## Why this exists\n\nThe most common debugging path it covers: \"wait, is this server actually using the project I think it is?\" That confusion happens after editing Preferences and forgetting to restart, or when running multiple checkouts of Bleepforge against different projects.\n\nThe tab is informational; it does not bump the header icon. Refresh button at the top to re check uptime without leaving the page.",
+  "Order": 4,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

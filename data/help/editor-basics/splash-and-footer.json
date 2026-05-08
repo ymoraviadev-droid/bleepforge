@@ -1,0 +1,10 @@
+{
+  "Id": "splash-and-footer",
+  "Title": "Splash screen, footer, and the broken robot",
+  "Section": "04 Hidden affordances",
+  "Summary": "The intro animation, the credit line at the bottom, and what happens when something throws.",
+  "Body": "## Splash screen\n\nOn every fresh mount (real refresh, first load, or a back forward cache restore), the app shows a splash for about 2 seconds. Logo, a loading bar, and a flavor line that cycles through 15 boot phrases. The bar fills smoothly; the lines change every 700 ms. The current URL is preserved across the splash because the router does not re mount.\n\nClick the BLEEPFORGE label in the header to hard reload. That replays the splash and lands you on `/concept`.\n\n## Footer\n\nEvery page carries a footer at the bottom with the authorship credit. On short pages the footer is pinned to the viewport bottom; on long pages it scrolls into view at the end. It never occludes content.\n\n## /boom\n\nThere is an intentional easter egg route at `/boom` that throws synchronously during render. It exists to verify the [error boundary](/help/under-the-hood/error-boundary) by tripping it on demand. Useful when you change boundary chrome and want to see the fallback without finding a real bug.",
+  "Order": 2,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

@@ -1,0 +1,10 @@
+{
+  "Id": "help-body-markup",
+  "Title": "The Help body markup",
+  "Section": "04 Authoring this library",
+  "Summary": "Tight markdown subset rendered to themed components by a hand rolled parser.",
+  "Body": "## Why a subset\n\nHelp bodies want pixel chrome around code blocks, callouts, and keyboard chips. Full markdown plus a custom plugin layer is more code than just rolling a parser that emits the right components from the start. The renderer at `client/src/features/help/render.tsx` is about 250 lines.\n\n## Supported syntax\n\n```\n## h2 heading\n### h3 heading\n\nPlain paragraph. Lines wrap.\n\n- bullet\n- another\n\n1. ordered\n2. ordered\n\n` + inline code + `\n\ntriple backtick fenced\ncode block (no language tag yet)\ntriple backtick close\n\n> note: a neutral callout\n> tip: an emerald callout for happy paths\n> warn: an amber callout for gotchas\n\n[Internal link](/dialogs)\n[External link](https://example.com)\n\n:kbd[Ctrl+K] keyboard chip\n```\n\n## What it does NOT support\n\nNo emphasis (`*italic*` or `**bold**`) on purpose. Bleepforge's typography choices already make headings and code visually distinct enough; emphasis inside body prose tends to look noisy in pixel fonts.\n\nNo tables. If you need one, fall back to a bullet list of \"X: Y\" pairs.\n\nNo images. Help is text. If you must reference an image, link to its asset gallery preview instead.\n\n## Where the live preview is\n\nThe entry edit form is a two column layout: the body field on the left, the rendered preview on the right. The preview uses the same renderer the view page uses, so what you see is what users will see.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

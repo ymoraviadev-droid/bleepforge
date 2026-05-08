@@ -1,0 +1,10 @@
+{
+  "Id": "property-types",
+  "Title": "Property types",
+  "Section": "02 Authoring",
+  "Summary": "Seven property types: text, multiline, number, boolean, image, ref, tags.",
+  "Body": "## The list\n\n- **text**: single line input. Use for short labels.\n- **multiline**: textarea. Use for paragraphs or notes.\n- **number**: numeric input. JSON stores it as a number; empty input becomes `undefined`, not `0`.\n- **boolean**: checkbox.\n- **image**: an absolute filesystem path to an image. Uses the same [AssetPicker](/help/assets-and-image-editor/click-vs-right-click) as the rest of the app, so right click also gets you Edit / Duplicate / Delete on the picked image.\n- **ref**: a string id pointing into another domain. Pick a RefDomain (`npc`, `item`, `quest`, `faction`, `dialog`, `balloon`) when you define the property; the entry form then autocompletes from the right catalog.\n- **tags**: a list of strings. The chip control commits a tag on :kbd[Comma] or :kbd[Enter], and :kbd[Backspace] on an empty draft removes the last chip.\n\n## Defaults\n\nEach property carries an optional DefaultValue. When you create a new entry, its Properties bag is pre populated from the schema's defaults, so the form starts in a sensible state instead of blank everywhere.\n\n## Reserved entry ids\n\n`_meta` and `_layout` are reserved. The first is the schema file. The second is reserved for future per category layout state. Trying to save an entry with either id fails server side.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

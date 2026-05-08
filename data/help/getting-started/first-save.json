@@ -1,0 +1,10 @@
+{
+  "Id": "first-save",
+  "Title": "Your first save round trip",
+  "Section": "02 Daily flow",
+  "Summary": "A guided tour of what happens between clicking Save in Bleepforge and seeing the change reflected in Godot.",
+  "Body": "## The trip end to end\n\nPick any item from [Items](/items) and change its Display name. When you click Save:\n\n1. The client PUTs the JSON to `/api/items/<slug>`.\n2. The server validates the body against the Item schema.\n3. The JSON cache file at `data/items/<slug>.json` is overwritten.\n4. The server resolves the matching `.tres` file under your Godot project, parses it, applies the JSON delta, and writes a temp file.\n5. The temp file is renamed over the real `.tres`. This rename is atomic: there is no half written file.\n6. The path is recorded in a self write list with a 1.5 second TTL so the file watcher does not bounce the change back as an external edit.\n7. A save event flows out over Server Sent Events to every open browser tab. The [Saves tab](/diagnostics/saves) appends a row, and a toast pops in the corner if you started the change in another tab.\n8. Open the file in Godot and see your new Display name.\n\n## What can go wrong\n\nIf the `.tres` write fails (permissions, missing file, unexpected schema), the JSON cache is still updated. The save response carries a `tresWrite` block that the client logs to the console. Errors also appear in the [Logs tab](/diagnostics/logs).\n\n> tip: open [Diagnostics → Saves](/diagnostics/saves) in a second tab. Every save you make and every Godot side save shows up there in real time, with direction badges.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

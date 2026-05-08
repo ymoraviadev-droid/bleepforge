@@ -1,0 +1,10 @@
+{
+  "Id": "watcher-and-self-writes",
+  "Title": "The live watcher and self write suppression",
+  "Section": "02 Lifecycle",
+  "Summary": "How Bleepforge keeps in sync with Godot saves without bouncing its own writes back as external changes.",
+  "Body": "## The watcher\n\nBleepforge runs chokidar over the Godot project root, filtered to `.tres` files (excluding the `.godot/` cache). On any external change, the matching `.tres` is reimported into the JSON cache and a SyncEvent is published on an in memory bus. The SSE endpoint at `/api/sync/events` streams those events to every open browser tab.\n\n## 150 ms debounce\n\nPer path debounce, controlled in our code rather than chokidar's `awaitWriteFinish`. The chokidar option had a stuck state bug for atomic rename saves: when the new file ended up with the same byte size as the old one, the polling state machine waited forever for a stabilization that never came. Specific dialogs would stop firing watcher events after a save or two and stay silent until the server restarted.\n\n## 1.5 s self write suppression\n\nWhen Bleepforge writes a `.tres` file (`server/src/internal/tres/writer.ts`), it records the path with a timestamp in a `recentSelfWrites` map. The watcher checks this map on every event; if the path matches and the timestamp is within 1.5 s, the event is logged as `ignored-self-write` and skipped.\n\nWithout this, a Bleepforge save would trigger our own watcher, which would trigger a reimport, which would emit a sync event, which the client would refetch. Harmless but wasteful, and confusing in the [Saves tab](/diagnostics/saves).\n\n## Where to watch the watcher\n\nThe [Watcher tab](/diagnostics/watcher) shows the active state, watched file count, and the last 100 events with their outcomes. If you save in Godot and nothing happens in Bleepforge, that is the place to look.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

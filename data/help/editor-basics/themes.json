@@ -1,0 +1,10 @@
+{
+  "Id": "themes",
+  "Title": "Themes and global themes",
+  "Section": "02 Look and feel",
+  "Summary": "Eight color themes, all theme aware. Bundle a theme with a font into a named global theme.",
+  "Body": "## Eight color themes\n\n[Preferences → Color theme](/preferences) gives you eight named themes: Dark, Light, Red, Amber, Green, Cyan, Blue, Magenta. Each one re points the accent palette and re tints the neutral grays toward the same hue. The active theme is captured in a `data-theme` attribute on the document root and resolves through CSS variables, so the change is instant and applies everywhere (including [scrollbars](/help/editor-basics/scrollbars)).\n\n## Global themes\n\nA global theme is a named bundle of color theme + body font + UI scale + letter spacing. The default global theme is built in and cannot be deleted; you can save your current settings as a new one through Preferences and switch between them.\n\nThis is useful when you want to reach for \"the look I had yesterday\" without remembering each individual setting.\n\n## Where it is stored\n\nGlobal themes live in `data/preferences.json`. They are also cached to `localStorage` so the app paints with the right theme before the server response arrives. Without that cache, you would see a flash of dark theme on every page load before the saved theme applied.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

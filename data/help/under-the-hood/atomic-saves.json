@@ -1,0 +1,10 @@
+{
+  "Id": "atomic-saves",
+  "Title": "Atomic save flow",
+  "Section": "02 Lifecycle",
+  "Summary": "Every .tres write goes through a temp file plus rename. Half written files cannot exist.",
+  "Body": "## The pattern\n\nEvery `.tres` writeback follows the same shape:\n\n1. Read the current `.tres` (or use a cached parse if we just touched it).\n2. Apply the JSON delta in memory using the round trip parser.\n3. Write the result to a temp file in the same directory: `<original>.tmp-<pid>`.\n4. Rename the temp file over the original. On Linux and macOS this is a single atomic syscall.\n5. Record the path with a timestamp in the self write map.\n\n## Why temp + rename\n\nTwo reasons:\n\n- A partial write (process crash, OS crash, disk full mid stream) leaves the `.tres` intact. The next start sees the original, not a half written corruption.\n- Renames are atomic across most filesystems. There is no moment when the `.tres` exists with partial content. Editors that have the file open (Godot included) get either the old content or the new content, never a mix.\n\n## Concurrent edits\n\nBleepforge is single user and local. The atomic write covers crashes; it does not solve a true write conflict where you edit the same NPC in Bleepforge and Godot at the same time.\n\nIf that happens, the watcher's reimport silently overwrites the in progress form data when the client refetches. Future work could surface a \"modified externally\" banner. For now, treat the seven game domains as \"edit in one place at a time\" and you will not hit it.",
+  "Order": 2,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

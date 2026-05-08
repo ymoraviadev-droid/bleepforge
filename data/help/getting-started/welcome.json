@@ -1,0 +1,10 @@
+{
+  "Id": "welcome",
+  "Title": "Welcome to Bleepforge",
+  "Section": "01 First steps",
+  "Summary": "What Bleepforge is, what it edits, and where the source of truth lives.",
+  "Body": "## What this is\n\nBleepforge is a schema driven content authoring studio for a Godot project. It edits dialogues, quests, items, karma impacts, NPCs, factions, and balloons, plus a project notebook (the [Game codex](/codex)) and an [assets gallery](/assets) with a built in image editor.\n\nIt is currently bootstrapped against the game Flock of Bleeps. The long term direction is to be generic for any Godot project, but the starter schemas are tuned for that specific game.\n\n## What lives where\n\nBleepforge does not invent its own canonical data. The Godot `.tres` files in your project are the source of truth. Bleepforge keeps a JSON cache under `data/` that mirrors the seven hardcoded game domains and rebuilds itself from `.tres` on every server start. When you save in Bleepforge, the JSON is written first, then the matching `.tres` is updated atomically.\n\nTwo surfaces are the exception. The [Game codex](/codex) and this Help library are Bleepforge only: they live in JSON, they never round trip to Godot, and they are intended for documentation that does not have a Godot resource counterpart.\n\n## Where to start\n\nIf this is your first time:\n\n1. Set the [Godot project root](/help/getting-started/project-root) so the server knows what to watch and write to.\n2. Read [the homepage](/help/getting-started/homepage) so the Game concept doc makes sense.\n3. Make a small edit and watch [the first save round trip](/help/getting-started/first-save) end to end.\n\n> tip: every page has a Help icon at the top right. If you get lost, click the question mark to come back here.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:57:53.128Z"
+}

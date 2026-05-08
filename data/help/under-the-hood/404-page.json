@@ -1,0 +1,10 @@
+{
+  "Id": "404-page",
+  "Title": "The 404 page",
+  "Section": "03 Failure modes",
+  "Summary": "Two ways to land on it: bad URL, or a real route with a missing entity.",
+  "Body": "## Two trigger paths\n\nThe 404 page mounts in two cases:\n\n1. The URL does not match any route. The catch all `<Route path=\"*\">` at the end of the route block routes to `<NotFoundPage />`.\n2. The URL matches a route but the entity inside does not exist. `/npcs/eddieioiu` matches `/npcs/:npcId` so the router happily mounts `<NpcEdit />`, but the API returns null. Each entity edit page maps the \"fetched null\" case to a sentinel and renders `<NotFoundPage />` directly.\n\n## What it shows\n\nA large pixel art \"404\" rendered in the display font, plus a 24 by 24 LostSignal robot illustration (intact antenna, hollow O eyes, broken signal arcs and a stray \"?\" pixel mark), plus three navigation links: Go home, Open dialog graph, Diagnostics.\n\n## Distinct from the broken robot\n\nThe error boundary's broken robot is RED with sparks and X eyes: something is broken, you need to reload. The 404's LostSignal robot is NEUTRAL with intact antenna and hollow eyes: confused, needs a redirect. Different problem, different visual.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

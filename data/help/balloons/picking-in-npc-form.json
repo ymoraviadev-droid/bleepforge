@@ -1,0 +1,10 @@
+{
+  "Id": "picking-in-npc-form",
+  "Title": "Picking balloons in the NPC form",
+  "Section": "02 Wiring",
+  "Summary": "The NPC CasualRemarks editor autocompletes from the catalog of balloons.",
+  "Body": "## The picker\n\nIn the NPC edit form, the CasualRemarks editor is an array of balloon refs. Each entry is a string in `<model>/<basename>` form. Typing into a row shows a dropdown of every balloon in the catalog, with the balloon's Text as the option label so you can pick by content rather than memorizing basenames.\n\n## How writeback handles the array\n\nWhen you save the NPC, the writer:\n\n1. Pre resolves the UID for every unique balloon ref in the array (one read per balloon's `.tres` to get its uid).\n2. Emits the new plural `CasualRemarks = Array[Object]([ExtResource(\"...\"), ...])` line in the `.tres`.\n3. Removes any legacy singular `CasualRemark = ExtResource(...)` line if present, migrating older files automatically.\n\n## Reverse lookup\n\nEach balloon's edit page carries a \"Used by\" panel listing every NPC that references it. Useful for \"I want to retire this balloon, who would notice?\"",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

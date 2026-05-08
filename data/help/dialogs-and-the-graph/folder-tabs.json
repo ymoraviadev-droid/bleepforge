@@ -1,0 +1,10 @@
+{
+  "Id": "folder-tabs",
+  "Title": "Folder tabs and the source filter",
+  "Section": "01 Concepts",
+  "Summary": "Folders are speaker scopes (Eddie, Krang, Welcome). The source filter slices by NPC vs Terminal.",
+  "Body": "## Folder tabs\n\nEach folder maps to a directory under the Godot project (`.../dialogs/<Speaker>/`) and shows up as a tab at the top of the [graph view](/dialogs). Click a tab to switch.\n\nFolders are auto discovered at server boot: drop a new `characters/npcs/<robot>/dialogs/<NewSpeaker>/` folder under the Godot project and at next boot Bleepforge will surface it as a fresh tab. No code changes required.\n\n## Per folder dots\n\nEach tab carries small colored squares: orange when the folder contains NPC dialogs, green when it contains Terminal dialogs, both when mixed. This lets you spot at a glance which folders are which type without opening them.\n\n## The source filter\n\nTop right of the graph is a three way segmented control: All, NPC, Terminal. It hides sequences that do not match the active filter, plus edges with hidden endpoints. Folders that have no matches in the active filter are themselves hidden from the tab strip; if your active folder gets hidden by a filter change, the graph hops to the first visible folder automatically.\n\nThe filter persists across the graph and list views, and across tabs. It lives in localStorage.\n\n> tip: the filter NPC and Terminal buttons keep their color even at rest. Active state shows three layered cues (inset ring, brighter palette, 2 px shadow) so you do not need color alone to see what is selected.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

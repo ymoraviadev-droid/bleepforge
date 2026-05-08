@@ -1,0 +1,10 @@
+{
+  "Id": "background-removal",
+  "Title": "Background removal: manual, ML, magic crop",
+  "Section": "02 The editor",
+  "Summary": "Three tiers: a flagship ML button, a manual eyedropper for atlases, and a click to crop heuristic.",
+  "Body": "## Three tiers, prominent to fallback\n\n**ML remove bg** (top button). Runs an in browser segmentation model (BRIA RMBG) lazy loaded on click. First call downloads the ~44 MB model to the browser's CacheStorage; subsequent calls skip the fetch. Progress shows in a centered modal overlay. Crop aware: when a crop is set, only the cropped region runs through inference and the result composites back into a copy of the working canvas.\n\n**Manual eyedropper + tolerance + mode** (Background section). Click a color on the canvas to set the bg sample, adjust tolerance, choose mode (`connected` flood fill or `key` global), click Apply. Use this for atlases, multi subject sheets, or cases where the ML model gets the segmentation wrong.\n\n**Magic crop** (Crop section). Click a subject; flood fill detects the connected non bg region and bboxes it. Different operation from bg removal (it crops, not masks), but they often compose. Original to Bleepforge: tuned for pixel art, with a perimeter color sampling pass that classifies bg by alpha mode (≥5% transparent pixels) or color mode (most common perimeter color).\n\n## Which to reach for\n\n- Pixel art with clean transparent or single color bg: magic crop is fastest.\n- Multiple subjects on one sheet: manual eyedropper, switch to flood mode, click each subject's bg.\n- Photographic or gradient bg: ML.\n- Simple icons on a known bg color: manual key mode.\n\n## Why magic crop is in Crop, not Background\n\nMagic crop bounds the subject and sets the crop rect. The bg pixels are still there, just outside the crop. Bg removal masks pixels (sets them to transparent inside the same dimensions). Different operations, different sections, often used together (magic crop first to bound the subject, then bg removal to clean up edges).",
+  "Order": 2,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

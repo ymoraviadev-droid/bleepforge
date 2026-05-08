@@ -1,0 +1,10 @@
+{
+  "Id": "saves",
+  "Title": "Saves tab",
+  "Section": "02 The six tabs",
+  "Summary": "Live feed of every .tres save in either direction.",
+  "Body": "## What it shows\n\nEvery save flowing through Bleepforge appears here, newest first, with a direction badge:\n\n- **OUT** (Bleepforge to Godot): every PUT that touched a `.tres` file. You triggered it by clicking Save somewhere.\n- **IN** (Godot to Bleepforge): the watcher caught a `.tres` change and reimported it into JSON. You triggered it by saving in Godot.\n\nEach row carries the timestamp, direction, domain, key (entity id), action (`updated` / `deleted`), outcome (`ok` / `warning` / `error`), a clickable link to the source edit page, and any warnings or error messages expanded inline.\n\n## Live updates\n\nPushed via SSE on `/api/saves/events`. New rows prepend without a page refresh. Heart beats every 25 seconds keep the connection alive through proxies.\n\n## Filter chips\n\nAll / Outgoing / Incoming. Plus Refresh and Clear in the header.\n\n## Why a separate stream from sync\n\nThe sync stream (`/api/sync/events`) drives toasts: short lived \"Godot just saved this, here is a toast\" notifications. The saves stream is the audit log. Two channels, two purposes. Folding them would mean discriminator branches on every consumer, and outgoing user triggered saves should not toast (it would be redundant noise about an action you just took).\n\n## Why this never bumps the header icon\n\nSaves are informational. A failed save still surfaces via the Logs tab (because the underlying error went through console.error). Counting saves on the header icon would double count a failure that already lives in Logs.",
+  "Order": 3,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

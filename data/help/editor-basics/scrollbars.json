@@ -1,0 +1,10 @@
+{
+  "Id": "scrollbars",
+  "Title": "Themed scrollbars",
+  "Section": "02 Look and feel",
+  "Summary": "Scrollbars retint with the active color theme. The hover state is the accent.",
+  "Body": "## What changes\n\nThe scrollbar track and thumb resolve through the neutral palette, so they re tint per theme. Hover and active use the accent (emerald in the default theme, but red in red, blue in blue, etc.). On dark themes the thumb is darker; on the light theme it is lighter, with the accent flash on grab.\n\n## Why bother\n\nThe default browser scrollbar breaks the pixel art aesthetic in two ways: it is anti aliased and it ignores the page palette. Themed scrollbars are a small detail that keeps the visual language coherent, especially in long edit forms and the [Logs tab](/diagnostics/logs).\n\n## Implementation\n\nWebKit pseudos for the colored states (`::-webkit-scrollbar`, `::-webkit-scrollbar-thumb`, etc.). Firefox uses `scrollbar-color` and `scrollbar-width`. Both hooks resolve through the same theme variables.",
+  "Order": 2,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

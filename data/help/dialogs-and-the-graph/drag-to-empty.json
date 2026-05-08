@@ -1,0 +1,10 @@
+{
+  "Id": "drag-to-empty",
+  "Title": "Dragging into empty canvas",
+  "Section": "02 Connecting",
+  "Summary": "Drop a connection on bare canvas to spawn a new sequence at the drop point.",
+  "Body": "## What happens\n\nDrag from a choice handle (or the dashed placeholder) and release on canvas with no node under the cursor. A modal pops asking for a new sequence id. Type one, hit OK, and:\n\n1. A new DialogSequence is created in the active folder with one empty Line.\n2. The dragged choice is wired to it via NextSequenceId.\n3. The new node is placed at the cursor's drop coordinates, so it appears exactly where you released.\n4. The position is saved into the per folder `_layout.json`.\n\n## Right click variant\n\nRight click on empty canvas to get a context menu with \"Create new sequence\". This path skips the source choice wiring (no edge is added), but otherwise behaves the same way: prompt for id, place at right click coordinates.\n\n## Why coords are captured early\n\nThe right click and drag handlers capture the click and release coordinates synchronously, before the prompt opens. If the user takes a few seconds in the prompt, the cursor has long since moved; without captured coords the new node would land where the cursor happens to be when OK is clicked.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

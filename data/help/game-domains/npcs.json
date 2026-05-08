@@ -1,0 +1,10 @@
+{
+  "Id": "npcs",
+  "Title": "NPCs",
+  "Section": "02 Per domain",
+  "Summary": "Robots and people the player meets. Identity, dialog, quests, karma, loot, and balloons.",
+  "Body": "## What an NPC carries\n\nThe NPC schema mirrors the Godot `NpcData` resource:\n\n- Identity: NpcId, DisplayName, MemoryEntryId (the robot model: `hap_500`, `sld_300`), Portrait\n- Dialog: DefaultDialog, OffendedDialog, OffendedFlag\n- Quests: an array of NpcQuestEntry, each holding a QuestId plus five dialog refs (Offer, Accepted, InProgress, TurnIn, PostQuest) and two flag fields\n- Karma: DeathImpactId, DeathImpactIdContextual, ContextualFlag\n- Loot: an inline LootTable with N LootEntry rows (PickupScene, Chance, MinAmount, MaxAmount)\n- Casual remarks: an array of references to [Balloons](/help/balloons/what-balloons-are)\n- DidSpeakFlag\n\n## Where the file is\n\nGodot side, NPCs live at `characters/npcs/<robot_model>/data/<npc_id>_npc_data.tres`. Multiple NPCs can share a robot model. Bleepforge writes to that path on save.\n\n## What to do here\n\nOpen [NPCs](/npcs), click an NPC, and edit the form. Most authoring activity is around the Quests array editor (add and remove offer dialogs, point them at sequences) and the Loot table editor (pick a pickup scene, set chance and amount range with the [pixel sliders](/help/editor-basics/view-modes)). The CasualRemarks picker autocompletes from the [Balloons](/balloons) library.\n\n## What stays untouched\n\nPortrait, DefaultDialog, OffendedDialog are still authored in Godot. Bleepforge round trips them so they do not regress, but the edit form does not yet expose them. This is a deliberate scope cut.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

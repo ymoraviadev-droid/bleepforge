@@ -6,6 +6,9 @@ import type {
   Concept,
   DialogSequence,
   FactionData,
+  HelpCategoryGroup,
+  HelpCategoryMeta,
+  HelpEntry,
   Item,
   KarmaImpact,
   Npc,
@@ -590,6 +593,113 @@ export const codexApi = {
       throw new Error(`remove entry failed: ${r.status}`);
     }
     refreshCatalog();
+  },
+};
+
+// In-app Help. Folder-aware (per-category) browse + Bleepforge-only
+// authoring. Authoring routes (saveMeta, saveEntry, removeMeta,
+// removeEntry, removeCategory) require the server to have been started
+// with BLEEPFORGE_DEV_MODE=1 — they return 403 otherwise.
+export const helpApi = {
+  listAll: async (): Promise<HelpCategoryGroup[]> => {
+    const r = await fetch("/api/help");
+    if (!r.ok) throw new Error(`list help failed: ${r.status}`);
+    return r.json();
+  },
+  listCategories: async (): Promise<string[]> => {
+    const r = await fetch("/api/help/categories");
+    if (!r.ok) throw new Error(`listCategories failed: ${r.status}`);
+    return r.json();
+  },
+  listInCategory: async (category: string): Promise<HelpEntry[]> => {
+    const r = await fetch(`/api/help/${encodeURIComponent(category)}`);
+    if (!r.ok) throw new Error(`listInCategory failed: ${r.status}`);
+    return r.json();
+  },
+  getMeta: async (category: string): Promise<HelpCategoryMeta | null> => {
+    const r = await fetch(`/api/help/${encodeURIComponent(category)}/_meta`);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`get meta failed: ${r.status}`);
+    return r.json();
+  },
+  saveMeta: async (meta: HelpCategoryMeta): Promise<HelpCategoryMeta> => {
+    const r = await fetch(
+      `/api/help/${encodeURIComponent(meta.Category)}/_meta`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(meta),
+      },
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save help meta failed: ${r.status} ${body}`);
+    }
+    const data = await r.json();
+    refreshCatalog();
+    return unwrapSavedResponse<HelpCategoryMeta>(data, `help/${meta.Category}/_meta`);
+  },
+  removeCategory: async (category: string): Promise<void> => {
+    const r = await fetch(`/api/help/${encodeURIComponent(category)}`, {
+      method: "DELETE",
+    });
+    if (!r.ok && r.status !== 404) {
+      throw new Error(`remove help category failed: ${r.status}`);
+    }
+    refreshCatalog();
+  },
+  getEntry: async (category: string, id: string): Promise<HelpEntry | null> => {
+    const r = await fetch(
+      `/api/help/${encodeURIComponent(category)}/${encodeURIComponent(id)}`,
+    );
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`get entry failed: ${r.status}`);
+    return r.json();
+  },
+  saveEntry: async (category: string, entry: HelpEntry): Promise<HelpEntry> => {
+    const r = await fetch(
+      `/api/help/${encodeURIComponent(category)}/${encodeURIComponent(entry.Id)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      },
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save help entry failed: ${r.status} ${body}`);
+    }
+    const data = await r.json();
+    refreshCatalog();
+    return unwrapSavedResponse<HelpEntry>(data, `help/${category}/${entry.Id}`);
+  },
+  removeEntry: async (category: string, id: string): Promise<void> => {
+    const r = await fetch(
+      `/api/help/${encodeURIComponent(category)}/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok && r.status !== 404) {
+      throw new Error(`remove help entry failed: ${r.status}`);
+    }
+    refreshCatalog();
+  },
+};
+
+// Server health + dev-mode flag. Read once at app boot to decide whether
+// to surface Help authoring affordances. The flag itself originates from
+// the BLEEPFORGE_DEV_MODE env var and is captured at server start.
+export interface HealthInfo {
+  ok: boolean;
+  dataRoot: string;
+  assetRoot: string;
+  devMode: boolean;
+}
+
+export const healthApi = {
+  get: async (): Promise<HealthInfo> => {
+    const r = await fetch("/api/health");
+    if (!r.ok) throw new Error(`get health failed: ${r.status}`);
+    return r.json();
   },
 };
 

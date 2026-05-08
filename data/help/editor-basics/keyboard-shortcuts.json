@@ -1,0 +1,10 @@
+{
+  "Id": "keyboard-shortcuts",
+  "Title": "Keyboard shortcuts",
+  "Section": "04 Hidden affordances",
+  "Summary": "Full list of keyboard shortcuts that exist anywhere in the app.",
+  "Body": "## Global\n\n- :kbd[Ctrl+K] (or :kbd[Cmd+K]) focus the [global search](/help/editor-basics/app-search)\n- :kbd[Escape] close modals, dropdowns, the search palette, or the image editor\n\n## On the Help page\n\n- :kbd[/] focus the in page Help search from anywhere on a Help page\n- :kbd[ArrowDown] / :kbd[ArrowUp] walk Help search results\n- :kbd[Enter] navigate to the active result\n\n## In the dialog graph\n\n- :kbd[Backspace] delete selected nodes or edges (a confirm modal warns before destructive deletes)\n- :kbd[Enter] commit an inline edit (edge label, sequence prompt)\n- :kbd[Escape] cancel an inline edit\n- Drag a choice handle to empty canvas to spawn a new sequence\n\n## In forms\n\nStandard browser shortcuts work: :kbd[Ctrl+A] select all, :kbd[Ctrl+C] copy, :kbd[Ctrl+V] paste, :kbd[Ctrl+Z] undo within a single field. Bleepforge does not implement an undo stack across the form itself; if you need to back out a change you have already saved, look at git or use the Saves activity feed to find the prior state.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

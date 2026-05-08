@@ -1,0 +1,10 @@
+{
+  "Id": "graduation",
+  "Title": "Graduating a category",
+  "Section": "03 Lifecycle",
+  "Summary": "When a Codex category becomes a real domain. Process and what to delete.",
+  "Body": "## When to graduate\n\nGraduate a category when:\n\n- It has settled into a stable property set (no more \"let me add another column\" cycles).\n- The runtime now wants to load it. A Hazards category that the game runtime needs to instantiate at level load time has outgrown the Codex's \"JSON only\" model.\n- It needs richer authoring than the Codex's generic property form provides (e.g. a custom array editor, a complex picker, validation that depends on cross domain state).\n\n## The process\n\n1. Implement the Godot side resource (`HazardData : Resource`, `[GlobalClass]`).\n2. Add a zod schema in `shared/src/<domain>.ts` matching the resource fields 1:1.\n3. Add a tres mapper in `server/src/internal/tres/domains/<domain>.ts` (read for import, apply for writeback).\n4. Wire the mapper into the boot reconcile orchestrator and the watcher.\n5. Add a CRUD router in `server/src/features/<domain>/` (or use the generic `makeCrudRouter`).\n6. Build the client edit page and list page in `client/src/features/<domain>/`.\n7. Migrate the Codex JSON entries by hand (or with a one shot script) into the new tres files.\n8. Delete the Codex category folder.\n\n## Why this is acceptable churn\n\nEach step is local. The Codex's JSON is structurally similar to a real domain's JSON, so the migration is a reshape rather than a re entry. The user keeps their data; the runtime gains a typed entry point.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

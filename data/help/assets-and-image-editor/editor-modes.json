@@ -1,0 +1,10 @@
+{
+  "Id": "editor-modes",
+  "Title": "The three editor modes",
+  "Section": "02 The editor",
+  "Summary": "Import (new file), Edit (overwrite source), Duplicate (copy with new name).",
+  "Body": "## Mode by mode\n\nThe editor is one component with three modes that swap the sidebar fields:\n\n- **Import**: launched from the gallery's New button or by dragging a file. Shows the folder picker and a filename input. Saves to the picked location with the typed name.\n- **Edit**: launched from a right click \"Edit\" item. Loads an existing asset. The folder picker and filename input are hidden because the save path is fixed (overwrite the source). One click save.\n- **Duplicate**: launched from a right click \"Duplicate\" item. Loads an existing asset, prefills the filename with a \"-copy\" suffix, leaves the folder at the source's folder by default. Saves as a new file.\n\n## Why one component\n\nThe destructive op pipeline (crop, tint, flip, bg removal, magic crop, auto trim, undo stack) is identical across modes. Forking would mean three nearly identical components going out of sync over time. The mode discriminator is small enough that one component reads well.\n\n## What gets saved\n\nAll modes encode the result as PNG before writing. JPG sources convert to PNG on save, because the in game pipeline expects PNG and inconsistent formats cause the most surprising bugs. The sidecar `.png.import` is left to Godot to regenerate on next focus.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

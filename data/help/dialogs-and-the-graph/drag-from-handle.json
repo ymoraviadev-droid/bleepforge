@@ -1,0 +1,10 @@
+{
+  "Id": "drag-from-handle",
+  "Title": "Dragging from a choice handle",
+  "Section": "02 Connecting",
+  "Summary": "Each choice has its own handle. Drag from it to wire that specific choice to the next sequence.",
+  "Body": "## Per choice handles\n\nOn a sequence node, every choice gets a small filled square on the right edge of the node, vertically aligned to its choice row. That is the handle for connecting that specific choice to a target.\n\nLines that have no choices yet show a smaller dashed outline placeholder handle anchored to the line's text. Drag from the placeholder to start a brand new choice on that line.\n\n## The connect gesture\n\nClick and drag from a handle. While dragging, a preview line follows the cursor. Release on:\n\n- An existing sequence node, and the choice gains a NextSequenceId pointing to that target.\n- Empty canvas, which pops a prompt for a new sequence id, creates the sequence with one empty line in the active folder, wires this choice to it, and saves the layout position at the drop point. See [drag to empty canvas](/help/dialogs-and-the-graph/drag-to-empty) for the details.\n\nDrop on the same node and nothing happens.\n\n## Why a handle per choice\n\nEarlier versions had one handle per line. With one handle per choice, the visual mapping is direct: every wire on the canvas matches a row in the node body, with no need to count down to the right one. It also makes choice colored connectors readable: edges, the per choice arrow glyph in the node body, and the handle squares all resolve through one color variable.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

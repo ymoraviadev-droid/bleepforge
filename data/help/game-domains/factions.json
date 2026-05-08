@@ -1,0 +1,10 @@
+{
+  "Id": "factions",
+  "Title": "Factions",
+  "Section": "02 Per domain",
+  "Summary": "Player facing reputation groups. Fixed enum, not user creatable.",
+  "Body": "## The four factions\n\nScavengers, FreeRobots, RFF, Grove. The set is fixed because the C# enum is the primary key. You cannot add a faction in Bleepforge alone; it would need to land in the Godot enum first.\n\n## The shape\n\nFactionData carries the Faction enum value, DisplayName, Icon, Banner, ShortDescription. One file per faction, named after the enum: `Scavengers.json`, `FreeRobots.json`, etc.\n\n## Where the file is\n\nGodot side, each faction has a folder under `shared/components/factions/` containing a matching `.tres`. Bleepforge round trips DisplayName, ShortDescription, Icon, and Banner. Icon and Banner go through the shared texture writeback helper, which preserves any existing AtlasTexture sub resource if you leave the JSON path empty.\n\n## Robotek\n\nThere is a fifth folder, `shared/components/factions/robotek/`, with art but no `.tres` and no enum entry. It is lore only. Bleepforge treats it as expected absence: it does not show up as a skipped faction in the [Reconcile tab](/diagnostics/reconcile).",
+  "Order": 4,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

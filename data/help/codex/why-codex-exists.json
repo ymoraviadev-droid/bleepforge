@@ -1,0 +1,10 @@
+{
+  "Id": "why-codex-exists",
+  "Title": "Why the Codex exists",
+  "Section": "01 Concepts",
+  "Summary": "The seven game domains are hardcoded. The codex is for everything else.",
+  "Body": "## The gap it fills\n\nBleepforge ships seven hardcoded game domains (NPCs, Items, Quests, Karma, Factions, Dialogs, Balloons). Each has a fixed schema, a tres mapper, and a dedicated edit page. That works great for the things you have already designed.\n\nBut mid project you discover concepts that do not fit any of those: Hazards, Locations, Vehicles, Mechanics, Acts. They have their own properties (a Hazard has a damage value, a duration, a sprite, a sound), and you want to author them somewhere structured rather than in scattered notes.\n\nThe Codex is that somewhere.\n\n## What it is not\n\nThe Codex is not a parallel production pipeline. It does not round trip to Godot. Entries live entirely in JSON under `data/codex/<category>/`. If a Codex category becomes load bearing enough to deserve a real schema in the runtime, the right move is to graduate it: implement a Godot resource, write the tres mapper, build a dedicated edit page, then delete the Codex category.\n\nThe Codex's role is the staging ground for that graduation, not a permanent home.\n\n## What it is good at\n\n- Capturing project specific concepts before you decide on their final shape.\n- Keeping references to assets and other entities (a Hazard category can reference Items and NPCs through ref properties).\n- Living next to your real authoring surfaces, so the project bible is not in a separate Notion you forget to update.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

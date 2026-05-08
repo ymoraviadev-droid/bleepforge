@@ -26,6 +26,7 @@ import { codexRouter } from "./features/codex/router.js";
 import { conceptRouter } from "./features/concept/router.js";
 import { dialogRouter } from "./features/dialog/router.js";
 import { godotProjectRouter } from "./lib/godotProject/router.js";
+import { helpRouter } from "./features/help/router.js";
 import { itemIconRouter } from "./features/item/iconRouter.js";
 import { logsRouter } from "./lib/logs/router.js";
 import { pickupsRouter } from "./lib/pickup/router.js";
@@ -87,6 +88,7 @@ const factionStorage = makeJsonStorage(
 app.use("/api/dialogs", dialogRouter);
 app.use("/api/balloons", balloonRouter);
 app.use("/api/codex", codexRouter);
+app.use("/api/help", helpRouter);
 app.use(
   "/api/quests",
   makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres, "quest"),
@@ -135,6 +137,7 @@ app.get("/api/health", (_req, res) => {
     dataRoot: config.dataRoot,
     assetRoot: config.assetRoot,
     folders: folderAbs,
+    devMode: config.devMode,
   });
 });
 

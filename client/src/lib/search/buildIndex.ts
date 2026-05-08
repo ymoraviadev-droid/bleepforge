@@ -47,6 +47,7 @@ const STATIC_PAGES: SearchItem[] = [
   { kind: "page", key: "page:assets", label: "Assets", href: "/assets" },
   { kind: "page", key: "page:diagnostics", label: "Diagnostics", href: "/diagnostics" },
   { kind: "page", key: "page:preferences", label: "Preferences", href: "/preferences" },
+  { kind: "page", key: "page:help", label: "Help", href: "/help" },
 ];
 
 export function buildSearchItems(catalog: Catalog): SearchItem[] {
@@ -148,6 +149,10 @@ export function buildSearchItems(catalog: Catalog): SearchItem[] {
     });
   }
 
+  // Help entries deliberately NOT indexed here. The in-page Help search
+  // (features/help/HelpSearch.tsx) covers all Help content including
+  // body text. Keeping them out of the global Ctrl+K palette stops
+  // help-prose from drowning the canonical entity search.
   items.push(...STATIC_PAGES);
 
   return items;

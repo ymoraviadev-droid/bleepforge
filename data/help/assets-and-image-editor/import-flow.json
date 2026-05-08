@@ -1,0 +1,10 @@
+{
+  "Id": "import-flow",
+  "Title": "Importing into a new folder",
+  "Section": "03 Authoring",
+  "Summary": "The folder picker, including how to create folders without leaving the editor.",
+  "Body": "## Where you are is where you save\n\nThe folder picker shows a directory tree of your Godot project. The current working directory in the picker is the destination on save. There is no separate \"navigate then confirm\" step; whatever folder you are looking at is where the file lands.\n\n## Creating folders inline\n\nTwo ways to create a folder without leaving the editor:\n\n- The \"+ New folder\" button in the destination header. Creates inside the current folder, then auto navigates into the new folder so the picker is already pointing at it.\n- Right click on any folder entry to get a context menu with \"Open\" and \"Create subfolder in <name>...\". Drops a new subfolder inside the right clicked folder without first navigating in.\n\nNames are validated as basenames: alnum plus underscore, dash, dot, space. No slashes, no leading dots.\n\n## Conflicts\n\nIf a file with the same name exists at the target path, the server returns 409. The editor pops a confirm asking to overwrite. Edit mode always sends `overwrite: true` since that is the whole point.\n\n## Path safety\n\nEvery file touching server endpoint validates the resolved target sits under the Godot project root via a relative path check. Filenames must be basenames; no `..` traversal. Atomic writes (temp file plus rename), same as the `.tres` writer.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

@@ -1,0 +1,10 @@
+{
+  "Id": "quests",
+  "Title": "Quests",
+  "Section": "02 Per domain",
+  "Summary": "Structured missions: objectives, rewards, and three auto managed flags.",
+  "Body": "## The shape\n\nQuest carries Id, Title, Description, QuestGiverId (NPC ref), Objectives, Rewards, ActiveFlag, CompleteFlag, TurnedInFlag.\n\nQuestObjective and QuestReward are discriminated unions in disguise: the Type field decides which other fields matter. Bleepforge's edit form switches the visible inputs based on Type so you only see what is relevant.\n\n- Objectives: `CollectItem`, `ReachLocation`, `TalkToNpc`, `KillNpc`, `KillEnemyType`. RequiredCount defaults to 1.\n- Rewards: `Item`, `Flag`, `Credits`. Quantity / FlagName / CreditAmount per type.\n\n## The auto managed flags\n\nActiveFlag, CompleteFlag, and TurnedInFlag are set by the runtime QuestManager, not by you, but you do declare them on the Quest so dialogs and other systems can check against them. The convention is to use names that read clearly in dialog editors: `korjack_facility_active`, `korjack_facility_complete`, `korjack_facility_turned_in`.\n\n## What to do here\n\nOpen [Quests](/quests), click a quest. The form has visual editors for Objectives and Rewards. The card view groups by giver, which is the most useful axis for \"show me Eddie's quests.\"",
+  "Order": 2,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

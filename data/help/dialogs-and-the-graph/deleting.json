@@ -1,0 +1,10 @@
+{
+  "Id": "deleting",
+  "Title": "Deleting nodes and edges",
+  "Section": "05 Destructive ops",
+  "Summary": ":kbd[Backspace] removes selected nodes or edges, with confirmation.",
+  "Body": "## The gesture\n\nClick a node or edge to select. Hold :kbd[Shift] and click to add to the selection. Press :kbd[Backspace] (or :kbd[Delete]) to remove.\n\n## Edge deletion\n\nRemoving an edge means removing the choice it represents from the source sequence's line. The line itself stays. After delete, the source sequence's choice array shrinks by one.\n\nIf the deleted edge was the last one on its line, the line goes back to having a single dashed placeholder handle.\n\n## Node deletion\n\nRemoving a sequence is destructive: it deletes the JSON file from disk and (on save) the matching `.tres`. A confirm modal warns first.\n\nFor ghost nodes (sequences referenced by some choice but with no actual file backing them), \"delete\" sweeps across the folder and clears every NextSequenceId that points at the missing target. This is the cleanup path for \"I renamed a sequence and its old name is still ghosting around.\"\n\n## What does not happen\n\nDeleting a sequence does not orphan delete its referencing choices. They go to dangling state (red dashed edge), and the [Integrity tab](/diagnostics/integrity) flags them. This is deliberate: the right move is usually to fix the reference, not to silently strip it.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

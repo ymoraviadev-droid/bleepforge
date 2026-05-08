@@ -1,0 +1,10 @@
+{
+  "Id": "gallery",
+  "Title": "The gallery and used by counts",
+  "Section": "01 Browsing",
+  "Summary": "Every image in your Godot project, with reverse lookup counts of who references it.",
+  "Body": "## What it shows\n\n[Assets](/assets) walks your Godot project at boot and surfaces every image (`png`, `jpg`, `webp`, `gif`, `svg`, `bmp`). Each image carries metadata: path, basename, parent rel, format, UID (from the `.png.import` sidecar), dimensions (probed natively), size in bytes, mtime.\n\n## Used by counts\n\nOn first paint, every card shows a \"used by N\" pill. The count is computed by a single inverted pass: walk every `.tres` and `.tscn` in the project, find every `res://` and `uid://` reference, increment the matching image's counter. The result is N+M instead of N×M.\n\nThe count is files referencing, not mention count. A tilemap that uses one tileset 50 times still counts as 1.\n\nClick a \"used by N\" pill to open the [usages drawer](/help/assets-and-image-editor/click-vs-right-click) showing every reference with a clickable jump back to the source.\n\n## Filtering\n\n- Free text search on basename, parent path, or UID.\n- Folder dropdown.\n- Format dropdown.\n- \"Orphans only\" checkbox: shows images known to have zero references. Best effort: an image that has not been visited by the usages drawer is not yet known as orphan, so the filter undercounts initially. Open the drawer for individual images to refine the set.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

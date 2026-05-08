@@ -1,0 +1,10 @@
+{
+  "Id": "what-is-written",
+  "Title": "What gets written to disk",
+  "Section": "03 Authoring",
+  "Summary": "Saves emit PNG bytes regardless of source format. The .png.import sidecar regenerates on Godot focus.",
+  "Body": "## On every save\n\nThe editor canvas is encoded as PNG and written to the target path:\n\n```\n1. Apply tint (if any) to the working canvas.\n2. Apply crop (if any) to produce the final canvas.\n3. Encode as PNG base64.\n4. POST /api/assets/import with { targetDir, filename, contentBase64, overwrite }.\n5. Server validates the path is under the Godot project root.\n6. Atomic write: temp file in the same directory, then rename.\n```\n\nJPG, WebP, etc. sources convert to PNG. Saves overwrite the source extension if it was something other than `.png` (the source file with the old extension stays only if the new filename was changed; in Edit mode the source file is overwritten in place with PNG bytes under the original name, leaving you with a non PNG named PNG file. This is a known oddity; rename through Duplicate mode if it bothers you).\n\n## Sidecars\n\nThe `.png.import` sidecar that Godot writes is not authored by Bleepforge. After a save, the next time Godot focuses the file, it will regenerate the sidecar. Until then, Godot's editor may show a stale preview; reopen the project or hit Refresh in Godot to pull the new pixels.\n\n## Deletes\n\nRight click + Delete in the gallery removes the image AND its `.png.import` sidecar. Without the sidecar removal, Godot would error on next focus. Any `.tres` files holding dangling UIDs after the delete still surface in the [Integrity tab](/diagnostics/integrity); Bleepforge does not auto sweep those.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

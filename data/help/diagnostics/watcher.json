@@ -1,0 +1,10 @@
+{
+  "Id": "watcher",
+  "Title": "Watcher tab",
+  "Section": "02 The six tabs",
+  "Summary": "Chokidar status plus a recent events feed. Answers 'is the watcher firing?'",
+  "Body": "## What it shows\n\nWatcher state: `active` (true / false), `root` (the watched folder), `watchedFileCount`, and a 100 entry ring of recent events. Each event has a timestamp, kind (`add` / `change` / `unlink`), file path, and outcome.\n\n## Outcome values\n\n- `reimported`: an external change was reimported into JSON.\n- `deleted`: a watched file was removed.\n- `ignored-self-write`: the change was Bleepforge's own writeback (within the 1.5 s self write window). Skipped.\n- `ignored-not-domain`: the file does not belong to a known game domain. Skipped.\n- `failed`: the import threw. Details in the Logs tab.\n\n## Why this exists\n\nWithout this tab, \"the watcher is silent and I do not know why\" is a hard question to answer. Now you can see at a glance whether your save in Godot was caught, whether it was suppressed by the self write window, or whether it failed.\n\nThe tab is informational; it does not bump the header icon. Failed reimports already surface via Logs (their underlying error lands in console.error), so double counting them on the badge would just be noise.",
+  "Order": 5,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

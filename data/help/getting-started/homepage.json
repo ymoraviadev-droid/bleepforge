@@ -1,0 +1,10 @@
+{
+  "Id": "homepage",
+  "Title": "The homepage and Game concept",
+  "Section": "01 First steps",
+  "Summary": "Bleepforge opens on the Game concept page. It is a single Bleepforge only doc, separate from the Godot side.",
+  "Body": "## What you land on\n\nVisiting `/` redirects to [Game concept](/concept). The Game concept page is the project bible: title, tagline, long description, splash image, logo, icon, genre, setting, status, inspirations, and notes.\n\n## Bleepforge only\n\nThe Game concept lives in `data/concept.json`. It is not exported to Godot. There is no `.tres` counterpart, no watcher, no save activity feed entry. Editing is just GET and PUT against `/api/concept`.\n\nThis is intentional. Concept material is for Bleepforge users (you, collaborators, future you) to skim. The runtime never reads it.\n\n## Hero presentation\n\nIf splash, logo, or icon images are missing, the page falls back to themed pixel placeholders so the layout still has presence. Replace any of them through the Edit form (top right of the concept view).",
+  "Order": 2,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

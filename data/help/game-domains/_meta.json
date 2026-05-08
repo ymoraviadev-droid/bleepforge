@@ -1,0 +1,8 @@
+{
+  "Category": "game-domains",
+  "DisplayName": "Game domains",
+  "Color": "blue",
+  "Description": "The seven authored data shapes that Bleepforge round trips to .tres. One paragraph per domain on what it is and what to do there.",
+  "Order": 20,
+  "CreatedAt": "2026-05-08T18:56:32.294Z"
+}

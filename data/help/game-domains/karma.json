@@ -1,0 +1,10 @@
+{
+  "Id": "karma",
+  "Title": "Karma",
+  "Section": "02 Per domain",
+  "Summary": "Invisible reputation deltas applied by game code when significant events fire.",
+  "Body": "## The shape\n\nKarmaImpact carries Id, Description, and an array of KarmaDelta. Each KarmaDelta is just Faction (one of the four enum values) and Amount (clamped to -50..+100 by the runtime).\n\n## How they fire\n\nKarma impacts are applied from game code only. There is no authored cross reference from dialogs or quests to a KarmaImpact id; the firing happens in C# scripts. The editor authors KarmaImpact files in isolation so they exist for the runtime to look up.\n\nThe exception is on NPCs: an NPC carries DeathImpactId and DeathImpactIdContextual that fire when the NPC dies, conditioned on the ContextualFlag.\n\n## What to do here\n\nOpen [Karma](/karma), pick an impact, and edit the deltas. The integrity check flags impacts referenced by an NPC that no longer exist, so renaming an impact id is a two step move (rename in the karma file, then update the referencing NPCs).",
+  "Order": 3,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

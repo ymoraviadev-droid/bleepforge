@@ -1,0 +1,10 @@
+{
+  "Id": "error-boundary",
+  "Title": "Error boundary and /boom",
+  "Section": "03 Failure modes",
+  "Summary": "What catches render errors, what it shows, and how to test it on demand.",
+  "Body": "## What catches errors\n\nThe entire `<Routes>` block is wrapped in a React error boundary. Synchronous render errors anywhere in the page subtree get caught before React unmounts the shell to a white screen. Lifecycle and constructor errors are also caught.\n\nAsync errors, promise rejections, and event handler throws are NOT caught by React error boundaries. They land in the browser console and the server side log buffer (if they happened on the server). For client side async, the user does not see a friendly fallback.\n\n## The fallback UI\n\nThe boundary shows a 24 by 24 broken robot SVG (X eyes, snapped antenna, sparks, smoke wisps), the error message in a red bordered code block, and three actions:\n\n- Reload page (full `window.location.reload()`).\n- Go home (resets boundary state and navigates to `/concept`).\n- Copy error (clipboard API with silent fallback).\n\nStack trace and component stack are collapsed in a `<details>` block so most users do not see them but devs can expand on demand.\n\n## /boom\n\nVisit `/boom` to throw synchronously during render and trip the boundary on demand. Useful when changing the boundary chrome (or just checking it still works after a refactor).\n\nThe route mounts a tiny `Boom` component that throws in its render function. Kept as a manual test hook for the boundary's fallback UI, and because it is funny.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

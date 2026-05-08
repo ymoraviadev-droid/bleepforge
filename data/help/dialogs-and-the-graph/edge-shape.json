@@ -1,0 +1,10 @@
+{
+  "Id": "edge-shape",
+  "Title": "Edge shape, dashed, and waypoints",
+  "Section": "03 Tuning edges",
+  "Summary": "Click an edge to open a small inline toolbar. Curved or straight, solid or dashed, plus draggable waypoints.",
+  "Body": "## The toolbar\n\nClick an edge to select it. A small toolbar appears near the label with four buttons: curved, straight, solid, dashed. Click again to flip a setting. The selection is per edge and persists in the per folder `_layout.json`.\n\n## Waypoints\n\nDouble click the edge path (anywhere away from the label) to add a waypoint at the click point. Waypoints render as small emerald squares. Drag a waypoint to bend the edge. Double click a waypoint to remove it.\n\nThe path goes through every waypoint in order:\n\n- Curved + waypoints: Catmull Rom smooth curve through all points.\n- Straight + waypoints: polyline.\n\n## When to use what\n\n- Default curved + solid is fine 90% of the time.\n- Switch to straight when two sequences are physically close and a curve would loop weirdly.\n- Switch to dashed for \"this branch is rare\" or \"this is a fallback path\" semantics. Bleepforge does not enforce a meaning; pick a convention for your project.\n- Use waypoints when an edge would otherwise cross unrelated nodes. One or two waypoints usually clears the cluster.\n\n> tip: dangling edges (pointing to a sequence that does not exist in the current folder) turn red and are always dashed, regardless of your setting. That is enforced visual feedback for \"this reference is broken.\"",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

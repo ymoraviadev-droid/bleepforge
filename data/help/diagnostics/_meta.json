@@ -1,0 +1,8 @@
+{
+  "Category": "diagnostics",
+  "DisplayName": "Diagnostics",
+  "Color": "amber",
+  "Description": "When something is wrong, the header icon goes amber or red. The Diagnostics page is where you go to see why.",
+  "Order": 70,
+  "CreatedAt": "2026-05-08T18:56:32.294Z"
+}

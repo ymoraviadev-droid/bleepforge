@@ -1,0 +1,10 @@
+{
+  "Id": "view-modes",
+  "Title": "List view, card view, group by",
+  "Section": "03 Browsing",
+  "Summary": "Six list pages share the same chrome: search, filters, group by, and a cards or list toggle.",
+  "Body": "## The pattern\n\nItems, Quests, NPCs, Karma, Factions, and Balloons all use the same shape:\n\n- Header row with count, view mode toggle, and a New button.\n- Filter row: free text search, plus domain specific dropdowns and sort.\n- Grid of cards (default) or a vertical stack of compact rows.\n\nThe toggle remembers your choice per domain in `localStorage` and syncs across tabs.\n\n## Group by\n\nMost domains group naturally:\n\n- Items by Category\n- Quests by giver\n- NPCs by robot model\n- Balloons by configurable group by (model, npc, none, default model)\n- Karma and Factions are ungrouped\n\n[Dialogs](/dialogs) is the odd one. It uses a graph view by default; the same data is available as a list at `/dialogs/list`. The toggle there is route based, not localStorage based, so refreshing keeps you on the view you picked.\n\n## Filter empty vs domain empty\n\nWhen the data set is genuinely empty (no items at all), each list page renders a pixel art empty state with a clear \"Create your first\" call to action. When filters are active and reduce the set to zero, the page keeps the existing one line \"No entries match\" message instead, so the data does not look gone when it is just hidden.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

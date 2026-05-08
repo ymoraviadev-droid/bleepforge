@@ -1,0 +1,10 @@
+{
+  "Id": "disk-layout",
+  "Title": "Where files live on disk",
+  "Section": "02 Daily flow",
+  "Summary": "Where Bleepforge keeps its JSON cache, what is canonical, and what you can edit by hand.",
+  "Body": "## The two roots\n\nThere are two roots that matter:\n\n- The **Godot project root**, set via [Preferences](/preferences) or env. This holds `.tres` files. They are canonical. Anything that ships is what is here.\n- The **Bleepforge data root**, by default `data/` inside the Bleepforge folder. This holds JSON.\n\n## What is in data/\n\n```\ndata/\n  concept.json                 Bleepforge only; the Game concept doc\n  preferences.json             Bleepforge only; user prefs and themes\n  dialogs/<folder>/<id>.json   cache, rebuilt from .tres on boot\n  balloons/<folder>/<id>.json  cache\n  quests/<id>.json             cache\n  items/<slug>.json            cache\n  karma/<id>.json              cache\n  npcs/<id>.json               cache\n  factions/<faction>.json      cache\n  codex/<category>/...         Bleepforge only; project notebook\n  help/<category>/...          Bleepforge only; this help library\n```\n\n## What you can edit by hand\n\nYou can hand edit `concept.json`, `preferences.json`, anything under `codex/`, and anything under `help/`. They are authoritative and will not be overwritten.\n\nYou should not hand edit any of the seven game domain caches. They are rebuilt from `.tres` on every server start, and hand changes will be silently overwritten on the next reconcile. Drift is the worst case (cache says X, `.tres` says Y, integrity check screams), and the machinery exists to keep them aligned, not to merge edits.\n\n> note: the seven caches are still committed to git as a redundant safety net so historical states are queryable from either side.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

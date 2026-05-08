@@ -1,0 +1,10 @@
+{
+  "Id": "typing-preview",
+  "Title": "Hover to preview the typing speed",
+  "Section": "01 Basics",
+  "Summary": "Balloon cards play the in game typing animation when you hover them.",
+  "Body": "## The preview\n\nHover any balloon card and the text reveals character by character at the balloon's actual TypeSpeed (in chars per second). A blinking block cursor follows the reveal. Mouse leave during the animation cancels the timer and snaps back to the full text.\n\nIf TypeSpeed is 0, the card stays honest: no animation, the full text is just there. The label below the bubble reads `instant` instead of `0 cps` so the meaning is clear without having to know what 0 means.\n\n## Why this exists\n\nIt is too easy to author a TypeSpeed that feels great in your head and bad in game. The hover preview lets you feel the speed where you author it: same speed, same blink cursor, same in-game vibe. Authors tune their balloons faster as a result.\n\n## TypeSpeed and HoldDuration knobs\n\nThe edit form has the two values on [pixel sliders](/help/editor-basics/view-modes), with units in the value display: `30 cps`, `2.0s`. The format function in the slider knows about the special `instant` case for TypeSpeed=0 too, so the preview and the form agree.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

@@ -1,0 +1,10 @@
+{
+  "Id": "right-click",
+  "Title": "Right click context menu",
+  "Section": "04 Hidden affordances",
+  "Summary": "Bleepforge replaces the browser context menu globally. Components can register their own items.",
+  "Body": "## What you get by default\n\nRight click on text and the menu shows Cut, Copy, Paste based on what is appropriate for the target. On editable inputs the Paste path uses a native value setter so React's onChange fires, keeping controlled components in sync.\n\n## Component owned menus\n\nSpecific surfaces own their menu and replace the default:\n\n- [Dialog graph](/dialogs) sequence nodes show \"Edit\" and \"Copy id\".\n- [Dialog graph](/dialogs) canvas (empty space) shows \"Create new sequence\".\n- [Asset gallery](/assets) cards show \"Edit\", \"Duplicate\", \"Delete\", \"Preview\" depending on the surface (the [click vs right click rule](/help/assets-and-image-editor/click-vs-right-click) controls which items appear where).\n\n## Implementation note\n\nThe listeners use the capture phase. Without that, the React Flow pane in the dialog graph would swallow the mousedown event on its own `stopPropagation` and the menu would never get a chance to show.\n\nWhen the cursor is in the bottom 30% of the viewport, the menu anchors by its bottom edge instead of its top edge so right clicks near the page bottom never produce a clipped menu.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

@@ -1,0 +1,8 @@
+{
+  "Category": "editor-basics",
+  "DisplayName": "Editor basics",
+  "Color": "emerald",
+  "Description": "How to move around the app: search, themes, view modes, keyboard shortcuts, and the small affordances that are easy to miss.",
+  "Order": 10,
+  "CreatedAt": "2026-05-08T18:56:32.294Z"
+}

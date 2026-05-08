@@ -1,0 +1,10 @@
+{
+  "Id": "integrity",
+  "Title": "Integrity tab",
+  "Section": "02 The six tabs",
+  "Summary": "Cross domain checks against the authored data: dangling references, duplicate ids, etc.",
+  "Body": "## What it checks\n\nThe Integrity tab runs the `computeIssues` pure function over the catalog (every NPC, Item, Quest, etc.). It surfaces:\n\n- Quest objectives or rewards pointing at items that do not exist.\n- Quests with QuestGiverId pointing at NPCs that do not exist.\n- NPCs whose DefaultDialog or OffendedDialog points at a sequence that does not exist.\n- NPC quest entries with dialog refs that do not resolve.\n- Karma deltas with a faction enum value that is not in the four supported.\n- Any `NpcData.CasualRemarks` ref that does not resolve to a known balloon.\n- Duplicate ids across any single domain (slug collisions, etc.).\n- LootEntry PickupScenes whose path no longer matches a current pickup file (catches `.tscn` renames on the Godot side).\n\n## Where to fix\n\nEach issue has a clickable link back to the source file's edit page. Open, fix the reference, save. The Integrity tab refreshes after the save and the issue should disappear.\n\n## Forward references are fine\n\nThe check tolerates references to entities that do not exist yet. You can author a quest that points at an NPC you have not made yet without the integrity check screaming, as long as you eventually create the NPC. The check fires at any point you ask \"show me everything that is dangling right now\", not on save.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

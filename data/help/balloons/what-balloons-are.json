@@ -1,0 +1,10 @@
+{
+  "Id": "what-balloons-are",
+  "Title": "What balloons are",
+  "Section": "01 Basics",
+  "Summary": "One off ambient lines spoken by NPCs. Three scalars: Text, TypeSpeed, HoldDuration.",
+  "Body": "## In game behavior\n\nA balloon is a short line that appears in a speech bubble above an NPC when the player gets close. Each NPC carries an array of balloons under its CasualRemarks field; the runtime picks one at random per encounter, gated by the NPC's DidSpeakFlag so each NPC speaks at most once per session.\n\n## The schema\n\n```\nBalloonLine {\n  Text: string             multiline allowed\n  TypeSpeed: float         chars per second; 0 means show all at once\n  HoldDuration: float      seconds visible after typing finishes\n}\n```\n\nThat is the entire schema. There is no Id field in C#: a balloon's identity in Bleepforge is its filename basename. The writer never emits an Id key to `.tres`.\n\n## Where files live\n\nGodot side: `characters/npcs/<robot_model>/balloons/<basename>.tres`. The folder shape is rigid: discovery only picks up files whose script_class is BalloonLine and whose immediate parent dir is named `balloons`. Bleepforge JSON storage is folder aware: `data/balloons/<model>/<basename>.json`.\n\n## What to do here\n\nOpen [Balloons](/balloons), browse by model or NPC. The cards mimic in game speech bubbles: pixel ladder tail, mono text inside, NPC portrait inset. Hover a card to play the typing animation at the balloon's actual TypeSpeed.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

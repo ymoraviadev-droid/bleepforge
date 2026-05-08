@@ -1,0 +1,10 @@
+{
+  "Id": "icon-colors",
+  "Title": "When the icon turns red or amber",
+  "Section": "01 Header indicator",
+  "Summary": "Severity rules and what each color means.",
+  "Body": "## The icon\n\nTop right of the header, between the search palette and the Preferences gear. A small pixel waveform icon. It carries one of three states:\n\n- **Neutral** (same color as the gear): everything is clean.\n- **Amber**: at least one warning across [Integrity](/help/diagnostics/integrity), [Reconcile](/help/diagnostics/reconcile), or [Logs](/help/diagnostics/logs).\n- **Red**: at least one error in any of those tabs.\n\nA small square badge in the top right corner of the icon shows the total count when there is anything to fix.\n\n## Severity rules\n\nThe severity is worst of across the three severity bearing tabs:\n\n- Integrity (authored content checks: dangling FKs, duplicate ids, etc.)\n- Reconcile (boot time `.tres` to JSON cache rebuild errors)\n- Logs (server side warnings and errors captured in the ring buffer)\n\nThe other three tabs (Saves, Process, Watcher) are informational and never bump the badge. Failures that matter already surface in the three above; double counting would be noise.\n\n## Auto routing\n\nClick the icon (or visit `/diagnostics` directly) and you land on the dirtiest tab automatically. If Integrity has errors, you land there. If only Logs has warnings, you land on Logs. The intent is \"give me the relevant signal first, not whichever tab I last visited.\"\n\nIf everything is clean, you land on Integrity by default since it is the most common entry point.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

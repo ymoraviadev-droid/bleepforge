@@ -1,0 +1,10 @@
+{
+  "Id": "project-root",
+  "Title": "Set the Godot project root",
+  "Section": "01 First steps",
+  "Summary": "Bleepforge refuses to start without a Godot project root. Here is how to point it at one.",
+  "Body": "## Why this is required\n\nBleepforge fails fast at boot if it cannot find a Godot project to edit. There is nothing to read, write, or watch without one, so an empty UI would be worse than a clear error.\n\n## Resolution order\n\nThe server checks two places, in this order:\n\n1. `data/preferences.json` for a `godotProjectRoot` field. This is what the [Preferences page](/preferences) writes when you save a path there.\n2. The `GODOT_PROJECT_ROOT` environment variable.\n\nIf neither is set, the server logs an error and exits. If both are set, Preferences wins.\n\n## How to set it\n\nTwo paths, pick whichever fits:\n\n- Open [Preferences](/preferences) in the running app, paste an absolute path into the Godot project field, and save. The field validates as you type so you know you have the right folder before you commit. After saving, restart the server. Project root is captured once at boot and not hot swapped.\n- Or before starting the server, export the env var. For example: `export GODOT_PROJECT_ROOT=/home/you/Projects/my-game`. The env var is the bootstrap fallback for first run before `preferences.json` exists.\n\n> warn: changes to the saved Preferences value require a server restart to take effect. The Preferences page surfaces an amber notice when the saved path differs from the running config.\n\n## What \"valid\" means\n\nA folder is a valid Godot project root if it contains a `project.godot` file at the top level. The Preferences page validation hits the server which performs this check.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

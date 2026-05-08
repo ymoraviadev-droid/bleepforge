@@ -45,12 +45,21 @@ function resolveGodotProjectRoot(): {
 
 const resolved = resolveGodotProjectRoot();
 
+// Dev-mode flag. When set to a truthy value (`1` / `true`), the Help
+// feature unlocks its authoring routes (PUT/DELETE on categories and
+// entries) and the client surfaces edit affordances. Off by default so a
+// shipped build is read-only for end users; flipped on by the project
+// author by exporting `BLEEPFORGE_DEV_MODE=1` before `pnpm dev`.
+const devModeRaw = (process.env.BLEEPFORGE_DEV_MODE ?? "").trim().toLowerCase();
+const devMode = devModeRaw === "1" || devModeRaw === "true";
+
 export const config = {
   dataRoot,
   assetRoot,
   godotProjectRoot: resolved.path,
   godotProjectRootSource: resolved.source,
   port: Number(process.env.PORT ?? 4000),
+  devMode,
 };
 
 export const folderAbs = {
@@ -62,4 +71,5 @@ export const folderAbs = {
   faction: path.join(dataRoot, "factions"),
   balloon: path.join(dataRoot, "balloons"),
   codex: path.join(dataRoot, "codex"),
+  help: path.join(dataRoot, "help"),
 };

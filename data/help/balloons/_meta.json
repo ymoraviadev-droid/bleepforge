@@ -1,0 +1,8 @@
+{
+  "Category": "balloons",
+  "DisplayName": "Balloons",
+  "Color": "pink",
+  "Description": "The small lines a robot says when the player walks up. Their own little domain.",
+  "Order": 40,
+  "CreatedAt": "2026-05-08T18:56:32.294Z"
+}

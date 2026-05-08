@@ -1,0 +1,10 @@
+{
+  "Id": "creating-a-category",
+  "Title": "Creating a category",
+  "Section": "02 Authoring",
+  "Summary": "Pick an id, a display name, a color, and a property schema. Then start filling it.",
+  "Body": "## The flow\n\nFrom [Game codex](/codex), click \"+ New category\". The form asks for:\n\n- **Category id**: lowercase slug, used as the folder name on disk. Locked once saved.\n- **Display name**: human readable label shown in headers.\n- **Color**: one of eight palette colors. Tints the section header on the list page and the card stripe on each entry.\n- **Properties**: an array of property defs. Each carries a Key, Label, Type, Required flag, and (for refs) a RefDomain.\n\nSave and you land on the category's entry list, ready to add entries.\n\n## Property schema\n\nThe schema is the contract. Every entry in a category has the three default fields (Image, Description, Path) plus whatever properties you defined. The entry form auto generates controls based on each property's Type. See [property types](/help/codex/property-types) for what each one does.\n\n## Sorting properties\n\nThe schema editor uses up and down arrows on each property row. There is no drag and drop reorder; the arrows scale better when there are 10+ properties and avoid the precision issues of dragging on tablets.\n\n## Validation\n\nProperties go through two validation passes when an entry is saved:\n\n1. Type vs value: a number property cannot hold a string, a tags property must be an array of strings, a required property cannot be empty.\n2. FK existence (client only, layered on top): a ref property whose target id does not exist in the catalog flags as a warning in the form and as an error on the [Integrity tab](/diagnostics/integrity).",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

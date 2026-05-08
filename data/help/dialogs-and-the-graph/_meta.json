@@ -1,0 +1,8 @@
+{
+  "Category": "dialogs-and-the-graph",
+  "DisplayName": "Dialogs and the graph",
+  "Color": "cyan",
+  "Description": "The most interactive surface in Bleepforge. A pan and zoom canvas with per choice handles, waypoints, and inline label editing.",
+  "Order": 30,
+  "CreatedAt": "2026-05-08T18:56:32.294Z"
+}

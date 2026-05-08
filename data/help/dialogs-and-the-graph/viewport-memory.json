@@ -1,0 +1,10 @@
+{
+  "Id": "viewport-memory",
+  "Title": "Per folder layout and viewport memory",
+  "Section": "04 Persistence",
+  "Summary": "Node positions, edge styles, pan, and zoom are all remembered per folder.",
+  "Body": "## What persists\n\nTwo layers of persistence:\n\n- Node positions and edge styles live in `data/dialogs/<folder>/_layout.json` (committed to git, shared across machines).\n- Pan and zoom live in localStorage under `bleepforge:graphViewport:<folder>` (per machine, not shared).\n\n## What this means in practice\n\nDrag a node, the position writes to disk. Pan and zoom around, the camera writes to localStorage. Switch to another folder, the new folder restores its own camera and positions. Switch back, you return to where you left.\n\nFirst visits use a fitView with generous padding so the whole map is on screen. Subsequent visits restore the saved camera exactly.\n\n## Reset layout\n\nTop right of the graph has a \"Reset layout\" button (only visible when there is a saved layout). Confirms, then clears all node positions and edge styles for the active folder. Auto layout (dagre) re runs and edges reset to the default curved + solid.\n\nThis does not affect the camera. To also reset zoom, refresh after reset.\n\n## Layout file shape\n\n```\n{\n  \"nodes\": { \"<sequenceId>\": { \"x\": 0, \"y\": 0 } },\n  \"edges\": {\n    \"<sourceId>::<lineIdx>::<choiceIdx>\": {\n      \"shape\": \"curved\" | \"straight\",\n      \"dashed\": false,\n      \"waypoints\": [{ \"x\": 0, \"y\": 0 }]\n    }\n  }\n}\n```",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

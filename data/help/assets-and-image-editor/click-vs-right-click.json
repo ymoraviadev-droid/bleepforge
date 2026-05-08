@@ -1,0 +1,10 @@
+{
+  "Id": "click-vs-right-click",
+  "Title": "Click previews, right click manages",
+  "Section": "01 Browsing",
+  "Summary": "One rule everywhere: click opens a preview. Right click opens the editor menu.",
+  "Body": "## The rule\n\nClick on any image anywhere in the app: opens the file in a new browser tab as a preview.\n\nRight click on any image: opens a context menu. Items depend on which surface you are on:\n\n- **Default** (cards on entity edit pages, dialog graph nodes, list cards): only \"Preview\".\n- **canEdit=true** (image fields on edit pages): \"Edit\" and \"Preview\".\n- **canEdit=true and canManage=true** (the asset gallery itself, the AssetPicker browse modal): \"Edit\", \"Duplicate\", \"Delete\", \"Preview\".\n\n## Why split the menu like that\n\nEditing the file is not the user's primary intent on most surfaces. On an NPC card, clicking the portrait should not open a heavy editor modal by accident; it should preview the image, and editing should require the explicit right click + menu pick.\n\nDestructive ops (Duplicate, Delete) are reserved for the dedicated asset surfaces, where the user is in \"managing my project's files\" mode rather than \"viewing this entity\". Deleting a file from disk through a portrait thumbnail on an NPC card would be too easy a mistake.\n\n## The launch path\n\nThe image editor is launched through a singleton host (`<ImageEditorHost />` mounted at App root), called via the imperative `showImageEditor(mode, options)` API. Any component anywhere can launch it without per page state threading.\n\nWhen a save lands, the host emits a `Bleepforge:image-saved` window event. The gallery listens and refreshes ahead of the watcher's debounced asset event, for a snappier feel.",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

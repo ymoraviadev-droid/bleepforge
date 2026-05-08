@@ -1,0 +1,8 @@
+{
+  "Category": "assets-and-image-editor",
+  "DisplayName": "Assets and image editor",
+  "Color": "orange",
+  "Description": "The asset gallery, the image editor, and how every image surface in the app reuses the same affordances.",
+  "Order": 60,
+  "CreatedAt": "2026-05-08T18:56:32.294Z"
+}

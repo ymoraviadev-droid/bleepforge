@@ -1,0 +1,10 @@
+{
+  "Id": "edit-labels",
+  "Title": "Editing edge labels inline",
+  "Section": "03 Tuning edges",
+  "Summary": "Double click an edge label to edit the choice text in place.",
+  "Body": "## The gesture\n\nDouble click an edge label and an inline input appears in its place, prefilled with the current text. Press :kbd[Enter] to commit (saves to the source sequence's choice Text). Press :kbd[Escape] to cancel without saving. Click outside the input to commit.\n\n## Why it edits the choice text\n\nThe label on an edge is the rendered Text of the choice it represents. Editing the label is the same operation as opening the source sequence and changing the choice text in the form: shorter path for the most common label edit.\n\n## SetsFlag glyph\n\nIf a choice carries a SetsFlag, the label shows a small flag glyph next to the text. The glyph is read only here; flag editing happens on the sequence edit page (the form has explicit fields for it).",
+  "Order": 1,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}

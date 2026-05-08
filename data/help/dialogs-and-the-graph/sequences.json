@@ -1,0 +1,10 @@
+{
+  "Id": "sequences",
+  "Title": "Sequences, lines, and choices",
+  "Section": "01 Concepts",
+  "Summary": "What the three nested concepts are and how they relate.",
+  "Body": "## Three nested concepts\n\nA **DialogSequence** is a node in the graph. It has an Id (globally unique), a SourceType (`Npc` or `Terminal`), and a list of Lines.\n\nA **DialogLine** is one beat of dialog within a sequence. It has a SpeakerName, Text, an optional Portrait, and a list of Choices. Lines run linearly within a sequence: there is no per line \"next\" pointer; the runtime advances line by line.\n\nA **DialogChoice** is one branch out of a line. It has Text and a NextSequenceId, which is what pivots the conversation to a different sequence. Choices appear under their line in the graph node body and have their own connection handle on the right edge.\n\n## What this means for authoring\n\nYou author at the sequence level. Branching only happens between sequences via choices. Within one sequence, the lines play in order and you cannot fork.\n\nIf you need a fork mid sequence, the convention is to split into two sequences and have the choice at the fork point point into the second one.\n\n## Where files live\n\nGodot side, dialogs are scattered per context: each NPC has a `characters/npcs/<model>/dialogs/<Speaker>/` folder, each interactible has a `world/interactibles/<thing>/dialogs/<purpose>/` folder. Bleepforge auto discovers all of these at boot and exposes each as a folder tab in the graph.",
+  "Order": 0,
+  "Tags": [],
+  "UpdatedAt": "2026-05-08T18:56:32.294Z"
+}
