@@ -64,8 +64,12 @@ export const NpcSchema = z.object({
   // LootTable is null when the NPC has no loot. When present it's an inline
   // sub-resource in the .tres.
   LootTable: LootTableSchema.nullable().default(null),
-  // CasualRemark is an ext-resource path to a separate BalloonLine .tres.
-  CasualRemark: z.string().default(""),
+  // CasualRemarks: array of balloon-ids in Bleepforge form `<folder>/<id>`,
+  // each pointing at a BalloonLine .tres. Godot picks one at random when the
+  // NPC speaks. The .tres serializes as `Array[Object]([ExtResource(...), ...])`.
+  // Legacy unmigrated NPCs may still have a singular `CasualRemark = ExtResource(...)`
+  // line on disk — the importer accepts that and normalizes to a 1-element array.
+  CasualRemarks: z.array(z.string()).default([]),
   DidSpeakFlag: z.string().default(""),
 });
 

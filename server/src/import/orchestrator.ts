@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
+  BalloonSchema,
   FactionDataSchema,
   ItemSchema,
   KarmaImpactSchema,
@@ -8,10 +9,12 @@ import {
   QuestSchema,
 } from "@bleepforge/shared";
 import { folderAbs } from "../config.js";
+import * as balloonStorage from "../balloon/storage.js";
 import * as dialogStorage from "../dialog/storage.js";
 import { makeJsonStorage } from "../util/jsonCrud.js";
 import { discoverGodotContent, type Discovery } from "./discover.js";
 import {
+  mapBalloon,
   mapDialogSequence,
   mapFaction,
   mapItem,
@@ -36,6 +39,7 @@ export interface ImportResult {
     factions: DomainResult;
     dialogs: DialogDomainResult;
     npcs: DomainResult;
+    balloons: BalloonDomainResult;
   };
 }
 
@@ -46,6 +50,12 @@ interface DomainResult {
 }
 
 interface DialogDomainResult {
+  imported: { folder: string; id: string; file: string }[];
+  skipped: { folder: string; file: string; reason: string }[];
+  errors: { folder: string; file: string; error: string }[];
+}
+
+interface BalloonDomainResult {
   imported: { folder: string; id: string; file: string }[];
   skipped: { folder: string; file: string; reason: string }[];
   errors: { folder: string; file: string; error: string }[];
@@ -247,10 +257,53 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     }
   }
 
-  // 6. NPCs pass — uses dialogAbsToId to resolve DialogSequence refs.
-  // Discovery already filtered to script_class="NpcData", so we don't need
-  // the previous `data/` path filter — every entry here is the NPC root
-  // resource by definition.
+  // 6. Balloons pass — flat per-folder import, mirrors the dialogs pass.
+  // The Bleepforge id is the .tres filename basename (BalloonLine has no Id
+  // property in C#). Also builds a path → "<folder>/<basename>" map for the
+  // NPC pass to resolve CasualRemark ext_resource refs.
+  const balloons: BalloonDomainResult = {
+    imported: [],
+    skipped: [],
+    errors: [],
+  };
+  const balloonAbsToId = new Map<string, string>();
+  for (const [bleepforgeFolder, paths] of discovery.balloons) {
+    for (const filePath of paths) {
+      try {
+        const text = await fs.readFile(filePath, "utf8");
+        const parsed = parseTres(text);
+        const basename = path.basename(filePath, ".tres");
+        const balloon = mapBalloon(parsed, basename);
+        if (!balloon) {
+          balloons.skipped.push({
+            folder: bleepforgeFolder,
+            file: filePath,
+            reason: `script_class is "${parsed.scriptClass ?? "?"}", not BalloonLine`,
+          });
+          continue;
+        }
+        const validated = BalloonSchema.parse(balloon);
+        await balloonStorage.write(bleepforgeFolder, validated);
+        balloonAbsToId.set(filePath, `${bleepforgeFolder}/${validated.Id}`);
+        balloons.imported.push({
+          folder: bleepforgeFolder,
+          id: validated.Id,
+          file: filePath,
+        });
+      } catch (err) {
+        balloons.errors.push({
+          folder: bleepforgeFolder,
+          file: filePath,
+          error: (err as Error).message ?? String(err),
+        });
+      }
+    }
+  }
+
+  // 7. NPCs pass — uses dialogAbsToId to resolve DialogSequence refs and
+  // balloonAbsToId to resolve CasualRemark refs into "<folder>/<basename>"
+  // form. Discovery already filtered to script_class="NpcData", so every
+  // entry here is the NPC root resource by definition.
   const npcs: DomainResult = {
     imported: [],
     skipped: [],
@@ -266,6 +319,12 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
           if (!ext || !ext.path) return null;
           const targetAbs = resPathToAbs(ext.path, root);
           return dialogAbsToId.get(targetAbs) ?? null;
+        },
+        resolveBalloonId: (p: ParsedTres, extId: string) => {
+          const ext = p.extResources.get(extId);
+          if (!ext || !ext.path) return null;
+          const targetAbs = resPathToAbs(ext.path, root);
+          return balloonAbsToId.get(targetAbs) ?? null;
         },
       };
       const npc = mapNpc(parsed, ctx);
@@ -292,6 +351,6 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
   return {
     ok: true,
     godotProjectRoot: root,
-    domains: { items, quests, karma, factions, dialogs, npcs },
+    domains: { items, quests, karma, factions, dialogs, npcs, balloons },
   };
 }

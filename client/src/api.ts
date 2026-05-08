@@ -1,4 +1,5 @@
 import type {
+  Balloon,
   Concept,
   DialogSequence,
   FactionData,
@@ -281,7 +282,8 @@ export type SaveDomain =
   | "quest"
   | "dialog"
   | "npc"
-  | "faction";
+  | "faction"
+  | "balloon";
 
 export interface SaveEntry {
   ts: string;
@@ -435,5 +437,67 @@ export const dialogsApi = {
     });
     if (!r.ok) throw new Error(`saveLayout failed: ${r.status}`);
     return r.json();
+  },
+};
+
+export interface BalloonFolderGroup {
+  folder: string;
+  balloons: Balloon[];
+}
+
+// Folder-aware API for the Balloons domain. <folder> is the NPC robot
+// model directory ("hap_500", "sld_300"). Each balloon's Bleepforge id
+// (its filename basename) is unique within its folder but not globally —
+// matches the dialog folder pattern.
+export const balloonsApi = {
+  listFolders: async (): Promise<string[]> => {
+    const r = await fetch("/api/balloons/folders");
+    if (!r.ok) throw new Error(`listFolders failed: ${r.status}`);
+    return r.json();
+  },
+  listAll: async (): Promise<BalloonFolderGroup[]> => {
+    const r = await fetch("/api/balloons");
+    if (!r.ok) throw new Error(`list balloons failed: ${r.status}`);
+    return r.json();
+  },
+  listInFolder: async (folder: string): Promise<Balloon[]> => {
+    const r = await fetch(`/api/balloons/${encodeURIComponent(folder)}`);
+    if (!r.ok) throw new Error(`listInFolder failed: ${r.status}`);
+    return r.json();
+  },
+  get: async (folder: string, id: string): Promise<Balloon | null> => {
+    const r = await fetch(
+      `/api/balloons/${encodeURIComponent(folder)}/${encodeURIComponent(id)}`,
+    );
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`get balloon failed: ${r.status}`);
+    return r.json();
+  },
+  save: async (folder: string, balloon: Balloon): Promise<Balloon> => {
+    const r = await fetch(
+      `/api/balloons/${encodeURIComponent(folder)}/${encodeURIComponent(balloon.Id)}`,
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(balloon),
+      },
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save balloon failed: ${r.status} ${body}`);
+    }
+    const data = await r.json();
+    refreshCatalog();
+    return unwrapSavedResponse<Balloon>(data, `balloons/${folder}/${balloon.Id}`);
+  },
+  remove: async (folder: string, id: string): Promise<void> => {
+    const r = await fetch(
+      `/api/balloons/${encodeURIComponent(folder)}/${encodeURIComponent(id)}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok && r.status !== 404) {
+      throw new Error(`remove balloon failed: ${r.status}`);
+    }
+    refreshCatalog();
   },
 };

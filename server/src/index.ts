@@ -13,6 +13,7 @@ import {
 } from "@bleepforge/shared";
 import { config, folderAbs } from "./config.js";
 import { assetRouter } from "./asset/router.js";
+import { balloonRouter } from "./balloon/router.js";
 import { conceptRouter } from "./concept/router.js";
 import { pickupsRouter } from "./pickup/router.js";
 import { preferencesRouter } from "./preferences/router.js";
@@ -58,6 +59,7 @@ const npcStorage = makeJsonStorage(NpcSchema, folderAbs.npc, "NpcId");
 const factionStorage = makeJsonStorage(FactionDataSchema, folderAbs.faction, "Faction");
 
 app.use("/api/dialogs", dialogRouter);
+app.use("/api/balloons", balloonRouter);
 app.use("/api/quests", makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres, "quest"));
 app.use("/api/items", makeCrudRouter(ItemSchema, itemStorage, "Slug", writeItemTres, "item"));
 app.use("/api/karma", makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id", writeKarmaTres, "karma"));
@@ -125,6 +127,12 @@ app.listen(config.port, async () => {
     for (const s of result.domains.dialogs.skipped) {
       skippedDetails.push({ domain: "dialogs", file: s.file, reason: s.reason });
     }
+    for (const e of result.domains.balloons.errors) {
+      errorDetails.push({ domain: "balloons", file: e.file, error: e.error });
+    }
+    for (const s of result.domains.balloons.skipped) {
+      skippedDetails.push({ domain: "balloons", file: s.file, reason: s.reason });
+    }
 
     const perDomain = {
       items: countsOf(result.domains.items.imported.length, result.domains.items.skipped.length, result.domains.items.errors.length),
@@ -133,6 +141,7 @@ app.listen(config.port, async () => {
       factions: countsOf(result.domains.factions.imported.length, result.domains.factions.skipped.length, result.domains.factions.errors.length),
       dialogs: countsOf(result.domains.dialogs.imported.length, result.domains.dialogs.skipped.length, result.domains.dialogs.errors.length),
       npcs: countsOf(result.domains.npcs.imported.length, result.domains.npcs.skipped.length, result.domains.npcs.errors.length),
+      balloons: countsOf(result.domains.balloons.imported.length, result.domains.balloons.skipped.length, result.domains.balloons.errors.length),
     };
 
     setReconcileStatus({
@@ -189,5 +198,5 @@ function countsOf(imported: number, skipped: number, errors: number) {
 
 function emptyPerDomain() {
   const z = countsOf(0, 0, 0);
-  return { items: z, quests: z, karma: z, factions: z, dialogs: z, npcs: z };
+  return { items: z, quests: z, karma: z, factions: z, dialogs: z, npcs: z, balloons: z };
 }

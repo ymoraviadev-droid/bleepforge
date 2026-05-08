@@ -18,6 +18,7 @@ import { dirname, join, resolve, sep } from "node:path";
 
 import { config } from "../config.js";
 import type {
+  Balloon,
   DialogSequence,
   FactionData,
   Item,
@@ -34,18 +35,22 @@ import { applyKarma, type KarmaJson } from "./domains/karma.js";
 import { applyDialog, type DialogApplyContext, type DialogSequenceJson } from "./domains/dialog.js";
 import { applyFactionScalars, type FactionJson } from "./domains/faction.js";
 import {
+  applyNpcCasualRemarks,
   applyNpcLootTable,
   applyNpcQuests,
   applyNpcScalars,
+  type CasualRemarksApplyContext,
   type LootTableJson,
   type NpcJson,
   type NpcLootApplyContext,
   type NpcQuestApplyContext,
   type NpcQuestEntryJson,
 } from "./domains/npc.js";
+import { applyBalloonScalars, type BalloonJson } from "./domains/balloon.js";
 import { applyQuest, type QuestApplyContext, type QuestJson } from "./domains/quest.js";
 import {
   findScriptUidInProject,
+  readBalloonUid,
   readItemUid,
   readSceneUid,
   readTextureUid,
@@ -230,6 +235,37 @@ export async function writeNpcTres(json: Npc): Promise<TresWriteResult> {
     resolveDialogRef: (id) => dialogRefCache.get(id) ?? null,
   };
 
+  // Pre-resolve balloon refs for CasualRemarks. Each balloon-id is
+  // `<folder>/<basename>`; we read its .tres header for the UID, then
+  // construct the res:// path. Cached by id so duplicate entries (rare —
+  // arrays are usually distinct) only do one read.
+  const balloonRefCache = new Map<
+    string,
+    { resPath: string; uid: string } | null
+  >();
+  for (const id of new Set(json.CasualRemarks)) {
+    if (!id) continue;
+    const slash = id.indexOf("/");
+    if (slash < 0) {
+      balloonRefCache.set(id, null);
+      continue;
+    }
+    const folder = id.slice(0, slash);
+    const basename = id.slice(slash + 1);
+    const uid = await readBalloonUid(root, folder, basename);
+    if (!uid) {
+      balloonRefCache.set(id, null);
+      continue;
+    }
+    balloonRefCache.set(id, {
+      resPath: `res://characters/npcs/${folder}/balloons/${basename}.tres`,
+      uid,
+    });
+  }
+  const remarksCtx: CasualRemarksApplyContext = {
+    resolveBalloonRef: (id) => balloonRefCache.get(id) ?? null,
+  };
+
   return runWrite(found.path, (doc) => {
     const resourceSection = doc.sections.find((s) => s.kind === "resource");
     if (!resourceSection) return ["no [resource] section"];
@@ -246,7 +282,18 @@ export async function writeNpcTres(json: Npc): Promise<TresWriteResult> {
       json.Quests as NpcQuestEntryJson[],
       questCtx,
     );
-    return [...scalars.warnings, ...loot.warnings, ...quests.warnings];
+    const remarks = applyNpcCasualRemarks(
+      doc,
+      resourceSection,
+      json.CasualRemarks,
+      remarksCtx,
+    );
+    return [
+      ...scalars.warnings,
+      ...loot.warnings,
+      ...quests.warnings,
+      ...remarks.warnings,
+    ];
   });
 }
 
@@ -330,6 +377,26 @@ export async function writeQuestTres(json: Quest): Promise<TresWriteResult> {
 
   return runWrite(found.path, (doc) => {
     const result = applyQuest(doc, json as QuestJson, ctx);
+    return result.warnings;
+  });
+}
+
+export async function writeBalloonTres(
+  folder: string,
+  json: Balloon,
+): Promise<TresWriteResult> {
+  if (!shouldWriteTres()) return NOT_ATTEMPTED;
+  const root = config.godotProjectRoot!;
+  const found = await findBalloonTres(root, folder, json.Id);
+  if (!found) {
+    return {
+      attempted: true,
+      ok: false,
+      error: `no .tres at characters/npcs/${folder}/balloons/${json.Id}.tres`,
+    };
+  }
+  return runWrite(found.path, (doc) => {
+    const result = applyBalloonScalars(doc, json as BalloonJson);
     return result.warnings;
   });
 }
@@ -554,6 +621,22 @@ async function findDialogTres(
   await walk(godotRoot, all);
   const match = all.find((p) => p.endsWith(wantSuffix));
   return match ? { path: match } : null;
+}
+
+async function findBalloonTres(
+  godotRoot: string,
+  folder: string,
+  id: string,
+): Promise<{ path: string } | null> {
+  // Direct path lookup — convention is rigid:
+  // characters/npcs/<folder>/balloons/<id>.tres.
+  const abs = join(godotRoot, "characters", "npcs", folder, "balloons", `${id}.tres`);
+  try {
+    await readFile(abs, "utf8");
+    return { path: abs };
+  } catch {
+    return null;
+  }
 }
 
 async function findInDirByContent(

@@ -52,6 +52,8 @@
       }
     ]
   },
-  "CasualRemark": "res://characters/npcs/hap_500/balloons/happy_druid_greetings.tres",
+  "CasualRemarks": [
+    "hap_500/eddie_greetings"
+  ],
   "DidSpeakFlag": "eddie_spoken"
 }

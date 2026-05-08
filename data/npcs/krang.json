@@ -34,6 +34,8 @@
       }
     ]
   },
-  "CasualRemark": "res://characters/npcs/sld_300/balloons/krang_greeting.tres",
+  "CasualRemarks": [
+    "sld_300/krang_greeting"
+  ],
   "DidSpeakFlag": "krang_spoken"
 }

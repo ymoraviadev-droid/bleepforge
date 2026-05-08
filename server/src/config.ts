@@ -60,4 +60,5 @@ export const folderAbs = {
   karma: path.join(dataRoot, "karma"),
   npc: path.join(dataRoot, "npcs"),
   faction: path.join(dataRoot, "factions"),
+  balloon: path.join(dataRoot, "balloons"),
 };

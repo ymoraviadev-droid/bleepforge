@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type {
+  Balloon,
   DialogSequence,
   FactionData,
   Item,
@@ -9,6 +10,7 @@ import type {
   Quest,
 } from "@bleepforge/shared";
 import {
+  balloonsApi,
   dialogsApi,
   factionsApi,
   itemsApi,
@@ -16,6 +18,7 @@ import {
   npcsApi,
   pickupsApi,
   questsApi,
+  type BalloonFolderGroup,
   type DialogFolderGroup,
 } from "./api";
 import { catalogTick, subscribeCatalog } from "./catalog-bus";
@@ -31,6 +34,12 @@ export interface Catalog {
   pickups: Pickup[];
   dialogs: DialogFolderGroup[];
   sequences: DialogSequence[];
+  /** Per-folder balloon groups, mirroring the dialogs shape. Each balloon's
+   *  full Bleepforge id is "<folder>/<Id>". */
+  balloons: BalloonFolderGroup[];
+  /** Flat list of balloons across all folders, with Bleepforge-id form for
+   *  quick lookup by NpcData.CasualRemarks entries. */
+  balloonRefs: { id: string; folder: string; balloon: Balloon }[];
   flags: string[];
 }
 
@@ -72,10 +81,18 @@ export function useCatalog(): Catalog | null {
       factionsApi.list(),
       pickupsApi.list(),
       dialogsApi.listAll(),
+      balloonsApi.listAll(),
     ])
-      .then(([npcs, items, quests, karma, factions, pickups, dialogs]) => {
+      .then(([npcs, items, quests, karma, factions, pickups, dialogs, balloons]) => {
         if (cancelled) return;
         const sequences = dialogs.flatMap((g) => g.sequences);
+        const balloonRefs = balloons.flatMap((g) =>
+          g.balloons.map((b) => ({
+            id: `${g.folder}/${b.Id}`,
+            folder: g.folder,
+            balloon: b,
+          })),
+        );
         const flags = collectFlags(sequences, quests);
         setCatalog({
           npcs,
@@ -86,6 +103,8 @@ export function useCatalog(): Catalog | null {
           pickups,
           dialogs,
           sequences,
+          balloons,
+          balloonRefs,
           flags,
         });
       })

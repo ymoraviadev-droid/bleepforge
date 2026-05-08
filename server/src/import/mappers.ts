@@ -255,6 +255,11 @@ export interface NpcImportContext {
    *  DialogSequence Id. Used for DefaultDialog / OffendedDialog and for
    *  the 5 dialog refs inside each NpcQuestEntry. */
   resolveDialogSequenceId: (parsed: ParsedTres, extId: string) => string | null;
+  /** Resolves an ExtResource id pointing at a BalloonLine .tres → the
+   *  Bleepforge-id form `<folder>/<basename>`, where <folder> is the
+   *  NPC robot model directory. Used for CasualRemark. Returning null
+   *  falls back to "" (cleared on import). */
+  resolveBalloonId?: (parsed: ParsedTres, extId: string) => string | null;
 }
 
 export function mapNpc(parsed: ParsedTres, ctx: NpcImportContext): Npc | null {
@@ -331,13 +336,41 @@ export function mapNpc(parsed: ParsedTres, ctx: NpcImportContext): Npc | null {
     }
   }
 
-  // CasualRemark: ext-resource path to a separate BalloonLine .tres. Kept as
-  // res:// path (no resolution needed — Bleepforge doesn't author balloons).
-  let CasualRemark = "";
-  const remarkVal = props.CasualRemark;
-  if (remarkVal?.kind === "ext_ref") {
-    const ext = parsed.extResources.get(remarkVal.id);
-    if (ext && ext.path) CasualRemark = ext.path;
+  // CasualRemarks: array of ext-resource refs to BalloonLine .tres files.
+  // Stored in JSON as an array of Bleepforge-id form `<folder>/<basename>` so
+  // the NPC form can pick from the balloon catalog (matches how dialog refs
+  // store DialogSequence Ids). Godot serializes this as
+  // `Array[Object]([ExtResource(...), ...])`.
+  //
+  // Backwards compat: older .tres files (pre-rename) carry a singular
+  // `CasualRemark = ExtResource(...)` line. We accept both forms and
+  // normalize to the new array. The writer always emits the plural form,
+  // so the next save migrates the file on disk too.
+  const resolveBalloon = (extId: string): string => {
+    if (ctx.resolveBalloonId) {
+      return ctx.resolveBalloonId(parsed, extId) ?? "";
+    }
+    // Single-file watcher path (no global map): derive from ext.path.
+    const ext = parsed.extResources.get(extId);
+    if (!ext || !ext.path) return "";
+    const m = ext.path.match(
+      /[/\\]characters[/\\]npcs[/\\]([^/\\]+)[/\\]balloons[/\\]([^/\\]+)\.tres$/,
+    );
+    return m ? `${m[1]}/${m[2]}` : "";
+  };
+
+  const CasualRemarks: string[] = [];
+  const plural = props.CasualRemarks;
+  const legacy = props.CasualRemark;
+  if (plural?.kind === "array") {
+    for (const item of plural.items) {
+      if (item.kind !== "ext_ref") continue;
+      const id = resolveBalloon(item.id);
+      if (id) CasualRemarks.push(id);
+    }
+  } else if (legacy?.kind === "ext_ref") {
+    const id = resolveBalloon(legacy.id);
+    if (id) CasualRemarks.push(id);
   }
 
   return {
@@ -353,7 +386,7 @@ export function mapNpc(parsed: ParsedTres, ctx: NpcImportContext): Npc | null {
     DeathImpactIdContextual: valueAsString(props.DeathImpactIdContextual) ?? "",
     ContextualFlag: valueAsString(props.ContextualFlag) ?? "",
     LootTable,
-    CasualRemark,
+    CasualRemarks,
     DidSpeakFlag: valueAsString(props.DidSpeakFlag) ?? "",
   };
 }
@@ -426,6 +459,25 @@ export function mapDialogSequence(parsed: ParsedTres): DialogSequence | null {
 /** Convert a Godot res:// path to an absolute filesystem path under the
  *  configured Godot project root. Used so AssetThumb can render imported
  *  Texture2D references without the user having to re-pick aseprite paths. */
+// ---- Balloons --------------------------------------------------------------
+
+// BalloonLine has no Id property in C# — the Bleepforge Id is the .tres
+// filename basename, derived by the caller (orchestrator / watcher) from the
+// path. This mapper just pulls out the three authored fields.
+export function mapBalloon(
+  parsed: ParsedTres,
+  basename: string,
+): import("@bleepforge/shared").Balloon | null {
+  if (parsed.scriptClass !== "BalloonLine") return null;
+  const props = parsed.resourceProps;
+  return {
+    Id: basename,
+    Text: valueAsString(props.Text) ?? "",
+    TypeSpeed: valueAsNumber(props.TypeSpeed) ?? 30,
+    HoldDuration: valueAsNumber(props.HoldDuration) ?? 2.0,
+  };
+}
+
 export function resPathToAbs(resPath: string, godotRoot?: string): string {
   if (!resPath.startsWith("res://")) return resPath;
   const root = godotRoot ?? process.env.GODOT_PROJECT_ROOT ?? "";

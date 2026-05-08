@@ -61,6 +61,17 @@ const DOMAIN: Record<SaveDomain, DomainRoute> = {
       return `/dialogs?folder=${encodeURIComponent(folder)}`;
     },
   },
+  balloon: {
+    label: "Balloon",
+    updated: (key) => {
+      const slash = key.indexOf("/");
+      if (slash < 0) return "/balloons";
+      const folder = key.slice(0, slash);
+      const id = key.slice(slash + 1);
+      return `/balloons/${encodeURIComponent(folder)}/${encodeURIComponent(id)}`;
+    },
+    deleted: () => "/balloons",
+  },
 };
 
 export function routeForSave(

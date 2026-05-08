@@ -16,7 +16,17 @@ export function NpcCard({ npc, className = "" }: Props) {
     npc.LootTable?.Entries.map((e) => pickupBasename(e.PickupScene)).filter(
       Boolean,
     ) ?? [];
-  const remarkName = casualRemarkBasename(npc.CasualRemark);
+  // CasualRemarks is now an array of "<folder>/<basename>" balloon ids.
+  // Each entry's basename is the most readable bit for the card; the
+  // tooltip carries the full id for disambiguation.
+  const remarkBasenames = npc.CasualRemarks.map(casualRemarkBasename).filter(
+    Boolean,
+  );
+  const remarksLabel =
+    remarkBasenames.length === 0
+      ? ""
+      : remarkBasenames.slice(0, 2).join(", ") +
+        (remarkBasenames.length > 2 ? ` +${remarkBasenames.length - 2}` : "");
 
   const hasReferences =
     npc.DefaultDialog ||
@@ -25,7 +35,7 @@ export function NpcCard({ npc, className = "" }: Props) {
     npc.DeathImpactIdContextual ||
     questIds.length > 0 ||
     lootNames.length > 0 ||
-    remarkName;
+    remarksLabel;
 
   const hasFlags = npc.OffendedFlag || npc.ContextualFlag || npc.DidSpeakFlag;
 
@@ -118,12 +128,14 @@ export function NpcCard({ npc, className = "" }: Props) {
               value={npc.DeathImpactIdContextual}
             />
           )}
-          {remarkName && (
+          {remarksLabel && (
             <RefLine
-              label="balloon"
+              label={
+                npc.CasualRemarks.length === 1 ? "balloon" : "balloons"
+              }
               labelClass="text-sky-400/70"
-              value={remarkName}
-              title={npc.CasualRemark}
+              value={remarksLabel}
+              title={npc.CasualRemarks.join(", ")}
             />
           )}
         </div>
@@ -192,9 +204,10 @@ function pickupBasename(path: string): string {
   return last.replace(/\.tscn$/i, "");
 }
 
-// res://characters/npcs/hap_500/balloons/happy_druid_greetings.tres → "happy_druid_greetings"
-function casualRemarkBasename(path: string): string {
-  if (!path) return "";
-  const last = path.split("/").pop() ?? "";
+// "<folder>/<basename>" → "<basename>". Empty in → empty out. Strips a
+// trailing .tres if present (defensive — current shape is bare basename).
+function casualRemarkBasename(ref: string): string {
+  if (!ref) return "";
+  const last = ref.split("/").pop() ?? "";
   return last.replace(/\.tres$/i, "");
 }

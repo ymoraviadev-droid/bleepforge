@@ -8,6 +8,7 @@ export const DL = {
   sequenceIds: "dlc-sequence-ids",
   flags: "dlc-flags",
   factions: "dlc-factions",
+  balloonIds: "dlc-balloon-ids",
 } as const;
 
 export function CatalogDatalists() {
@@ -56,6 +57,15 @@ export function CatalogDatalists() {
         {catalog.factions.map((f) => (
           <option key={f.Faction} value={f.Faction}>
             {f.DisplayName}
+          </option>
+        ))}
+      </datalist>
+      <datalist id={DL.balloonIds}>
+        {catalog.balloonRefs.map((b) => (
+          <option key={b.id} value={b.id}>
+            {b.balloon.Text.length > 40
+              ? `${b.balloon.Text.slice(0, 40)}…`
+              : b.balloon.Text || "(empty)"}
           </option>
         ))}
       </datalist>

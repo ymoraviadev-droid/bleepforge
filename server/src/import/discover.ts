@@ -28,6 +28,11 @@ export interface Discovery {
   npcs: string[];
   /** Bleepforge folder name (parent dir basename) → DialogSequence .tres paths. */
   dialogs: Map<string, string[]>;
+  /** Bleepforge folder name (NPC model — grandparent dir of the .tres) →
+   *  BalloonLine .tres paths. The convention is
+   *  `characters/npcs/<model>/balloons/<basename>.tres`, so the immediate
+   *  parent must be named "balloons" for the file to qualify. */
+  balloons: Map<string, string[]>;
 }
 
 const SCRIPT_CLASS_RE = /script_class="([^"]+)"/;
@@ -59,6 +64,7 @@ export async function discoverGodotContent(godotRoot: string): Promise<Discovery
     factions: [],
     npcs: [],
     dialogs: new Map(),
+    balloons: new Map(),
   };
 
   await walk(godotRoot, out);
@@ -107,6 +113,19 @@ async function walk(dir: string, out: Discovery): Promise<void> {
         const list = out.dialogs.get(folder) ?? [];
         list.push(full);
         out.dialogs.set(folder, list);
+        continue;
+      }
+      case "BalloonLine": {
+        // Convention: .tres lives at characters/npcs/<model>/balloons/<basename>.tres.
+        // Group by <model> (the grandparent dir). Skip files outside that
+        // convention so we don't accidentally bucket unrelated BalloonLines
+        // (defensive — the corpus only has the convention today).
+        const parentDir = path.dirname(full);
+        if (path.basename(parentDir) !== "balloons") continue;
+        const folder = path.basename(path.dirname(parentDir));
+        const list = out.balloons.get(folder) ?? [];
+        list.push(full);
+        out.balloons.set(folder, list);
         continue;
       }
     }

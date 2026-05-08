@@ -98,6 +98,25 @@ export function computeIssues(catalog: Catalog): Issue[] {
     });
   }
 
+  // ---- NPCs: dangling CasualRemarks refs ----
+  // Each entry in the array must resolve to a balloon that actually exists.
+  // If a balloon .tres is renamed or removed in Godot, the CasualRemarks
+  // entry goes stale and Godot would either fail to load or pick a
+  // null/missing balloon at runtime.
+  const balloonIds = new Set(catalog.balloonRefs.map((b) => b.id));
+  for (const npc of catalog.npcs) {
+    npc.CasualRemarks.forEach((ref, ri) => {
+      if (!ref) return;
+      if (balloonIds.has(ref)) return;
+      issues.push({
+        domain: "Npc",
+        severity: "error",
+        description: `NPC "${npc.NpcId}" CasualRemarks #${ri + 1} = "${ref}" — no balloon with that id`,
+        link: `/npcs/${encodeURIComponent(npc.NpcId)}`,
+      });
+    });
+  }
+
   // ---- Items ----
   for (const it of catalog.items) {
     if (it.Category === "QuestItem" && it.QuestId && !questIds.has(it.QuestId)) {

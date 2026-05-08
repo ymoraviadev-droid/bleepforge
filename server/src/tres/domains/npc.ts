@@ -48,7 +48,10 @@ export const NPC_FIELD_ORDER: readonly string[] = [
   "DeathImpactIdContextual",
   "ContextualFlag",
   "LootTable",
+  // Legacy singular kept first so unmigrated files reconcile (we always
+  // remove it on save), then the canonical plural for the new shape.
   "CasualRemark",
+  "CasualRemarks",
   "DidSpeakFlag",
   "metadata/_custom_type_script",
 ];
@@ -169,6 +172,96 @@ export function applyNpcScalars(section: Section, json: NpcJson): ApplyResult {
     actions.push({ key: rule.key, action });
   }
   return { actions, warnings: [] };
+}
+
+// ---- CasualRemarks (array of BalloonLine ext-resource refs) ---------------
+
+export interface CasualRemarksApplyContext {
+  /** Resolves a Bleepforge balloon id (`<folder>/<basename>`) to the
+   *  res:// path + UID needed to declare its ext_resource. Returns null
+   *  when the .tres can't be located on disk — caller emits a warning and
+   *  drops that entry rather than corrupting the file. */
+  resolveBalloonRef(balloonId: string): { resPath: string; uid: string } | null;
+}
+
+export function applyNpcCasualRemarks(
+  doc: Doc,
+  resourceSection: Section,
+  casualRemarks: string[],
+  ctx: CasualRemarksApplyContext,
+): ApplyResult {
+  const warnings: string[] = [];
+  const actions: ApplyResult["actions"] = [];
+
+  // Always remove the legacy singular line — the writer's contract is "the
+  // .tres is in the new shape after save." If the JSON has no remarks at
+  // all, the plural property is also dropped and orphan-cleanup removes the
+  // ext_resource.
+  const action = reconcileProperty(
+    resourceSection,
+    "CasualRemark",
+    null,
+    NPC_FIELD_ORDER,
+  );
+  if (action !== "noop") actions.push({ key: "CasualRemark", action });
+
+  if (casualRemarks.length === 0) {
+    actions.push({
+      key: "CasualRemarks",
+      action: reconcileProperty(
+        resourceSection,
+        "CasualRemarks",
+        null,
+        NPC_FIELD_ORDER,
+      ),
+    });
+    return { actions, warnings };
+  }
+
+  // Resolve every balloon id, find-or-create its ext_resource, collect the
+  // ExtResource ids in order. If a balloon can't be resolved we skip it and
+  // warn — preserving the rest of the array beats writing a dangling ref.
+  const extIds: string[] = [];
+  for (const balloonId of casualRemarks) {
+    const ref = ctx.resolveBalloonRef(balloonId);
+    if (!ref) {
+      warnings.push(
+        `CasualRemarks: skipping "${balloonId}" — could not resolve to a BalloonLine .tres`,
+      );
+      continue;
+    }
+    const id = ensureBalloonExt(doc, ref.resPath, ref.uid);
+    extIds.push(id);
+  }
+
+  const refList = extIds.map((id) => `ExtResource("${id}")`).join(", ");
+  // `Array[Object](...)` — the type tag Godot writes for `Array<Resource>`
+  // collections of ext_resources (BalloonLine here). Mirror exactly.
+  const rawValue = `Array[Object]([${refList}])`;
+  actions.push({
+    key: "CasualRemarks",
+    action: reconcileProperty(
+      resourceSection,
+      "CasualRemarks",
+      rawValue,
+      NPC_FIELD_ORDER,
+    ),
+  });
+  return { actions, warnings };
+}
+
+// Reuse an existing `[ext_resource type="Resource" path="<resPath>"]` (any
+// existing ref to the same balloon `.tres`) or add one. Returns the
+// ExtResource id we should refer to the balloon by.
+function ensureBalloonExt(doc: Doc, resPath: string, uid: string): string {
+  for (const s of doc.sections) {
+    if (s.kind !== "ext_resource") continue;
+    if (getAttrValue(s, "type") !== "Resource") continue;
+    if (getAttrValue(s, "path") !== resPath) continue;
+    const id = getAttrValue(s, "id");
+    if (id) return id;
+  }
+  return addExtResource(doc, { type: "Resource", uid, path: resPath });
 }
 
 // ---- LootTable reconciler --------------------------------------------------

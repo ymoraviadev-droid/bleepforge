@@ -67,12 +67,14 @@ export function NpcRow({ npc, className = "" }: Props) {
             {lootCount}× loot
           </Badge>
         )}
-        {npc.CasualRemark && (
+        {npc.CasualRemarks.length > 0 && (
           <Badge
             className="border-sky-800 bg-sky-950/50 text-sky-200"
-            title="Has a casual remark balloon"
+            title={`${npc.CasualRemarks.length} casual remark balloon${npc.CasualRemarks.length === 1 ? "" : "s"}`}
           >
-            balloon
+            {npc.CasualRemarks.length === 1
+              ? "balloon"
+              : `${npc.CasualRemarks.length}× balloons`}
           </Badge>
         )}
         {npc.DeathImpactId && (

@@ -15,6 +15,24 @@ export async function readItemUid(godotRoot: string, slug: string): Promise<stri
   return readGdResourceUid(path);
 }
 
+// Reads the BalloonLine .tres at `characters/npcs/<folder>/balloons/<basename>.tres`
+// and extracts its UID. Returns null if the file is missing.
+export async function readBalloonUid(
+  godotRoot: string,
+  folder: string,
+  basename: string,
+): Promise<string | null> {
+  const path = join(
+    godotRoot,
+    "characters",
+    "npcs",
+    folder,
+    "balloons",
+    `${basename}.tres`,
+  );
+  return readGdResourceUid(path);
+}
+
 // Reads `<absPngPath>.import` and extracts the UID under [remap]. Godot
 // stores texture UIDs in the .import sidecar, not the PNG itself.
 // `absPngPath` is the absolute filesystem path of the PNG.

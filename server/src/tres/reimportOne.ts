@@ -9,6 +9,7 @@ import { dirname, sep } from "node:path";
 import { folderAbs } from "../config.js";
 import { parseTres } from "./parser.js";
 import {
+  mapBalloon,
   mapDialogSequence,
   mapFaction,
   mapItem,
@@ -77,6 +78,15 @@ export function detectDomain(absPath: string): {
     /[/\\]characters[/\\]npcs[/\\]([^/\\]+)[/\\]data[/\\]([^/\\]+)\.tres$/,
   );
   if (npcMatch) return { domain: "npc", key: npcMatch[2]! };
+
+  // Balloons: characters/npcs/<model>/balloons/<basename>.tres. Key is the
+  // composite Bleepforge id "<model>/<basename>" — same scheme as dialogs.
+  const balloonMatch = absPath.match(
+    /[/\\]characters[/\\]npcs[/\\]([^/\\]+)[/\\]balloons[/\\]([^/\\]+)\.tres$/,
+  );
+  if (balloonMatch) {
+    return { domain: "balloon", key: `${balloonMatch[1]}/${balloonMatch[2]}` };
+  }
 
   return null;
 }
@@ -165,6 +175,17 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
       await writeJson(jsonPath, dialog);
       return { ok: true, domain: "dialog", key: detected.key, jsonPath };
     }
+    case "balloon": {
+      const [folder, basename] = detected.key.split("/");
+      if (!folder || !basename) {
+        return { ok: false, error: "malformed balloon key" };
+      }
+      const balloon = mapBalloon(parsed, basename);
+      if (!balloon) return { ok: false, error: "mapBalloon returned null" };
+      const jsonPath = `${folderAbs.balloon}${sep}${folder}${sep}${balloon.Id}.json`;
+      await writeJson(jsonPath, balloon);
+      return { ok: true, domain: "balloon", key: detected.key, jsonPath };
+    }
     default:
       return { ok: false, error: `unhandled domain ${detected.domain}` };
   }
@@ -216,6 +237,11 @@ export async function deleteJsonFor(absPath: string): Promise<ReimportResult> {
     case "dialog": {
       const [folder, id] = detected.key.split("/");
       jsonPath = `${folderAbs.dialog}${sep}${folder}${sep}${id}.json`;
+      break;
+    }
+    case "balloon": {
+      const [folder, id] = detected.key.split("/");
+      jsonPath = `${folderAbs.balloon}${sep}${folder}${sep}${id}.json`;
       break;
     }
     default:

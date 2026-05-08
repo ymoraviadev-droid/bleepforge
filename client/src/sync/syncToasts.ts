@@ -62,6 +62,18 @@ const DOMAIN: Record<SyncDomain, DomainInfo> = {
       return `/dialogs?folder=${encodeURIComponent(folder)}`;
     },
   },
+  balloon: {
+    label: "Balloon",
+    // key is "<folder>/<id>" — same split rules as dialog.
+    updatedRoute: (key) => {
+      const slash = key.indexOf("/");
+      if (slash < 0) return "/balloons";
+      const folder = key.slice(0, slash);
+      const id = key.slice(slash + 1);
+      return `/balloons/${encodeURIComponent(folder)}/${encodeURIComponent(id)}`;
+    },
+    deletedRoute: () => "/balloons",
+  },
 };
 
 function toToastBody(domain: SyncDomain, key: string): string {

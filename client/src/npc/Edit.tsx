@@ -12,6 +12,7 @@ import { AssetPicker } from "../AssetPicker";
 import { AssetThumb } from "../AssetThumb";
 import { Button, ButtonLink } from "../Button";
 import { DL } from "../CatalogDatalists";
+import { useCatalog } from "../useCatalog";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { showConfirm } from "../Modal";
 import { button, fieldLabel, textInput } from "../ui";
@@ -29,7 +30,7 @@ const empty = (): Npc => ({
   DeathImpactIdContextual: "",
   ContextualFlag: "",
   LootTable: null,
-  CasualRemark: "",
+  CasualRemarks: [],
   DidSpeakFlag: "",
 });
 
@@ -237,20 +238,15 @@ export function NpcEdit() {
         </div>
       </Section>
 
-      <Section title="Misc">
-        <div className="grid grid-cols-1 gap-4">
-          <Field
-            label="CasualRemark"
-            hint="res:// path to a BalloonLine .tres"
-          >
-            <input
-              value={npc.CasualRemark}
-              onChange={(e) => update({ CasualRemark: e.target.value })}
-              placeholder='e.g. res://characters/npcs/.../greeting.tres'
-              className={`${textInput} font-mono text-xs`}
-            />
-          </Field>
-        </div>
+      <Section title="Casual remarks">
+        <p className="mb-2 text-xs text-neutral-500">
+          What this NPC says when the player walks up. Game picks one at
+          random per encounter.
+        </p>
+        <CasualRemarksEditor
+          remarks={npc.CasualRemarks}
+          onChange={(CasualRemarks) => update({ CasualRemarks })}
+        />
       </Section>
 
       <QuestsEditor
@@ -299,6 +295,112 @@ function Field({
       {children}
       {hint && <p className="mt-0.5 text-[10px] text-neutral-500">{hint}</p>}
     </label>
+  );
+}
+
+// Editable CasualRemarks[]. Array of balloon-ids in Bleepforge form
+// "<folder>/<basename>" — each is an autocomplete input backed by
+// DL.balloonIds, plus a small preview of the balloon's Text so the user
+// sees what the NPC would say without leaving the page. Reorder via
+// up/down buttons (Godot's Array<BalloonLine> is order-significant for
+// random selection in the sense that all entries are equally weighted —
+// but order helps the user keep mental sort).
+function CasualRemarksEditor({
+  remarks,
+  onChange,
+}: {
+  remarks: string[];
+  onChange: (next: string[]) => void;
+}) {
+  const catalog = useCatalog();
+  const balloonByRef = new Map(
+    (catalog?.balloonRefs ?? []).map((b) => [b.id, b.balloon] as const),
+  );
+
+  const update = (idx: number, value: string) => {
+    onChange(remarks.map((r, i) => (i === idx ? value : r)));
+  };
+  const remove = (idx: number) => {
+    onChange(remarks.filter((_, i) => i !== idx));
+  };
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = [...remarks];
+    const swap = idx + dir;
+    if (swap < 0 || swap >= next.length) return;
+    [next[idx], next[swap]] = [next[swap]!, next[idx]!];
+    onChange(next);
+  };
+  const add = () => onChange([...remarks, ""]);
+
+  return (
+    <div className="space-y-2">
+      {remarks.length === 0 && (
+        <p className="text-xs italic text-neutral-600">
+          No remarks. Add one to give this NPC something to say when the
+          player walks up.
+        </p>
+      )}
+      {remarks.map((ref, idx) => {
+        const balloon = balloonByRef.get(ref);
+        return (
+          <div
+            key={idx}
+            className="grid grid-cols-[1fr_auto_auto_auto] gap-2 rounded border border-neutral-800 p-2"
+          >
+            <div>
+              <input
+                value={ref}
+                onChange={(e) => update(idx, e.target.value)}
+                list={DL.balloonIds}
+                placeholder="<folder>/<id>, e.g. hap_500/eddie_greetings"
+                className={`${textInput} font-mono text-xs`}
+              />
+              {balloon ? (
+                <p className="mt-1 line-clamp-2 wrap-break-word font-mono text-[11px] text-neutral-300">
+                  &ldquo;{balloon.Text || "(empty)"}&rdquo;
+                </p>
+              ) : ref ? (
+                <p className="mt-1 font-mono text-[10px] text-red-400">
+                  no balloon with that id
+                </p>
+              ) : null}
+            </div>
+            <button
+              type="button"
+              onClick={() => move(idx, -1)}
+              disabled={idx === 0}
+              title="move up"
+              className="self-start rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              onClick={() => move(idx, 1)}
+              disabled={idx === remarks.length - 1}
+              title="move down"
+              className="self-start rounded px-2 py-1 text-xs text-neutral-400 hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              ↓
+            </button>
+            <button
+              type="button"
+              onClick={() => remove(idx)}
+              className="self-start rounded px-2 py-1 text-xs text-red-400 hover:bg-red-950/40 hover:text-red-300"
+            >
+              Remove
+            </button>
+          </div>
+        );
+      })}
+      <button
+        type="button"
+        onClick={add}
+        className={`${button} bg-neutral-800 text-neutral-100 hover:bg-neutral-700`}
+      >
+        + Remark
+      </button>
+    </div>
   );
 }
 

@@ -11,6 +11,8 @@ import { ConceptEdit } from "./concept/Edit";
 import { DialogList } from "./dialog/List";
 import { DialogEdit } from "./dialog/Edit";
 import { DialogGraph } from "./dialog/Graph";
+import { BalloonList } from "./balloon/List";
+import { BalloonEdit } from "./balloon/Edit";
 import { DiagnosticsIcon } from "./diagnostics/DiagnosticsIcon";
 import { DiagnosticsPage } from "./diagnostics/DiagnosticsPage";
 import { useDiagnostics } from "./diagnostics/useDiagnostics";
@@ -155,6 +157,9 @@ export function App() {
           <NavLink to="/dialogs" className={navLinkClass}>
             Dialogs
           </NavLink>
+          <NavLink to="/balloons" className={navLinkClass}>
+            Balloons
+          </NavLink>
           <NavLink to="/items" className={navLinkClass}>
             Items
           </NavLink>
@@ -202,6 +207,9 @@ export function App() {
           <Route path="/dialogs/list" element={<DialogList />} />
           <Route path="/dialogs/new" element={<DialogEdit />} />
           <Route path="/dialogs/:folder/:id" element={<DialogEdit />} />
+          <Route path="/balloons" element={<BalloonList />} />
+          <Route path="/balloons/new" element={<BalloonEdit />} />
+          <Route path="/balloons/:folder/:basename" element={<BalloonEdit />} />
           <Route path="/quests" element={<QuestList />} />
           <Route path="/quests/new" element={<QuestEdit />} />
           <Route path="/quests/:id" element={<QuestEdit />} />

@@ -24,7 +24,7 @@ export interface ReconcileStatus {
    *  Per-file errors don't flip this — they're collected in errorDetails. */
   ok: boolean;
   perDomain: Record<
-    "items" | "quests" | "karma" | "factions" | "dialogs" | "npcs",
+    "items" | "quests" | "karma" | "factions" | "dialogs" | "npcs" | "balloons",
     DomainCounts
   >;
   errorDetails: { domain: string; file: string; error: string }[];
