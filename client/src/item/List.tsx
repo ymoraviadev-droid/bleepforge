@@ -4,7 +4,9 @@ import { itemsApi } from "../api";
 import { ButtonLink } from "../Button";
 import { textInput } from "../ui";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
+import { useViewMode, ViewToggle } from "../ViewToggle";
 import { ItemCard } from "./ItemCard";
+import { ItemRow } from "./ItemRow";
 
 const CATEGORIES: ItemCategory[] = [
   "Misc",
@@ -28,6 +30,7 @@ export function ItemList() {
   const [search, setSearch] = useState("");
   const [enabled, setEnabled] = useState<Set<ItemCategory>>(new Set(CATEGORIES));
   const [sortBy, setSortBy] = useState<SortBy>("slug");
+  const [view, setView] = useViewMode("item");
 
   useEffect(() => {
     itemsApi.list().then(setItems).catch((e) => setError(String(e)));
@@ -83,7 +86,10 @@ export function ItemList() {
             {totalShown !== items.length ? ` / ${items.length}` : ""})
           </span>
         </h1>
-        <ButtonLink to="/items/new">New</ButtonLink>
+        <div className="flex items-center gap-2">
+          <ViewToggle mode={view} onChange={setView} />
+          <ButtonLink to="/items/new">New</ButtonLink>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -151,11 +157,19 @@ export function ItemList() {
                     ({list.length})
                   </span>
                 </h2>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {list.map((item) => (
-                    <ItemCard key={item.Slug} item={item} />
-                  ))}
-                </div>
+                {view === "cards" ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {list.map((item) => (
+                      <ItemCard key={item.Slug} item={item} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {list.map((item) => (
+                      <ItemRow key={item.Slug} item={item} />
+                    ))}
+                  </div>
+                )}
               </section>
             );
           })}

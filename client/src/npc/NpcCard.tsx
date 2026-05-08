@@ -8,9 +8,26 @@ interface Props {
   className?: string;
 }
 
+const MAX_INLINE = 3;
+
 export function NpcCard({ npc, className = "" }: Props) {
-  const lootCount = npc.LootTable?.Entries.length ?? 0;
-  const questCount = npc.Quests.length;
+  const questIds = npc.Quests.map((q) => q.QuestId).filter(Boolean);
+  const lootNames =
+    npc.LootTable?.Entries.map((e) => pickupBasename(e.PickupScene)).filter(
+      Boolean,
+    ) ?? [];
+  const remarkName = casualRemarkBasename(npc.CasualRemark);
+
+  const hasReferences =
+    npc.DefaultDialog ||
+    npc.OffendedDialog ||
+    npc.DeathImpactId ||
+    npc.DeathImpactIdContextual ||
+    questIds.length > 0 ||
+    lootNames.length > 0 ||
+    remarkName;
+
+  const hasFlags = npc.OffendedFlag || npc.ContextualFlag || npc.DidSpeakFlag;
 
   return (
     <Link
@@ -46,51 +63,97 @@ export function NpcCard({ npc, className = "" }: Props) {
         </div>
       </div>
 
-      {(questCount > 0 ||
-        lootCount > 0 ||
-        npc.DefaultDialog ||
-        npc.CasualRemark ||
-        npc.DeathImpactId) && (
-        <div className="flex flex-wrap gap-1.5">
-          {questCount > 0 && (
-            <Badge
-              className="border-amber-900 bg-amber-950/50 text-amber-200"
-              title={`${questCount} quest entries linked`}
-            >
-              {questCount}× quest
-            </Badge>
-          )}
+      {hasReferences && (
+        <div className="flex flex-col gap-0.5 font-mono text-[10px] text-neutral-400">
           {npc.DefaultDialog && (
-            <Badge
-              className="border-emerald-800 bg-emerald-950/50 text-emerald-200"
-              title={`Default dialog: ${npc.DefaultDialog}`}
-            >
-              dialog
-            </Badge>
+            <RefLine
+              label="dialog"
+              labelClass="text-emerald-400/70"
+              value={npc.DefaultDialog}
+            />
           )}
-          {npc.CasualRemark && (
-            <Badge
-              className="border-sky-800 bg-sky-950/50 text-sky-200"
-              title="Has a casual remark balloon"
-            >
-              balloon
-            </Badge>
+          {npc.OffendedDialog && (
+            <RefLine
+              label="offended"
+              labelClass="text-red-400/70"
+              value={npc.OffendedDialog}
+            />
           )}
-          {lootCount > 0 && (
-            <Badge
-              className="border-neutral-700 bg-neutral-800 text-neutral-200"
-              title={`${lootCount} loot entries`}
-            >
-              {lootCount}× loot
-            </Badge>
+          {questIds.length > 0 && (
+            <RefLine
+              label="quests"
+              labelClass="text-amber-400/70"
+              value={summarizeList(questIds, MAX_INLINE)}
+              title={questIds.join(", ")}
+            />
+          )}
+          {lootNames.length > 0 && (
+            <RefLine
+              label="loot"
+              labelClass="text-neutral-500"
+              value={summarizeList(lootNames, MAX_INLINE)}
+              title={lootNames.join(", ")}
+            />
           )}
           {npc.DeathImpactId && (
-            <Badge
-              className="border-red-800 bg-red-950/50 text-red-200"
-              title={`Death impact: ${npc.DeathImpactId}`}
+            <RefLine
+              label="karma"
+              labelClass="text-rose-400/70"
+              value={
+                npc.DeathImpactIdContextual
+                  ? `${npc.DeathImpactId} / ${npc.DeathImpactIdContextual}`
+                  : npc.DeathImpactId
+              }
+              title={
+                npc.DeathImpactIdContextual
+                  ? `default: ${npc.DeathImpactId}\ncontextual: ${npc.DeathImpactIdContextual}${npc.ContextualFlag ? ` (when ${npc.ContextualFlag})` : ""}`
+                  : npc.DeathImpactId
+              }
+            />
+          )}
+          {!npc.DeathImpactId && npc.DeathImpactIdContextual && (
+            <RefLine
+              label="karma+ctx"
+              labelClass="text-rose-400/70"
+              value={npc.DeathImpactIdContextual}
+            />
+          )}
+          {remarkName && (
+            <RefLine
+              label="balloon"
+              labelClass="text-sky-400/70"
+              value={remarkName}
+              title={npc.CasualRemark}
+            />
+          )}
+        </div>
+      )}
+
+      {hasFlags && (
+        <div className="flex flex-col gap-0.5 border-t border-neutral-800 pt-1.5 font-mono text-[9px] text-neutral-600">
+          {npc.OffendedFlag && (
+            <span
+              className="truncate"
+              title="OffendedFlag — switches NPC to OffendedDialog when set"
             >
-              karma
-            </Badge>
+              ⚑ OffendedFlag: {npc.OffendedFlag}
+            </span>
+          )}
+          {npc.ContextualFlag && (
+            <span
+              className="truncate"
+              title="ContextualFlag — when set, DeathImpactIdContextual fires instead of DeathImpactId"
+            >
+              ⚑ ContextualFlag: {npc.ContextualFlag}
+            </span>
+          )}
+          {npc.DidSpeakFlag && (
+            <span
+              className="truncate"
+              title="DidSpeakFlag — set the first time the player speaks to this NPC"
+            >
+              ⚑ DidSpeakFlag: {npc.DidSpeakFlag}
+            </span>
           )}
         </div>
       )}
@@ -98,21 +161,40 @@ export function NpcCard({ npc, className = "" }: Props) {
   );
 }
 
-function Badge({
-  className = "",
+function RefLine({
+  label,
+  labelClass,
+  value,
   title,
-  children,
 }: {
-  className?: string;
+  label: string;
+  labelClass: string;
+  value: string;
   title?: string;
-  children: React.ReactNode;
 }) {
   return (
-    <span
-      title={title}
-      className={`${className} inline-flex items-center rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide`}
-    >
-      {children}
-    </span>
+    <div className="flex gap-1.5 truncate" title={title}>
+      <span className={`${labelClass} shrink-0`}>{label}:</span>
+      <span className="truncate text-neutral-300">{value}</span>
+    </div>
   );
+}
+
+function summarizeList(items: string[], max: number): string {
+  if (items.length <= max) return items.join(", ");
+  return `${items.slice(0, max).join(", ")}, +${items.length - max}`;
+}
+
+// res://world/collectibles/medkit/medkit.tscn → "medkit"
+function pickupBasename(path: string): string {
+  if (!path) return "";
+  const last = path.split("/").pop() ?? "";
+  return last.replace(/\.tscn$/i, "");
+}
+
+// res://characters/npcs/hap_500/balloons/happy_druid_greetings.tres → "happy_druid_greetings"
+function casualRemarkBasename(path: string): string {
+  if (!path) return "";
+  const last = path.split("/").pop() ?? "";
+  return last.replace(/\.tres$/i, "");
 }

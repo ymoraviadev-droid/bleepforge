@@ -4,6 +4,8 @@ import { CatalogDatalists } from "./CatalogDatalists";
 import { ContextMenuHost } from "./ContextMenu";
 import { ModalHost } from "./Modal";
 import { SplashScreen } from "./SplashScreen";
+import { ToastHost } from "./Toast";
+import { useSyncToasts } from "./sync/syncToasts";
 import { ConceptView } from "./concept/View";
 import { ConceptEdit } from "./concept/Edit";
 import { DialogList } from "./dialog/List";
@@ -112,6 +114,10 @@ export function App() {
   // when clean, urgent when not.
   const diagnostics = useDiagnostics();
 
+  // Bridge .tres-save SSE events into pixel toasts. Mounted at App root so
+  // every page gets the same notification surface.
+  useSyncToasts();
+
   if (showSplash) {
     return <SplashScreen onDone={() => setShowSplash(false)} />;
   }
@@ -186,6 +192,7 @@ export function App() {
       <CatalogDatalists />
       <ModalHost />
       <ContextMenuHost />
+      <ToastHost />
       <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <Routes>
           <Route path="/" element={<Navigate to="/concept" replace />} />

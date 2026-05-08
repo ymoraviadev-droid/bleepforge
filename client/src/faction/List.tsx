@@ -3,7 +3,9 @@ import type { FactionData } from "@bleepforge/shared";
 import { factionsApi } from "../api";
 import { ButtonLink } from "../Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
+import { useViewMode, ViewToggle } from "../ViewToggle";
 import { FactionCard } from "./FactionCard";
+import { FactionRow } from "./FactionRow";
 
 // Stable display order — matches the C# Faction enum declaration so the cards
 // always read in the canonical order regardless of import order.
@@ -12,6 +14,7 @@ const ORDER: FactionData["Faction"][] = ["Scavengers", "FreeRobots", "RFF", "Gro
 export function FactionList() {
   const [factions, setFactions] = useState<FactionData[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useViewMode("faction");
 
   useEffect(() => {
     factionsApi.list().then(setFactions).catch((e) => setError(String(e)));
@@ -38,7 +41,10 @@ export function FactionList() {
             ({factions.length})
           </span>
         </h1>
-        <ButtonLink to="/factions/new">New</ButtonLink>
+        <div className="flex items-center gap-2">
+          <ViewToggle mode={view} onChange={setView} />
+          <ButtonLink to="/factions/new">New</ButtonLink>
+        </div>
       </div>
 
       {factions.length === 0 ? (
@@ -47,11 +53,19 @@ export function FactionList() {
           to import the four <span className="font-mono">FactionData</span> files from the project.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
-          {sorted.map((f) => (
-            <FactionCard key={f.Faction} faction={f} />
-          ))}
-        </div>
+        view === "cards" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3">
+            {sorted.map((f) => (
+              <FactionCard key={f.Faction} faction={f} />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {sorted.map((f) => (
+              <FactionRow key={f.Faction} faction={f} />
+            ))}
+          </div>
+        )
       )}
     </div>
   );

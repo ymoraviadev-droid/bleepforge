@@ -4,7 +4,9 @@ import { factionsApi, karmaApi } from "../api";
 import { ButtonLink } from "../Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { textInput } from "../ui";
+import { useViewMode, ViewToggle } from "../ViewToggle";
 import { KarmaCard } from "./KarmaCard";
+import { KarmaRow } from "./KarmaRow";
 
 type SortBy = "id" | "magnitude-desc" | "deltas-desc";
 
@@ -25,6 +27,7 @@ export function KarmaList() {
   const [search, setSearch] = useState("");
   const [factionFilter, setFactionFilter] = useState<Faction | "">("");
   const [sortBy, setSortBy] = useState<SortBy>("id");
+  const [view, setView] = useViewMode("karma");
 
   useEffect(() => {
     karmaApi.list().then(setImpacts).catch((e) => setError(String(e)));
@@ -115,7 +118,10 @@ export function KarmaList() {
             {totalShown !== impacts.length ? ` / ${impacts.length}` : ""})
           </span>
         </h1>
-        <ButtonLink to="/karma/new">New</ButtonLink>
+        <div className="flex items-center gap-2">
+          <ViewToggle mode={view} onChange={setView} />
+          <ButtonLink to="/karma/new">New</ButtonLink>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -164,15 +170,27 @@ export function KarmaList() {
           No karma impacts match the current filter.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filteredAndSorted.map((k) => (
-            <KarmaCard
-              key={k.Id}
-              impact={k}
-              factionsByEnum={factionsByEnum}
-            />
-          ))}
-        </div>
+        view === "cards" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredAndSorted.map((k) => (
+              <KarmaCard
+                key={k.Id}
+                impact={k}
+                factionsByEnum={factionsByEnum}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            {filteredAndSorted.map((k) => (
+              <KarmaRow
+                key={k.Id}
+                impact={k}
+                factionsByEnum={factionsByEnum}
+              />
+            ))}
+          </div>
+        )
       )}
     </div>
   );

@@ -4,7 +4,9 @@ import { npcsApi, questsApi } from "../api";
 import { ButtonLink } from "../Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { textInput } from "../ui";
+import { useViewMode, ViewToggle } from "../ViewToggle";
 import { QuestCard } from "./QuestCard";
+import { QuestRow } from "./QuestRow";
 
 const NO_GIVER_KEY = "__none__";
 const NO_GIVER_LABEL = "(no giver)";
@@ -25,6 +27,7 @@ export function QuestList() {
   const [search, setSearch] = useState("");
   const [giverFilter, setGiverFilter] = useState<string>("");
   const [sortBy, setSortBy] = useState<SortBy>("id");
+  const [view, setView] = useViewMode("quest");
 
   useEffect(() => {
     questsApi.list().then(setQuests).catch((e) => setError(String(e)));
@@ -137,7 +140,10 @@ export function QuestList() {
             {totalShown !== quests.length ? ` / ${quests.length}` : ""})
           </span>
         </h1>
-        <ButtonLink to="/quests/new">New</ButtonLink>
+        <div className="flex items-center gap-2">
+          <ViewToggle mode={view} onChange={setView} />
+          <ButtonLink to="/quests/new">New</ButtonLink>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -196,15 +202,27 @@ export function QuestList() {
                     ({list.length})
                   </span>
                 </h2>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {list.map((quest) => (
-                    <QuestCard
-                      key={quest.Id}
-                      quest={quest}
-                      giver={npcById.get(quest.QuestGiverId)}
-                    />
-                  ))}
-                </div>
+                {view === "cards" ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {list.map((quest) => (
+                      <QuestCard
+                        key={quest.Id}
+                        quest={quest}
+                        giver={npcById.get(quest.QuestGiverId)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {list.map((quest) => (
+                      <QuestRow
+                        key={quest.Id}
+                        quest={quest}
+                        giver={npcById.get(quest.QuestGiverId)}
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
             );
           })}

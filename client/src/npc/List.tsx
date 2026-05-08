@@ -4,7 +4,9 @@ import { npcsApi } from "../api";
 import { ButtonLink } from "../Button";
 import { useSyncRefresh } from "../sync/useSyncRefresh";
 import { textInput } from "../ui";
+import { useViewMode, ViewToggle } from "../ViewToggle";
 import { NpcCard } from "./NpcCard";
+import { NpcRow } from "./NpcRow";
 
 const NO_MODEL_KEY = "__none__";
 const NO_MODEL_LABEL = "(no model)";
@@ -23,6 +25,7 @@ export function NpcList() {
   const [search, setSearch] = useState("");
   const [modelFilter, setModelFilter] = useState<string>("");
   const [sortBy, setSortBy] = useState<SortBy>("id");
+  const [view, setView] = useViewMode("npc");
 
   useEffect(() => {
     npcsApi.list().then(setNpcs).catch((e) => setError(String(e)));
@@ -114,7 +117,10 @@ export function NpcList() {
             {totalShown !== npcs.length ? ` / ${npcs.length}` : ""})
           </span>
         </h1>
-        <ButtonLink to="/npcs/new">New</ButtonLink>
+        <div className="flex items-center gap-2">
+          <ViewToggle mode={view} onChange={setView} />
+          <ButtonLink to="/npcs/new">New</ButtonLink>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
@@ -177,11 +183,19 @@ export function NpcList() {
                     ({list.length})
                   </span>
                 </h2>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {list.map((n) => (
-                    <NpcCard key={n.NpcId} npc={n} />
-                  ))}
-                </div>
+                {view === "cards" ? (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {list.map((n) => (
+                      <NpcCard key={n.NpcId} npc={n} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {list.map((n) => (
+                      <NpcRow key={n.NpcId} npc={n} />
+                    ))}
+                  </div>
+                )}
               </section>
             );
           })}
