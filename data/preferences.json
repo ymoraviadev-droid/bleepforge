@@ -9,10 +9,10 @@
     },
     {
       "name": "my_favourite",
-      "colorTheme": "cyan",
+      "colorTheme": "blue",
       "font": "pixelify",
       "fontSize": 1,
-      "letterSpacing": 0.07
+      "letterSpacing": 0.13
     }
   ],
   "activeName": "my_favourite",
