@@ -3,6 +3,7 @@ import { NavLink, Navigate, Route, Routes } from "react-router";
 import { CatalogDatalists } from "./components/CatalogDatalists";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { Footer } from "./components/Footer";
 import { ModalHost } from "./components/Modal";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { SplashScreen } from "./components/SplashScreen";
@@ -200,8 +201,9 @@ export function App() {
       <ModalHost />
       <ContextMenuHost />
       <ToastHost />
-      <main className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+      <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <ErrorBoundary>
+        <div className="flex-1 px-6 py-6">
         <Routes>
           <Route path="/" element={<Navigate to="/concept" replace />} />
           <Route path="/concept" element={<ConceptView />} />
@@ -242,6 +244,8 @@ export function App() {
           <Route path="/boom" element={<Boom />} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
+        </div>
+        <Footer />
         </ErrorBoundary>
       </main>
     </div>
