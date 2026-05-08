@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { NavLink, Navigate, Route, Routes } from "react-router";
+import { AppSearch } from "./components/AppSearch";
 import { CatalogDatalists } from "./components/CatalogDatalists";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { ErrorBoundary } from "./components/ErrorBoundary";
@@ -173,6 +174,7 @@ export function App() {
           </NavLink>
         </nav>
         <div className="flex-1" />
+        <AppSearch />
         <NavLink
           to="/diagnostics"
           className={diagNavClass(diagnostics.overall)}
