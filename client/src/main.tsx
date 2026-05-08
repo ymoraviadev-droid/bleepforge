@@ -8,6 +8,7 @@ import "./styles/GlobalTheme"; // reconciles legacy keys → server-backed prefe
 import "./styles/index.css";
 import { startSyncStream } from "./lib/sync/stream";
 import { startSavesStream } from "./lib/saves/stream";
+import { startAssetStream } from "./lib/assets/stream";
 import { refreshCatalog } from "./lib/catalog-bus";
 
 // Open the live-sync SSE channel once at startup. Components subscribe via
@@ -16,6 +17,8 @@ startSyncStream();
 // Same pattern, separate channel — saves cover both directions, so this
 // drives the live updates in the Diagnostics → Saves tab.
 startSavesStream();
+// Third channel — image-asset add/change/remove for the gallery.
+startAssetStream();
 
 // Refresh the autocomplete catalog on any external change so datalists
 // stay current with the data the user just saw flow in from Godot.

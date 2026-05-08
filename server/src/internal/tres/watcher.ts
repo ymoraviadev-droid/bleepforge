@@ -1,16 +1,22 @@
-// Watches GODOT_PROJECT_ROOT for .tres changes via chokidar.
-//
-// chokidar v5 dropped glob support — pass the root directory and filter via
-// the `ignored` predicate. We ignore non-.tres files and the .godot cache
-// directory (lots of churn from Godot's import pipeline; nothing we want).
+// Watches GODOT_PROJECT_ROOT for .tres AND image-asset changes via
+// chokidar. Two routes off one stream:
+//   - .tres → reimport into JSON cache, publish a SyncEvent for game-data
+//     listeners (toasts, list refreshes).
+//   - images (.png / .svg / …) → upsert the asset cache, publish an
+//     AssetEvent for the gallery to refresh in place.
+// Anything else (the .godot cache, .import sidecars, .uid files, scripts)
+// is filtered at the chokidar level so we don't pay event cost for them.
 //
 // Self-write suppression (via writer.ts's recentSelfWrites map) prevents
-// our own save flow from triggering a useless re-import loop.
+// our own .tres save flow from triggering a useless re-import loop.
 
 import chokidar, { type FSWatcher } from "chokidar";
 import type { Stats } from "node:fs";
 
 import { config } from "../../config.js";
+import { removeImage, upsertImage } from "../../lib/assets/cache.js";
+import { isImagePath } from "../../lib/assets/discover.js";
+import { publishAssetEvent } from "../../lib/assets/eventBus.js";
 import { recordSave } from "../../lib/saves/buffer.js";
 import { publishSyncEvent } from "../../lib/sync/eventBus.js";
 import { detectDomain, deleteJsonFor, reimportOne } from "./reimportOne.js";
@@ -79,9 +85,16 @@ export function startTresWatcher(): void {
   const root = config.godotProjectRoot!;
 
   watcher = chokidar.watch(root, {
-    ignored: (path: string, stats?: Stats): boolean => {
-      if (path.includes("/.godot/") || path.endsWith("/.godot")) return true;
-      if (stats?.isFile() && !path.endsWith(".tres")) return true;
+    ignored: (p: string, stats?: Stats): boolean => {
+      if (p.includes("/.godot/") || p.endsWith("/.godot")) return true;
+      if (stats?.isFile()) {
+        // Pass through .tres + image files. Filter everything else
+        // (sidecars, scripts, .uid files, scenes — the watcher feeds
+        // two cache pipelines and only those file types matter).
+        if (p.endsWith(".tres")) return false;
+        if (isImagePath(p)) return false;
+        return true;
+      }
       return false;
     },
     ignoreInitial: true,
@@ -108,16 +121,20 @@ export function startTresWatcher(): void {
   });
   watcher.on("ready", () => {
     const watched = watcher?.getWatched();
-    let count = 0;
+    let tresCount = 0;
+    let imageCount = 0;
     if (watched) {
       for (const dir of Object.keys(watched)) {
         for (const f of watched[dir]!) {
-          if (f.endsWith(".tres")) count++;
+          if (f.endsWith(".tres")) tresCount++;
+          else if (isImagePath(f)) imageCount++;
         }
       }
     }
-    watchedFileCount = count;
-    console.log(`[tres-watcher] active on ${root} — watching ${count} .tres files`);
+    watchedFileCount = tresCount;
+    console.log(
+      `[tres-watcher] active on ${root} — watching ${tresCount} .tres + ${imageCount} image files`,
+    );
   });
 }
 
@@ -129,6 +146,26 @@ export function stopTresWatcher(): void {
 }
 
 async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<void> {
+  // Image files take a separate, much simpler path: refresh the asset
+  // cache entry and publish an AssetEvent. No domain detection, no
+  // self-write suppression (Bleepforge doesn't write images yet — Phase 3).
+  if (isImagePath(absPath)) {
+    if (kind === "unlink") {
+      if (removeImage(absPath)) {
+        publishAssetEvent({ kind: "removed", path: absPath });
+      }
+      return;
+    }
+    const updated = await upsertImage(absPath);
+    if (updated) {
+      publishAssetEvent({
+        kind: kind === "add" ? "added" : "changed",
+        path: absPath,
+      });
+    }
+    return;
+  }
+
   if (!absPath.endsWith(".tres")) return;
   const ts = new Date().toISOString();
 

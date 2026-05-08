@@ -501,3 +501,141 @@ export const balloonsApi = {
     refreshCatalog();
   },
 };
+
+// Image-asset descriptor mirroring server/src/lib/assets/types.ts. The
+// gallery fetches /api/assets/images and renders a card per entry; the
+// SSE channel pushes single-file deltas as the watcher catches them.
+export type ImageFormat = "png" | "jpg" | "webp" | "gif" | "svg" | "bmp";
+
+export interface ImageAsset {
+  path: string;
+  basename: string;
+  parentDir: string;
+  parentRel: string;
+  format: ImageFormat;
+  uid: string | null;
+  width: number | null;
+  height: number | null;
+  sizeBytes: number;
+  mtimeMs: number;
+}
+
+export interface ImagesResponse {
+  rebuiltAt: string | null;
+  images: ImageAsset[];
+}
+
+// Reference back-link from a single asset to a place that points at it.
+// Used by the gallery's "used by N" drawer to answer "where is this image
+// used?" — a question Godot itself can't easily answer, since references
+// span both .tres files and Bleepforge's JSON cache.
+export type AssetUsageDomain =
+  | "item"
+  | "karma"
+  | "quest"
+  | "dialog"
+  | "npc"
+  | "faction"
+  | "balloon"
+  | "concept";
+
+export interface AssetUsage {
+  kind: "tres" | "tscn" | "json";
+  domain: AssetUsageDomain | null;
+  key: string | null;
+  file: string;
+  snippet: string;
+}
+
+export interface UsagesResponse {
+  asset: ImageAsset | null;
+  usages: AssetUsage[];
+}
+
+// Folder picker response — used by the importer to pick a destination
+// inside the Godot project. Server filters to directories and excludes
+// dot-dirs, so the picker UI just renders what comes back.
+export interface FoldersResponse {
+  cwd: string;
+  cwdRel: string;
+  parent: string | null;
+  root: string;
+  dirs: { name: string; path: string }[];
+}
+
+export interface ImportResult {
+  ok: boolean;
+  path: string;
+  sizeBytes: number;
+  overwritten: boolean;
+}
+
+export const assetsApi = {
+  listImages: async (): Promise<ImagesResponse> => {
+    const r = await fetch("/api/assets/images");
+    if (!r.ok) throw new Error(`list images failed: ${r.status}`);
+    return r.json();
+  },
+  usages: async (path: string): Promise<UsagesResponse> => {
+    const r = await fetch(`/api/assets/usages?path=${encodeURIComponent(path)}`);
+    if (!r.ok) throw new Error(`get usages failed: ${r.status}`);
+    return r.json();
+  },
+  usageCounts: async (): Promise<Record<string, number>> => {
+    const r = await fetch("/api/assets/usage-counts");
+    if (!r.ok) throw new Error(`get usage-counts failed: ${r.status}`);
+    const body = await r.json();
+    return body.counts;
+  },
+  listFolders: async (dir?: string): Promise<FoldersResponse> => {
+    const url = dir
+      ? `/api/assets/folders?dir=${encodeURIComponent(dir)}`
+      : "/api/assets/folders";
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(`list folders failed: ${r.status}`);
+    return r.json();
+  },
+  createFolder: async (input: {
+    parentDir: string;
+    name: string;
+  }): Promise<{ ok: boolean; path: string }> => {
+    const r = await fetch("/api/assets/folders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`create folder failed: ${r.status} ${body}`);
+    }
+    return r.json();
+  },
+  importImage: async (input: {
+    targetDir: string;
+    filename: string;
+    contentBase64: string;
+    overwrite?: boolean;
+  }): Promise<ImportResult> => {
+    const r = await fetch("/api/assets/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`import failed: ${r.status} ${body}`);
+    }
+    return r.json();
+  },
+  deleteFile: async (path: string): Promise<{ ok: boolean; removed: string[] }> => {
+    const r = await fetch(
+      `/api/assets/file?path=${encodeURIComponent(path)}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`delete failed: ${r.status} ${body}`);
+    }
+    return r.json();
+  },
+};

@@ -14,6 +14,7 @@ import { ConceptEdit } from "./features/concept/Edit";
 import { DialogList } from "./features/dialog/List";
 import { DialogEdit } from "./features/dialog/Edit";
 import { DialogGraph } from "./features/dialog/Graph";
+import { AssetList } from "./features/asset/List";
 import { BalloonList } from "./features/balloon/List";
 import { BalloonEdit } from "./features/balloon/Edit";
 import { DiagnosticsIcon } from "./features/diagnostics/DiagnosticsIcon";
@@ -166,6 +167,9 @@ export function App() {
           <NavLink to="/items" className={navLinkClass}>
             Items
           </NavLink>
+          <NavLink to="/assets" className={navLinkClass}>
+            Assets
+          </NavLink>
         </nav>
         <div className="flex-1" />
         <NavLink
@@ -230,6 +234,7 @@ export function App() {
           <Route path="/factions" element={<FactionList />} />
           <Route path="/factions/new" element={<FactionEdit />} />
           <Route path="/factions/:faction" element={<FactionEdit />} />
+          <Route path="/assets" element={<AssetList />} />
           <Route path="/diagnostics/*" element={<DiagnosticsPage />} />
           <Route path="/health" element={<Navigate to="/diagnostics" replace />} />
           <Route path="/health/integrity" element={<Navigate to="/diagnostics/integrity" replace />} />

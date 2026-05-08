@@ -26,6 +26,8 @@
 
 Plus **Game concept** — a single Bleepforge-only doc (`data/concept.json`) used as the app homepage, *not* exported to Godot. Holds title, tagline, description, logo/icon/splash images, genre, setting, status, inspirations, notes. Covered in the "Architecture decisions" section below.
 
+Plus **Assets gallery + image editor** — eighth Bleepforge surface, architecturally distinct from the seven data domains: there's no `.tres` source of truth and no authored schema, because the assets ARE the files on disk. Browses every image in the Godot project, surfaces "used by N" scene + resource references on first paint, ships an in-app editor (crop, bg removal, tint, flip, auto-trim, Magic crop) that writes PNG bytes back to the project, and is reused inside the AssetPicker so every image-field in the rest of the app gets the same Edit / Duplicate / Delete + Import + create-folder affordances. Covered in the "Assets gallery + image editor" section below.
+
 **Graph view interactions:**
 
 - **Drag nodes** to reposition — saved per-folder to `data/dialogs/<folder>/_layout.json` on drag-stop.
@@ -65,7 +67,7 @@ The `DialogGraph` exported component wraps `DialogGraphInner` in `<ReactFlowProv
 - **`Pickup` (collectible scene) authoring**. We surface a read-only catalog of `.tscn` files for the LootTable picker (see "Pickups" below) but don't author the scenes themselves — sprite/collision/animation work needs Godot's scene editor.
 - **Auto-import (Godot → Bleepforge)**: wired on two timescales — boot-time reconcile rebuilds the whole JSON cache from `.tres` whenever the server starts, and the live watcher reimports individual files on every Godot save while running. There used to be a manual "rebuild now" button in Preferences; it was removed once the automatic paths were trustworthy. To force a rebuild, restart the server.
 
-**Next big move: wrap with Electron.** The feature set feels finished — every domain is fully authorable (now seven, after Balloons landed), two-way `.tres` sync is solid, the diagnostics surface covers integrity / reconcile / logs / saves / process / watcher. Wrapping in Electron is the "1.0 desktop" moment. Rationale (vs Tauri): Electron's main process *is* Node, so Express boots in-process via a plain `require` — no sidecar, no Rust. Hot reload preserved (Vite HMR works in the desktop window same as the browser). SSE works unchanged. Once the terminal goes away inside a packaged binary, the diagnostics work pays off — that's why it shipped first.
+**Next big move: wrap with Electron.** The feature set feels finished — seven authored data domains all fully editable, two-way `.tres` sync solid, the diagnostics surface covers integrity / reconcile / logs / saves / process / watcher, and the assets gallery + image editor (Phases 1 + 3) ship a complete browse + Edit / Duplicate / Delete + Importer surface with crop, bg removal, tint, flip, auto-trim, and Magic crop subject detection. Wrapping in Electron is the "1.0 desktop" moment. Rationale (vs Tauri): Electron's main process *is* Node, so Express boots in-process via a plain `require` — no sidecar, no Rust. Hot reload preserved (Vite HMR works in the desktop window same as the browser). SSE works unchanged. Once the terminal goes away inside a packaged binary, the diagnostics work pays off — that's why it shipped first.
 
 **Architecture decisions:**
 
@@ -337,6 +339,66 @@ BalloonLine
 
 **Integrity check**: any `NpcData.CasualRemarks` entry that doesn't resolve to an existing balloon flags an error ([client/src/lib/integrity/issues.ts](client/src/lib/integrity/issues.ts)).
 
+## Assets gallery + image editor
+
+The eighth surface, but architecturally a different shape from the seven data domains. Routed at `/assets`. Read-only browse + cross-system reference search + a writeback editor (crop / bg-remove / tint / flip / auto-trim / Magic crop) that produces PNG bytes. Same editor is mounted inside [AssetPicker.tsx](client/src/components/AssetPicker.tsx) so the field-level image picker (NPC.Portrait, Item.Icon, Faction.Icon/Banner, DialogLine.Portrait, Concept hero images) gets the same right-click → Edit / Duplicate / Delete and `+ Import` + create-folder affordances; saves auto-pick the new file for the field.
+
+**Server surface** at `/api/assets/*` (in [server/src/lib/assets/router.ts](server/src/lib/assets/router.ts)):
+
+- `GET /images` — every discovered image with descriptor (path, basename, parentRel, format, UID from `.png.import` sidecar, dimensions probed natively, size, mtime).
+- `GET /usages?path=...` — reverse-lookup references for one image. Walks `.tres` + `.tscn` + `data/concept.json` and matches by `res://` path or `uid://`. Returns refs with kind (`tres` / `tscn` / `json`), domain (Bleepforge edit-page domain when applicable; null for scenes), key (entity id, scene relative path, etc.), file path, and a snippet line for context. Per-domain Bleepforge JSON cache (data/npcs/, data/items/, …) is deliberately NOT scanned — those mirror their `.tres` 1:1 and would double-count every reference. Concept is the lone JSON exception (Bleepforge-only doc, no `.tres` counterpart).
+- `GET /usage-counts` — `Record<absPath, number>` for every cached image, computed via a single inverted-pass walk (one file scan total, increment per matched image — N+M instead of N×M). Powers the eager "used by" pills on first gallery paint. Counts files-referencing, not mention-count (a tilemap that uses one tileset 50 times still counts as 1).
+- `GET /folders[?dir=...]` — directory tree for the importer's destination picker. Dirs only, dot-dirs filtered. Path-traversal protected.
+- `POST /folders` — create a directory under the Godot project root. Used by the picker's `+ New folder` button and right-click → Create subfolder. Name validated as a basename (no slashes, no leading dots, alnum + `_-.` + space). 409 on EEXIST.
+- `POST /import` — write a new (or overwriting) image. Body: `{ targetDir, filename, contentBase64, overwrite? }`. Atomic write (temp + rename, same as the `.tres` writer). 409 on conflict unless `overwrite: true`. Edit / Duplicate flows piggyback on this (Edit always sends `overwrite: true`; Duplicate sends a fresh filename). Always emits PNG regardless of source format — the in-game pipeline expects PNG, keeps the editor's behavior consistent.
+- `DELETE /file?path=...` — removes the image AND its `.png.import` sidecar (without the sidecar Godot errors on next focus). `.tres` files holding dangling UIDs after delete still surface in the existing integrity check; we don't sweep them automatically.
+- `GET /events` — SSE stream of `AssetEvent` (`added` / `changed` / `removed`). The third SSE channel after `/api/sync/events` (game-domain syncs → toasts) and `/api/saves/events` (save activity feed). Separate channel because asset deltas have different consumers (the gallery + the picker, both refresh-in-place; never toast) — folding into the existing stream would mean discriminator branches on every sync listener.
+
+**Discovery + cache** in [server/src/lib/assets/](server/src/lib/assets/):
+
+- [discover.ts](server/src/lib/assets/discover.ts) walks the project for image files, reads each `.png.import` sidecar for the UID (`uid="uid://..."`), and probes the file itself for dimensions. PNG via native IHDR read (8-byte signature + chunk header at fixed offsets); SVG via a quick width/height/viewBox regex on the first 2KB. Other formats (JPG / WebP / GIF / BMP) get `width: null, height: null` — fine; the UI shows "—". No new dependency.
+- [cache.ts](server/src/lib/assets/cache.ts) holds `Map<absPath, ImageAsset>` in memory with a full-rebuild API (`rebuildAssetCache`) plus per-file delta APIs (`upsertImage` / `removeImage`). Boot in `index.ts` calls rebuild after the `.tres` reconcile finishes; the watcher feeds deltas after that.
+- Watcher extension in [server/src/internal/tres/watcher.ts](server/src/internal/tres/watcher.ts) — same chokidar instance widened to also pass image extensions through the `ignored` predicate. Image events route to a separate handler that updates the asset cache and publishes an `AssetEvent`; `.tres` events keep their original game-domain pipeline. Routing is by file extension at the top of `handleEvent`.
+
+**Usage scanning** ([usages.ts](server/src/lib/assets/usages.ts)):
+
+- Two functions on the same file walk: `findUsages(asset)` for the per-asset drawer (full reference details), `countAllUsages(images)` for the gallery's eager counts.
+- `walkGodotRefs` iterates `.tres` AND `.tscn` together — both formats reference textures via `[ext_resource path="res://..." uid="uid://..."]`, identical match shapes. Skipping `.tscn` would massively undercount tilesets and other scene-resident art.
+- `detectTresDomainAndKey` classifies a referencing `.tres` by `script_class` so the drawer can route the user to the right edit page (Item / Quest / Faction / Npc / Dialog / Balloon). `.tscn` files don't get a domain (scenes aren't editable in Bleepforge); their key is the relative path so the drawer still has something useful to show.
+- Quick prefilter on `countAllUsages`: skip any file whose text doesn't include `res://` or `uid://`. Most non-trivial files have both; the prefilter saves scan time on small / structural `.tscn` files that don't reference resources.
+
+**Image editor** ([ImageEditor.tsx](client/src/features/asset/ImageEditor.tsx)):
+
+- Mode-discriminated single component: `import` (fresh source from disk → folder picker + filename → save as new), `edit` (existing asset → save back to same path, overwrite), `duplicate` (existing asset → same folder, new filename → save as new). Sidebar fields adjust per mode (folder picker hidden in edit/duplicate; filename input hidden in edit). Right-click context menu in [useAssetMenu.ts](client/src/features/asset/useAssetMenu.ts) launches into the right mode + handles the Delete confirm with a usage-count warning.
+- Pipeline: `working` canvas accumulates destructive ops (flip / bg-remove / auto-trim); `display` canvas = `working` + tint applied (live preview only — tint bakes at save). Crop is a non-destructive overlay applied at save time. Save flow: `working → tint → crop → PNG → POST /api/assets/import`.
+- Undo: 24-deep snapshot stack. Each destructive op pushes a `snapshotCanvas(working)` clone before mutating; Undo pops and replaces. Reset (the text button under Transform) wipes the stack and reloads from `originalRef`. Per-section ↺ icons reset only that section's settings (Crop's rect + snap; Background's sample + tolerance + mode; Tint's color + power + alpha + bg fill); they DO NOT undo destructive ops applied to `working` — that's still Undo. The Transform-section Reset is the global "wipe everything" button.
+- One sampler at a time: `samplerMode: "none" | "bg-color" | "magic-crop"` decides what canvas left-clicks do. Activating one auto-deactivates the other — clicking the bg-color eyedropper while Magic crop is active swaps to bg-color, etc. Mutually exclusive UI without separate boolean flags fighting each other.
+- Crop canvas ([CropCanvas.tsx](client/src/features/asset/CropCanvas.tsx)) is the Godot AtlasTexture editor's behavior: integer-zoomed nearest-neighbor render, source-pixel-locked rect. Plain wheel = zoom centered on cursor (no modifier — pan is via middle-mouse-drag or space+drag, separate input surface, no fight with vertical-scroll mental model). Click-drag empty = draw crop, click-drag inside rect = move, click-drag handle = resize. Snap-to-grid (1 / 2 / 4 / 8 / 16 / 32 px). Keyboard: arrows nudge by snap (or 8 with shift), alt+arrow resizes, Esc/Del clears. Coordinates always integer pixels — the rect is stored in source-pixel coords, mouse positions are floored to source coords before they ever touch the rect, so half-pixel state can't exist.
+- Tint section's three independent dials, all on the [SliderField](client/src/components/SliderField.tsx) + [PixelSlider](client/src/components/PixelSlider.tsx) chrome:
+  - **Power** (0-100%) — color mix on visible pixels. 0 = no tint, 1 = solid color, fully replacing original RGB.
+  - **Alpha** (0-100%) — output opacity multiplier on visible pixels. Independent from Power so you can fade an un-tinted image. 100% = unchanged.
+  - **Bg fill** (0-100%) — paints currently-transparent pixels with the tint color. 0 = "operate on visible image only" (default); 100% = fill them fully. Use this to put a subtle wash behind a transparent-bg sprite without first applying bg removal.
+- Bg removal: eyedropper to sample bg color, mode (`connected` flood-fill or `key` global), tolerance slider. `Apply` runs the destructive op. The standalone manual path stays alongside Magic crop because some atlases / multi-subject sheets / gradient bgs still need it.
+
+**Magic crop** ([imageOps.ts → detectSubjectBoundsAtClick](client/src/features/asset/imageOps.ts)) — original to Bleepforge:
+
+- Click-seeded subject detection. Combines perimeter color sampling (for bg classification) with a flood-fill from the click point through all connected non-bg pixels. Bbox of the reached region becomes the crop rect.
+- Bg classification: alpha-mode when ≥5% of pixels are transparent (typical pixel-art case → bg = pixels with alpha < 128), otherwise color-mode (bg = pixels matching the dominant perimeter color within Euclidean distance 18).
+- Critical bucketing fix in `autoDetectBackground`: PNGs commonly hold garbage RGB on alpha=0 pixels (encoder-dependent — `(0,0,0,0)`, `(255,255,255,0)`, whatever was there before alpha got zeroed). Bucketing by `(r,g,b,a)` split a single transparent background into many tiny buckets, which then lost the modal vote to any opaque perimeter cluster. Fix: collapse all transparent pixels into one bucket regardless of stored RGB. Without this, Magic crop misclassified transparent-bg sprites as having an opaque bg.
+- "Click on bg by accident" path: auto-detected (the click point matches the bg classifier), falls back to whole-image perimeter detection. So clicking anywhere produces a useful crop — the click point only ADDS precision when it lands on subject pixels.
+- Why this beats ML for pixel art: heuristic runs in <1ms, no model, no bundle weight, fully offline, and handles the canonical pixel-art case (subject on uniform-or-transparent bg) with high accuracy. ML segmentation (Phase 3.6, deferred) earns its keep on photographic / non-pixel-art content where the heuristic breaks (gradient bgs, busy scenes).
+
+**Folder picker + create folder** ([FolderPicker.tsx](client/src/features/asset/FolderPicker.tsx)):
+
+- "Where you are is where you'll save" — the cwd IS the selected destination, no two-step navigate-then-confirm flow.
+- Two ways to create a new folder without leaving the editor: `+ New folder` button in the destination header (creates inside the cwd, auto-navigates into it so the picker is already pointing at the user's freshly-made target), and right-click on any folder entry → context menu with `Open` / `Create subfolder in <name>…` (drops inside a sibling without first navigating in). Both go through `assetsApi.createFolder` + `showPrompt` with name validation (alnum + `_-.` + space, no slashes, no leading dots).
+
+**Path safety** (defense in depth) — every file-touching server endpoint validates that the resolved target sits under the Godot project root via `path.relative + startsWith("..")` check. Filenames must be basenames (no slashes, no `..`, no leading dots). Atomic writes for images (temp file + rename). Refuses to overwrite without an explicit `overwrite: true` flag.
+
+**Pixel ops library** ([imageOps.ts](client/src/features/asset/imageOps.ts)) — pure-canvas operations: `flipHorizontal` / `flipVertical`, `autoTrim` (resizes canvas to subject bbox), `removeBackground` (scanline flood-fill or color-key), `applyTint` (with the three independent dials above), `autoDetectBackground` (perimeter histogram), `detectSubjectBoundsAtClick` (Magic crop), `sampleColor`, `snapshotCanvas`, `imageToCanvas`, `canvasToPngBase64`. Round-trips through `getImageData` / `putImageData` — pixel-art assets are tiny (<512×512 typical) so the simplest code is the right code; no workers or WebGL.
+
+**Crop math library** ([cropMath.ts](client/src/features/asset/cropMath.ts)) — pure geometry: snap, clamp, normalize-and-clamp (handles negative-size rects from drag-start-greater-than-drag-end), constrain rect to image bounds, translate, hit-test handle, point-in-rect, resize-by-handle, extract-to-PNG-base64. Source-pixel coords throughout — no half-pixel state ever exists.
+
 ## Cross-cutting concerns
 
 ### Resource references → string IDs
@@ -449,7 +511,11 @@ UI subscribers: every list/edit page wires `useSyncRefresh` for its domain (item
 - ~~**Balloons domain**~~ — done. Seventh authored domain. Cards mimic in-game speech balloons with the speaker's portrait inside; group-by selector and by-NPC + by-model filters. `NpcData.CasualRemark` (singular) → `CasualRemarks` (array, random pick) migration handled gracefully on both import and writeback.
 - ~~**Client `src/` reorg**~~ — done. Split the flat top-level into `components/`, `styles/`, `lib/`, `features/` (with plumbing under `lib/sync/`, `lib/saves/`, `lib/integrity/`). See "Client src/ structure" below.
 - ~~**Server `src/` reorg**~~ — done. Mirrors the client shape: `features/` for game-domain HTTP routes, `lib/` for infrastructure (incl. extracted `lib/reconcile/bootReconcile.ts` so the entry stays thin), `internal/` for the substantial libraries (`tres/` + `import/`). `index.ts` modularized into a phase-numbered ~125-line composition file. See "Server src/ structure" below.
-- **Wrap with Electron** — the next session's task. See "Next big move" at the top.
+- ~~**Assets gallery + image editor (Phases 1 + 3)**~~ — done. Eighth surface, see the dedicated section above. Browse + usage-tracking (incl. `.tscn` scenes) + Edit / Duplicate / Delete via right-click + Importer with crop / bg removal / tint / flip / auto-trim / Magic crop. Same editor reused inside AssetPicker. Per-section ↺ resets and `+ New folder` in the destination picker.
+- **ML background removal (Phase 3.6)** — deferred. Magic crop's perimeter heuristic covers ~90% of pixel-art cases at <1ms with no model. ML mode would help with photographic / non-pixel-art sources (gradient backgrounds, busy scenes); needs `onnxruntime-node` + a small RMBG model lazy-loaded with a first-run progress UI. Cache to `data/.cache/models/`, never bundle. Keeps the heuristic as default; ML is "fallback for hard cases".
+- **Image editor extensions** — deferred until needed: integer-multiple resize / scale (pixel-art upscaling), recolor (palette-swap one color → another), 1-pixel outline. All fit the existing destructive-op pipeline + Undo stack.
+- **Audio support (Phase 2)** — deferred. Corpus has zero audio files today. When the first lands: extend assets discovery to `.ogg` / `.wav` / `.mp3`, add a tab to `/assets`, build an audio player on `PixelSlider` for the seek bar. Asset router already supports HTTP Range requests via Express's `sendFile`.
+- **Wrap with Electron** — the next big move. See "Next big move" at the top.
 - v1 polish on existing UIs (deferred — Yonatan: "we'll polish with time").
 
 ## Client `src/` structure
@@ -466,18 +532,22 @@ client/src/
                 strings: textInput / button / fieldLabel — was ui.ts at root),
                 index.css
   lib/          non-visual utilities + plumbing — api.ts, useCatalog.ts,
-                catalog-bus.ts, plus three plumbing subfolders:
+                catalog-bus.ts, plus four plumbing subfolders:
                   lib/sync/      SSE client + useSyncRefresh + useSyncToasts
                   lib/saves/     saves SSE stream + route mapping
+                  lib/assets/    asset-events SSE stream + useAssetRefresh
                   lib/integrity/ computeIssues pure function
-  features/     user-facing pages, one folder per domain — balloon, concept,
-                dialog, diagnostics, faction, item, karma, npc, preferences,
-                quest. Each holds Edit.tsx + List.tsx + (where relevant)
-                Card.tsx / Row.tsx / domain-specific helpers.
+  features/     user-facing pages, one folder per domain — asset, balloon,
+                concept, dialog, diagnostics, faction, item, karma, npc,
+                preferences, quest. Each holds Edit.tsx + List.tsx + (where
+                relevant) Card.tsx / Row.tsx / domain-specific helpers.
+                features/asset/ also ships the image editor itself
+                (ImageEditor + CropCanvas + CropControls + FolderPicker +
+                imageOps + cropMath + UsagesDrawer + useAssetMenu).
   App.tsx       entry component — header nav, routes, mounts the singleton
                 hosts (ModalHost, ToastHost, ContextMenuHost, CatalogDatalists)
-  main.tsx      Vite entry — boots BrowserRouter, opens the two SSE channels
-                (sync + saves), imports the global CSS
+  main.tsx      Vite entry — boots BrowserRouter, opens the three SSE channels
+                (sync + saves + assets), imports the global CSS
 ```
 
 The split follows three rules:
@@ -502,7 +572,15 @@ server/src/
                domains/.
   lib/         infrastructure + utilities mounted at /api/<name> or used
                cross-cuttingly:
-                 lib/asset/         image-serving + filesystem browse
+                 lib/asset/         single-file image-serving (/api/asset)
+                                    + AssetPicker filesystem browse
+                 lib/assets/        gallery + image editor surface
+                                    (/api/assets/*) — discover.ts walks the
+                                    project, cache.ts holds the in-memory
+                                    Map, usages.ts scans .tres + .tscn for
+                                    refs, eventBus.ts + router.ts ship the
+                                    SSE channel and the import / delete /
+                                    folder endpoints
                  lib/godotProject/  project-root introspection + validate
                  lib/logs/          ring buffer + GET /api/logs
                  lib/pickup/        collectible-scene catalog (read-only)

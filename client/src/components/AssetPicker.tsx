@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
+
+import { ImageEditor, type EditorMode } from "../features/asset/ImageEditor";
+import { makeAssetContextMenuHandler } from "../features/asset/useAssetMenu";
 import { AssetThumb } from "./AssetThumb";
+import { Button } from "./Button";
 import { button, textInput } from "../styles/classes";
 
 interface PickerProps {
@@ -74,9 +78,15 @@ interface ModalProps {
   onClose: () => void;
 }
 
+// Browse + edit modal. Beyond the original "click to pick" behavior, we
+// now support: + Import (full editor in import mode), and right-click
+// → Edit / Duplicate / Delete on any image. The editor is hosted as a
+// stacked modal — when a save lands, we refresh the listing and (for
+// Import / Duplicate) auto-pick the freshly-saved file.
 function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
   const [listing, setListing] = useState<Listing | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [editor, setEditor] = useState<EditorMode | null>(null);
 
   const load = (dir?: string) => {
     setListing(null);
@@ -103,7 +113,7 @@ function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
       onClick={onClose}
     >
       <div
-        className="flex max-h-[80vh] w-[760px] flex-col overflow-hidden rounded border border-neutral-700 bg-neutral-900 shadow-xl"
+        className="flex max-h-[80vh] w-190 flex-col overflow-hidden rounded border border-neutral-700 bg-neutral-900 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-3 border-b border-neutral-800 px-4 py-3">
@@ -115,13 +125,22 @@ function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
               {listing?.cwd ?? "…"}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="text-neutral-400 hover:text-neutral-100"
-            type="button"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="primary"
+              onClick={() => setEditor({ kind: "import" })}
+            >
+              + Import
+            </Button>
+            <button
+              onClick={onClose}
+              className="text-neutral-400 hover:text-neutral-100"
+              type="button"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="overflow-auto p-2">
@@ -165,7 +184,13 @@ function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
                     </button>
                   </li>
                 ) : (
-                  <li key={e.path}>
+                  <li
+                    key={e.path}
+                    onContextMenu={makeAssetContextMenuHandler({
+                      asset: { path: e.path, basename: e.name },
+                      openEditor: setEditor,
+                    })}
+                  >
                     <button
                       onClick={() => onPick(e.path)}
                       className="flex w-full items-center gap-3 rounded px-2 py-1.5 text-left hover:bg-neutral-800"
@@ -184,8 +209,24 @@ function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
         </div>
 
         <div className="border-t border-neutral-800 px-4 py-2 text-[11px] text-neutral-500">
-          Click an image to pick it · Click a folder to navigate · Files are filtered to images
+          Click image to pick · Right-click for Edit / Duplicate / Delete · + Import for new files
         </div>
+
+        {editor && (
+          <ImageEditor
+            mode={editor}
+            onClose={() => setEditor(null)}
+            onSaved={(savedPath) => {
+              // Refresh the listing of the directory the file landed in,
+              // and auto-pick it if we're in Import or Duplicate mode
+              // (Edit returns the user to the picker without touching the
+              // current selection — they were already pointed at it).
+              const newDir = savedPath.slice(0, savedPath.lastIndexOf("/"));
+              load(newDir);
+              if (editor.kind !== "edit") onPick(savedPath);
+            }}
+          />
+        )}
       </div>
     </div>
   );

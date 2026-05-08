@@ -19,6 +19,8 @@ import {
 } from "@bleepforge/shared";
 import { config, folderAbs } from "./config.js";
 import { assetRouter } from "./lib/asset/router.js";
+import { assetsRouter } from "./lib/assets/router.js";
+import { rebuildAssetCache } from "./lib/assets/cache.js";
 import { balloonRouter } from "./features/balloon/router.js";
 import { conceptRouter } from "./features/concept/router.js";
 import { dialogRouter } from "./features/dialog/router.js";
@@ -112,6 +114,7 @@ app.use(
 
 // Non-domain endpoints — singletons, infrastructure, observability.
 app.use("/api/asset", assetRouter);
+app.use("/api/assets", assetsRouter);
 app.use("/api/item-icon", itemIconRouter);
 app.use("/api/sync", syncRouter);
 app.use("/api/concept", conceptRouter);
@@ -143,5 +146,8 @@ app.listen(config.port, async () => {
   );
 
   await runBootReconcile();
+  // Build the image-asset cache once before the watcher starts, so the
+  // gallery has full data on first paint. Cheap on this corpus (<100ms).
+  await rebuildAssetCache();
   startTresWatcher();
 });
