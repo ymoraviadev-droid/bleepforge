@@ -308,41 +308,6 @@ export function applyTint(
   ctx.putImageData(img, 0, 0);
 }
 
-/**
- * Fill currently-transparent pixels with a solid color at the given
- * alpha. Dual to applyTint — tint operates on visible pixels, bg color
- * operates on transparent pixels. The two are independent in the
- * editor (separate color pickers + alpha sliders) so you can tint a
- * subject AND put it on a different-colored backdrop without the
- * controls fighting each other.
- *
- * Only fully-transparent pixels (alpha === 0) are filled. Semi-
- * transparent edge pixels (anti-aliased silhouette of the subject)
- * are left as-is so the subject's outline stays clean.
- */
-export function applyBgColor(
-  canvas: HTMLCanvasElement,
-  color: RGB,
-  alpha: number,
-): void {
-  if (alpha <= 0) return;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-  const w = canvas.width;
-  const h = canvas.height;
-  const img = ctx.getImageData(0, 0, w, h);
-  const px = img.data;
-  const aByte = Math.round(255 * Math.min(1, Math.max(0, alpha)));
-  for (let i = 0; i < px.length; i += 4) {
-    if (px[i + 3]! !== 0) continue;
-    px[i] = color.r;
-    px[i + 1] = color.g;
-    px[i + 2] = color.b;
-    px[i + 3] = aByte;
-  }
-  ctx.putImageData(img, 0, 0);
-}
-
 export interface AutoDetectResult {
   /** The dominant perimeter color, or null if the image's edges are
    *  already mostly transparent (no work to do). */

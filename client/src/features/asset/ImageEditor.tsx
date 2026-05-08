@@ -10,7 +10,6 @@ import { CropControls } from "./CropControls";
 import { type CropRect } from "./cropMath";
 import { FolderPicker } from "./FolderPicker";
 import {
-  applyBgColor,
   applyTint,
   autoTrim,
   blobToCanvas,
@@ -86,8 +85,6 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
   const [tintPower, setTintPower] = useState<number>(0);
   const [tintAlpha, setTintAlpha] = useState<number>(1);
   const [tintBgFill, setTintBgFill] = useState<number>(0);
-  const [bgColor, setBgColor] = useState<string>("#000000");
-  const [bgColorAlpha, setBgColorAlpha] = useState<number>(0);
 
   // --- Sampler state (one of: none / bg-color eyedropper / magic-crop) ---
   const [samplerMode, setSamplerMode] = useState<SamplerMode>("none");
@@ -166,34 +163,17 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
     };
   }, [mode]);
 
-  // --- Display canvas: working + tint + bg color (live preview) ---
-  // Order is fixed: tint first (its Bg slider can paint transparent
-  // pixels with the tint color), then bg color (fills any remaining
-  // transparent pixels with its own independent color). The two are
-  // mostly mutually exclusive at the per-pixel level — bg color only
-  // touches alpha === 0 pixels, so if tint's bgFill already painted
-  // them, bg color won't override. User picks one path or the other.
+  // --- Display canvas: working + tint (live preview of the tint dials) ---
   const display = useMemo<HTMLCanvasElement | null>(() => {
     if (!working) return null;
     const tint = parseHexColor(tintColor);
-    const bg = parseHexColor(bgColor);
-    const tintNoOp =
-      !tint || (tintPower <= 0 && tintAlpha >= 1 && tintBgFill <= 0);
-    const bgNoOp = !bg || bgColorAlpha <= 0;
-    if (tintNoOp && bgNoOp) return working;
+    if (!tint) return working;
+    const tintNoOp = tintPower <= 0 && tintAlpha >= 1 && tintBgFill <= 0;
+    if (tintNoOp) return working;
     const out = snapshotCanvas(working);
-    if (tint && !tintNoOp) applyTint(out, tint, tintPower, tintAlpha, tintBgFill);
-    if (bg && !bgNoOp) applyBgColor(out, bg, bgColorAlpha);
+    applyTint(out, tint, tintPower, tintAlpha, tintBgFill);
     return out;
-  }, [
-    working,
-    tintColor,
-    tintPower,
-    tintAlpha,
-    tintBgFill,
-    bgColor,
-    bgColorAlpha,
-  ]);
+  }, [working, tintColor, tintPower, tintAlpha, tintBgFill]);
 
   // --- Esc closes (unless we're saving) ---
   useEffect(() => {
@@ -465,11 +445,6 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
     setTintBgFill(0);
   };
 
-  const resetBgColor = () => {
-    setBgColor("#000000");
-    setBgColorAlpha(0);
-  };
-
   const handleReset = () => {
     if (!originalRef.current) return;
     undoStackRef.current = [];
@@ -500,8 +475,6 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
       const out = snapshotCanvas(working);
       const tint = parseHexColor(tintColor);
       if (tint) applyTint(out, tint, tintPower, tintAlpha, tintBgFill);
-      const bg = parseHexColor(bgColor);
-      if (bg) applyBgColor(out, bg, bgColorAlpha);
       const finalCanvas = crop ? extractCropToCanvas(out, crop) : out;
       const contentBase64 = canvasToPngBase64(finalCanvas);
       // Edit mode always overwrites since the destination is the same path.
@@ -724,14 +697,6 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
                   />
                 </ToolSection>
 
-                <ToolSection title="Bg color" onReset={resetBgColor}>
-                  <BgColorPanel
-                    color={bgColor}
-                    alpha={bgColorAlpha}
-                    onColorChange={setBgColor}
-                    onAlphaChange={setBgColorAlpha}
-                  />
-                </ToolSection>
 
                 <ToolSection title="Transform">
                   <div className="flex flex-wrap gap-1.5">
@@ -1099,65 +1064,17 @@ function TintPanel({
         hint="Output opacity of visible pixels (1 = unchanged)."
       />
       <SliderField
-        label="Bg"
+        label="Bg extent"
         min={0}
         max={1}
         step={0.01}
         value={bgFill}
         onChange={onBgFillChange}
         format={(v) => `${Math.round(v * 100)}%`}
-        hint="Extend the tint into transparent pixels too (uses the tint color). 0 = visible-only."
+        hint="How far the tint extends into transparent pixels. 0 = visible-only, 100 = full bg fill in the tint color."
       />
       <p className="font-mono text-[10px] text-neutral-600">
-        Live preview; baked in on save. For a backdrop in a different
-        color, use the Bg color section below.
-      </p>
-    </div>
-  );
-}
-
-function BgColorPanel({
-  color,
-  alpha,
-  onColorChange,
-  onAlphaChange,
-}: {
-  color: string;
-  alpha: number;
-  onColorChange: (hex: string) => void;
-  onAlphaChange: (n: number) => void;
-}) {
-  const rgb = parseHexColor(color);
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <input
-          type="color"
-          value={color}
-          onChange={(e) => onColorChange(e.target.value)}
-          className="size-7 cursor-pointer border border-neutral-700 bg-neutral-900"
-        />
-        <input
-          type="text"
-          value={rgb ? rgbToHex(rgb) : color}
-          onChange={(e) => onColorChange(e.target.value)}
-          className={`${textInput} mt-0 flex-1 font-mono`}
-          placeholder="#rrggbb"
-        />
-      </div>
-      <SliderField
-        label="Alpha"
-        min={0}
-        max={1}
-        step={0.01}
-        value={alpha}
-        onChange={onAlphaChange}
-        format={(v) => `${Math.round(v * 100)}%`}
-        hint="Solid color filled into transparent pixels. 0 = no fill (default)."
-      />
-      <p className="font-mono text-[10px] text-neutral-600">
-        Independent from Tint above — pick separate colors for the
-        subject and the backdrop.
+        Live preview; baked in on save.
       </p>
     </div>
   );
