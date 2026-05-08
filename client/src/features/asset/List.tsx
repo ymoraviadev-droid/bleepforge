@@ -14,7 +14,7 @@ import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { textInput } from "../../styles/classes";
 import { AssetCard } from "./AssetCard";
 import { AssetRow } from "./AssetRow";
-import { ImageEditor, type EditorMode } from "./ImageEditor";
+import { showImageEditor } from "./imageEditorHost";
 import { UsagesDrawer } from "./UsagesDrawer";
 import { makeAssetContextMenuHandler } from "./useAssetMenu";
 
@@ -61,7 +61,6 @@ export function AssetList() {
   const [groupBy, setGroupBy] = useState<GroupBy>("folder");
   const [view, setView] = useViewMode("asset");
   const [drawerAsset, setDrawerAsset] = useState<ImageAsset | null>(null);
-  const [editor, setEditor] = useState<EditorMode | null>(null);
   // Cached usage counts so the pills stop saying "…" once the drawer has
   // been opened for an asset. Lazily filled — opening the drawer for one
   // image populates that asset's count; the rest stay null until viewed.
@@ -117,6 +116,22 @@ export function AssetList() {
       })
       .catch(() => {});
   });
+
+  // Snappy refetch the moment the editor saves — fires ~150ms before
+  // the watcher's debounced asset event reaches us, so the gallery
+  // updates instantly when you hit Save in the editor instead of a
+  // beat later. The watcher path above still runs for any other disk
+  // change (saved in Aseprite/Krita externally, etc.).
+  useEffect(() => {
+    const onSaved = () => {
+      assetsApi
+        .listImages()
+        .then((r) => setImages(r.images))
+        .catch(() => {});
+    };
+    window.addEventListener("Bleepforge:image-saved", onSaved);
+    return () => window.removeEventListener("Bleepforge:image-saved", onSaved);
+  }, []);
 
   // Folder dropdown options — every parentRel that contains at least one
   // image, with a count, sorted alphabetically.
@@ -228,7 +243,7 @@ export function AssetList() {
           <Button
             size="sm"
             variant="primary"
-            onClick={() => setEditor({ kind: "import" })}
+            onClick={() => showImageEditor({ kind: "import" })}
           >
             + Import
           </Button>
@@ -337,10 +352,10 @@ export function AssetList() {
             const renderItem = (asset: ImageAsset) => {
               const onContextMenu = makeAssetContextMenuHandler({
                 asset,
-                openEditor: setEditor,
+                openEditor: showImageEditor,
               });
               const onOpenEditor = () =>
-                setEditor({ kind: "edit", assetPath: asset.path });
+                showImageEditor({ kind: "edit", assetPath: asset.path });
               return view === "cards" ? (
                 <AssetCard
                   key={asset.path}
@@ -394,21 +409,6 @@ export function AssetList() {
         <UsagesDrawer asset={drawerAsset} onClose={() => setDrawerAsset(null)} />
       )}
 
-      {editor && (
-        <ImageEditor
-          mode={editor}
-          onClose={() => setEditor(null)}
-          onSaved={() => {
-            // The watcher's SSE event fires on its own and will refresh
-            // the list — but we also kick a refetch for snappier feedback
-            // in case the watcher debounce is mid-flight.
-            assetsApi
-              .listImages()
-              .then((r) => setImages(r.images))
-              .catch(() => {});
-          }}
-        />
-      )}
     </div>
   );
 }

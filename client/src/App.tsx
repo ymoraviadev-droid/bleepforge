@@ -8,6 +8,7 @@ import { ModalHost } from "./components/Modal";
 import { NotFoundPage } from "./components/NotFoundPage";
 import { SplashScreen } from "./components/SplashScreen";
 import { ToastHost } from "./components/Toast";
+import { ImageEditorHost } from "./features/asset/imageEditorHost";
 import { useSyncToasts } from "./lib/sync/syncToasts";
 import { ConceptView } from "./features/concept/View";
 import { ConceptEdit } from "./features/concept/Edit";
@@ -205,6 +206,7 @@ export function App() {
       <ModalHost />
       <ContextMenuHost />
       <ToastHost />
+      <ImageEditorHost />
       <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         <ErrorBoundary>
         <div className="flex-1 px-6 py-6">

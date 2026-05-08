@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-import { ImageEditor, type EditorMode } from "../features/asset/ImageEditor";
+import { showImageEditor } from "../features/asset/imageEditorHost";
 import { makeAssetContextMenuHandler } from "../features/asset/useAssetMenu";
 import { AssetThumb } from "./AssetThumb";
 import { Button } from "./Button";
@@ -78,15 +78,16 @@ interface ModalProps {
   onClose: () => void;
 }
 
-// Browse + edit modal. Beyond the original "click to pick" behavior, we
-// now support: + Import (full editor in import mode), and right-click
-// → Edit / Duplicate / Delete on any image. The editor is hosted as a
-// stacked modal — when a save lands, we refresh the listing and (for
-// Import / Duplicate) auto-pick the freshly-saved file.
+// Browse + edit modal. Click on a file picks it for the field. The
+// `+ Import` button and right-click → Edit / Duplicate / Delete launch
+// the singleton image editor (mounted at the App root) — no in-modal
+// editor instance any more. For Import / Duplicate we pass an
+// `onSaved` callback through showImageEditor so the freshly-saved file
+// auto-picks (and the listing refreshes); Edit doesn't auto-pick (the
+// user was already pointed at the file they were editing).
 function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
   const [listing, setListing] = useState<Listing | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [editor, setEditor] = useState<EditorMode | null>(null);
 
   const load = (dir?: string) => {
     setListing(null);
@@ -129,7 +130,21 @@ function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
             <Button
               size="sm"
               variant="primary"
-              onClick={() => setEditor({ kind: "import" })}
+              onClick={() =>
+                showImageEditor(
+                  { kind: "import" },
+                  {
+                    onSaved: (savedPath) => {
+                      const newDir = savedPath.slice(
+                        0,
+                        savedPath.lastIndexOf("/"),
+                      );
+                      load(newDir);
+                      onPick(savedPath);
+                    },
+                  },
+                )
+              }
             >
               + Import
             </Button>
@@ -188,7 +203,27 @@ function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
                     key={e.path}
                     onContextMenu={makeAssetContextMenuHandler({
                       asset: { path: e.path, basename: e.name },
-                      openEditor: setEditor,
+                      openEditor: (mode) => {
+                        // Duplicate from the picker should auto-pick the
+                        // new file; Edit shouldn't (the user is editing
+                        // the same file they're already pointed at). Wire
+                        // onSaved conditionally.
+                        showImageEditor(
+                          mode,
+                          mode.kind === "duplicate"
+                            ? {
+                                onSaved: (savedPath) => {
+                                  const newDir = savedPath.slice(
+                                    0,
+                                    savedPath.lastIndexOf("/"),
+                                  );
+                                  load(newDir);
+                                  onPick(savedPath);
+                                },
+                              }
+                            : undefined,
+                        );
+                      },
                     })}
                   >
                     <button
@@ -196,7 +231,13 @@ function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
                       className="flex w-full items-center gap-3 rounded px-2 py-1.5 text-left hover:bg-neutral-800"
                       type="button"
                     >
-                      <AssetThumb path={e.path} size="sm" />
+                      {/* editable={false} — the row's <button> is the
+                          click target (= "pick"); we don't want
+                          AssetThumb's default click-to-edit to fight
+                          with it. Right-click on the <li> still surfaces
+                          the Edit / Duplicate / Delete menu via the
+                          handler above. */}
+                      <AssetThumb path={e.path} size="sm" editable={false} />
                       <span className="font-mono text-xs text-neutral-200">
                         {e.name}
                       </span>
@@ -212,21 +253,6 @@ function BrowseModal({ startDir, onPick, onClose }: ModalProps) {
           Click image to pick · Right-click for Edit / Duplicate / Delete · + Import for new files
         </div>
 
-        {editor && (
-          <ImageEditor
-            mode={editor}
-            onClose={() => setEditor(null)}
-            onSaved={(savedPath) => {
-              // Refresh the listing of the directory the file landed in,
-              // and auto-pick it if we're in Import or Duplicate mode
-              // (Edit returns the user to the picker without touching the
-              // current selection — they were already pointed at it).
-              const newDir = savedPath.slice(0, savedPath.lastIndexOf("/"));
-              load(newDir);
-              if (editor.kind !== "edit") onPick(savedPath);
-            }}
-          />
-        )}
       </div>
     </div>
   );
