@@ -8,13 +8,13 @@
     "build": "tsc",
     "start": "node --env-file=../.env dist/index.js",
     "typecheck": "tsc --noEmit",
-    "harness": "tsx --env-file=../.env src/tres/harness.ts",
-    "canary": "tsx --env-file=../.env src/tres/canary.ts",
-    "canary-karma": "tsx --env-file=../.env src/tres/canary-karma.ts",
-    "canary-dialog": "tsx --env-file=../.env src/tres/canary-dialog.ts",
-    "canary-quest": "tsx --env-file=../.env src/tres/canary-quest.ts",
-    "test-mutations": "tsx --env-file=../.env src/tres/test-mutations.ts",
-    "migrate-subids": "tsx --env-file=../.env src/tres/migrate-subids.ts"
+    "harness": "tsx --env-file=../.env src/internal/tres/harness.ts",
+    "canary": "tsx --env-file=../.env src/internal/tres/canary.ts",
+    "canary-karma": "tsx --env-file=../.env src/internal/tres/canary-karma.ts",
+    "canary-dialog": "tsx --env-file=../.env src/internal/tres/canary-dialog.ts",
+    "canary-quest": "tsx --env-file=../.env src/internal/tres/canary-quest.ts",
+    "test-mutations": "tsx --env-file=../.env src/internal/tres/test-mutations.ts",
+    "migrate-subids": "tsx --env-file=../.env src/internal/tres/migrate-subids.ts"
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",

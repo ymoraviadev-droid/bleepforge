@@ -1,7 +1,13 @@
-// Log capture is set up at module load — must be the FIRST import so any
-// console.* calls fired during the rest of the boot sequence get captured
-// and surfaced in the Diagnostics → Logs tab.
-import "./logs/buffer.js";
+// Bleepforge server entry. Boot order:
+//   1. Install log capture (FIRST — must precede any other import that
+//      logs at module load, so Diagnostics → Logs sees boot lines).
+//   2. Validate config (fail fast if no Godot project root).
+//   3. Build the express app: storages → routes.
+//   4. Listen, then run the boot reconcile, then start the .tres watcher.
+//
+// Heavy lifting lives in the modules below; this file's job is wiring.
+
+import "./lib/logs/buffer.js";
 
 import express from "express";
 import {
@@ -12,62 +18,99 @@ import {
   QuestSchema,
 } from "@bleepforge/shared";
 import { config, folderAbs } from "./config.js";
-import { assetRouter } from "./asset/router.js";
-import { balloonRouter } from "./balloon/router.js";
-import { conceptRouter } from "./concept/router.js";
-import { pickupsRouter } from "./pickup/router.js";
-import { preferencesRouter } from "./preferences/router.js";
-import { dialogRouter } from "./dialog/router.js";
-import { godotProjectRouter } from "./godotProject/router.js";
-import { runImport } from "./import/orchestrator.js";
-import { logsRouter } from "./logs/router.js";
-import { processRouter } from "./process/router.js";
-import { reconcileRouter, setReconcileStatus } from "./reconcile/router.js";
-import { itemIconRouter } from "./item/iconRouter.js";
-import { savesRouter } from "./saves/router.js";
+import { assetRouter } from "./lib/asset/router.js";
+import { balloonRouter } from "./features/balloon/router.js";
+import { conceptRouter } from "./features/concept/router.js";
+import { dialogRouter } from "./features/dialog/router.js";
+import { godotProjectRouter } from "./lib/godotProject/router.js";
+import { itemIconRouter } from "./features/item/iconRouter.js";
+import { logsRouter } from "./lib/logs/router.js";
+import { pickupsRouter } from "./lib/pickup/router.js";
+import { preferencesRouter } from "./features/preferences/router.js";
+import { processRouter } from "./lib/process/router.js";
+import { runBootReconcile } from "./lib/reconcile/bootReconcile.js";
+import { reconcileRouter } from "./lib/reconcile/router.js";
+import { savesRouter } from "./lib/saves/router.js";
+import { syncRouter } from "./lib/sync/router.js";
+import { makeCrudRouter, makeJsonStorage } from "./lib/util/jsonCrud.js";
+import { startTresWatcher } from "./internal/tres/watcher.js";
+import { watcherRouter } from "./internal/tres/watcherRouter.js";
 import {
   writeFactionTres,
   writeItemTres,
   writeKarmaTres,
   writeNpcTres,
   writeQuestTres,
-} from "./tres/writer.js";
-import { startTresWatcher } from "./tres/watcher.js";
-import { watcherRouter } from "./tres/watcherRouter.js";
-import { syncRouter } from "./sync/router.js";
-import { makeCrudRouter, makeJsonStorage } from "./util/jsonCrud.js";
+} from "./internal/tres/writer.js";
 
-// Fail-fast: Bleepforge is a tool for the Flock of Bleeps Godot project. .tres
-// is canonical; data/ JSONs are a derived cache rebuilt from it on boot. Without
-// a project root there's nothing to read or write — refuse to start so the
-// failure mode is obvious instead of "everything's empty and I don't know why."
-// Resolution order is preferences.json → GODOT_PROJECT_ROOT env var → fail.
+// ---- 2. Fail-fast on missing Godot project root --------------------------
+// Bleepforge is a tool for the Flock of Bleeps Godot project. .tres is
+// canonical; data/ JSONs are a derived cache rebuilt from it on boot.
+// Without a project root there's nothing to read or write — refuse to
+// start so the failure mode is obvious instead of "everything's empty
+// and I don't know why." Resolution order: preferences.json → env → fail.
 if (!config.godotProjectRoot) {
   console.error("[bleepforge/server] No Godot project root configured.");
-  console.error("[bleepforge/server] Set GODOT_PROJECT_ROOT in .env, or open Preferences");
-  console.error("[bleepforge/server] in a previous run to point at your project.");
+  console.error(
+    "[bleepforge/server] Set GODOT_PROJECT_ROOT in .env, or open Preferences",
+  );
+  console.error(
+    "[bleepforge/server] in a previous run to point at your project.",
+  );
   process.exit(1);
 }
 
+// ---- 3. Build the express app -------------------------------------------
 const app = express();
 app.use(express.json({ limit: "5mb" }));
 
+// JSON-backed storages for the five flat-domain entities. Folder-aware
+// domains (Dialogs, Balloons) ship their own storage modules under
+// features/<domain>/storage.ts because their layout is per-folder and
+// can't be expressed as a single `keyField`.
 const questStorage = makeJsonStorage(QuestSchema, folderAbs.quest, "Id");
 const itemStorage = makeJsonStorage(ItemSchema, folderAbs.item, "Slug");
 const karmaStorage = makeJsonStorage(KarmaImpactSchema, folderAbs.karma, "Id");
 const npcStorage = makeJsonStorage(NpcSchema, folderAbs.npc, "NpcId");
-const factionStorage = makeJsonStorage(FactionDataSchema, folderAbs.faction, "Faction");
+const factionStorage = makeJsonStorage(
+  FactionDataSchema,
+  folderAbs.faction,
+  "Faction",
+);
 
+// Game-domain CRUD endpoints — folder-aware ones first, then the five
+// flat-domain ones via makeCrudRouter (which also threads the domain tag
+// into the saves activity feed).
 app.use("/api/dialogs", dialogRouter);
 app.use("/api/balloons", balloonRouter);
-app.use("/api/quests", makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres, "quest"));
-app.use("/api/items", makeCrudRouter(ItemSchema, itemStorage, "Slug", writeItemTres, "item"));
-app.use("/api/karma", makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id", writeKarmaTres, "karma"));
-app.use("/api/npcs", makeCrudRouter(NpcSchema, npcStorage, "NpcId", writeNpcTres, "npc"));
+app.use(
+  "/api/quests",
+  makeCrudRouter(QuestSchema, questStorage, "Id", writeQuestTres, "quest"),
+);
+app.use(
+  "/api/items",
+  makeCrudRouter(ItemSchema, itemStorage, "Slug", writeItemTres, "item"),
+);
+app.use(
+  "/api/karma",
+  makeCrudRouter(KarmaImpactSchema, karmaStorage, "Id", writeKarmaTres, "karma"),
+);
+app.use(
+  "/api/npcs",
+  makeCrudRouter(NpcSchema, npcStorage, "NpcId", writeNpcTres, "npc"),
+);
 app.use(
   "/api/factions",
-  makeCrudRouter(FactionDataSchema, factionStorage, "Faction", writeFactionTres, "faction"),
+  makeCrudRouter(
+    FactionDataSchema,
+    factionStorage,
+    "Faction",
+    writeFactionTres,
+    "faction",
+  ),
 );
+
+// Non-domain endpoints — singletons, infrastructure, observability.
 app.use("/api/asset", assetRouter);
 app.use("/api/item-icon", itemIconRouter);
 app.use("/api/sync", syncRouter);
@@ -90,6 +133,7 @@ app.get("/api/health", (_req, res) => {
   });
 });
 
+// ---- 4. Listen + boot reconcile + start watcher --------------------------
 app.listen(config.port, async () => {
   console.log(`[bleepforge/server] http://localhost:${config.port}`);
   console.log(`[bleepforge/server] data root:  ${config.dataRoot}`);
@@ -98,105 +142,6 @@ app.listen(config.port, async () => {
     `[bleepforge/server] godot root: ${config.godotProjectRoot} (from ${config.godotProjectRootSource})`,
   );
 
-  // Boot-time reconcile: rebuild the JSON cache from .tres so any edits made
-  // in Godot while Bleepforge was off are picked up before the first request.
-  // Runs after listen so health-check clients aren't blocked, but before the
-  // watcher so we don't double-process anything that fires during startup.
-  // The result is stashed for /api/reconcile/status so the client header can
-  // surface skip/error counts (otherwise a single broken .tres silently leaves
-  // one domain with stale JSON and the UI gives no signal).
-  console.log(`[bleepforge/server] reconciling JSON cache from .tres ...`);
-  const t0 = Date.now();
-  try {
-    const result = await runImport({ godotProjectRoot: config.godotProjectRoot! });
-    const durationMs = Date.now() - t0;
-
-    const errorDetails: { domain: string; file: string; error: string }[] = [];
-    const skippedDetails: { domain: string; file: string; reason: string }[] = [];
-    for (const dom of ["items", "quests", "karma", "factions", "npcs"] as const) {
-      for (const e of result.domains[dom].errors) {
-        errorDetails.push({ domain: dom, file: e.file, error: e.error });
-      }
-      for (const s of result.domains[dom].skipped) {
-        skippedDetails.push({ domain: dom, file: s.file, reason: s.reason });
-      }
-    }
-    for (const e of result.domains.dialogs.errors) {
-      errorDetails.push({ domain: "dialogs", file: e.file, error: e.error });
-    }
-    for (const s of result.domains.dialogs.skipped) {
-      skippedDetails.push({ domain: "dialogs", file: s.file, reason: s.reason });
-    }
-    for (const e of result.domains.balloons.errors) {
-      errorDetails.push({ domain: "balloons", file: e.file, error: e.error });
-    }
-    for (const s of result.domains.balloons.skipped) {
-      skippedDetails.push({ domain: "balloons", file: s.file, reason: s.reason });
-    }
-
-    const perDomain = {
-      items: countsOf(result.domains.items.imported.length, result.domains.items.skipped.length, result.domains.items.errors.length),
-      quests: countsOf(result.domains.quests.imported.length, result.domains.quests.skipped.length, result.domains.quests.errors.length),
-      karma: countsOf(result.domains.karma.imported.length, result.domains.karma.skipped.length, result.domains.karma.errors.length),
-      factions: countsOf(result.domains.factions.imported.length, result.domains.factions.skipped.length, result.domains.factions.errors.length),
-      dialogs: countsOf(result.domains.dialogs.imported.length, result.domains.dialogs.skipped.length, result.domains.dialogs.errors.length),
-      npcs: countsOf(result.domains.npcs.imported.length, result.domains.npcs.skipped.length, result.domains.npcs.errors.length),
-      balloons: countsOf(result.domains.balloons.imported.length, result.domains.balloons.skipped.length, result.domains.balloons.errors.length),
-    };
-
-    setReconcileStatus({
-      ranAt: new Date().toISOString(),
-      durationMs,
-      ok: true,
-      perDomain,
-      errorDetails,
-      skippedDetails,
-    });
-
-    // Compact one-liner. Per-domain segment looks like `dialogs=43` when clean
-    // and `dialogs=42 (skipped:1)` or `quests=3 (errors:1)` when not, so
-    // anomalies pop without drowning the log on a healthy boot.
-    const segments: string[] = [];
-    for (const [name, c] of Object.entries(perDomain)) {
-      const tags: string[] = [];
-      if (c.skipped > 0) tags.push(`skipped:${c.skipped}`);
-      if (c.errors > 0) tags.push(`errors:${c.errors}`);
-      segments.push(tags.length === 0 ? `${name}=${c.imported}` : `${name}=${c.imported} (${tags.join(",")})`);
-    }
-    console.log(`[bleepforge/server] reconcile ok in ${durationMs}ms — ${segments.join(" ")}`);
-    // Per-file detail lines: use console.error / console.warn so the log
-    // buffer tags them correctly (Diagnostics → Logs filters by level).
-    // The Reconcile tab is the canonical surface for these — Logs is just
-    // the aggregated stream.
-    for (const e of errorDetails) {
-      console.error(`[bleepforge/server]   error: ${e.domain} ${e.file} — ${e.error}`);
-    }
-    for (const s of skippedDetails) {
-      console.warn(`[bleepforge/server]   skipped: ${s.domain} ${s.file} — ${s.reason}`);
-    }
-  } catch (err) {
-    const message = (err as Error).message;
-    console.error(`[bleepforge/server] reconcile FAILED: ${message}`);
-    console.error(`[bleepforge/server] continuing with whatever JSON is currently on disk`);
-    setReconcileStatus({
-      ranAt: new Date().toISOString(),
-      durationMs: Date.now() - t0,
-      ok: false,
-      perDomain: emptyPerDomain(),
-      errorDetails: [],
-      skippedDetails: [],
-      error: message,
-    });
-  }
-
+  await runBootReconcile();
   startTresWatcher();
 });
-
-function countsOf(imported: number, skipped: number, errors: number) {
-  return { imported, skipped, errors };
-}
-
-function emptyPerDomain() {
-  const z = countsOf(0, 0, 0);
-  return { items: z, quests: z, karma: z, factions: z, dialogs: z, npcs: z, balloons: z };
-}
