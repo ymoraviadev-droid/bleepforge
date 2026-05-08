@@ -6,8 +6,8 @@ import "./styles/Theme"; // applies saved theme on load (sets data-theme on <htm
 import "./styles/Font"; // applies saved font + UI scale + letter spacing
 import "./styles/GlobalTheme"; // reconciles legacy keys → server-backed preferences
 import "./styles/index.css";
-import { startSyncStream } from "./sync/stream";
-import { startSavesStream } from "./saves/stream";
+import { startSyncStream } from "./lib/sync/stream";
+import { startSavesStream } from "./lib/saves/stream";
 import { refreshCatalog } from "./lib/catalog-bus";
 
 // Open the live-sync SSE channel once at startup. Components subscribe via

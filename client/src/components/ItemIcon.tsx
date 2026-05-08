@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { assetUrl, itemIconApi, type ItemIconResponse } from "../lib/api";
-import { useSyncRefresh } from "../sync/useSyncRefresh";
+import { useSyncRefresh } from "../lib/sync/useSyncRefresh";
 
 interface Props {
   slug: string;
