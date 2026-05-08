@@ -9,14 +9,31 @@ interface Props {
   asset: ImageAsset;
   usageCount: number | null;
   onShowUsages: () => void;
+  onOpenEditor: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export function AssetRow({ asset, usageCount, onShowUsages, onContextMenu }: Props) {
+export function AssetRow({
+  asset,
+  usageCount,
+  onShowUsages,
+  onOpenEditor,
+  onContextMenu,
+}: Props) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpenEditor}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenEditor();
+        }
+      }}
       onContextMenu={onContextMenu}
-      className="flex items-center gap-3 border-2 border-neutral-800 bg-neutral-900 px-2 py-1.5 transition-colors hover:border-emerald-700"
+      title="Click to edit · Right-click for more"
+      className="flex cursor-pointer items-center gap-3 border-2 border-neutral-800 bg-neutral-900 px-2 py-1.5 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
       <div
         className="flex size-10 shrink-0 items-center justify-center overflow-hidden"
@@ -59,9 +76,13 @@ export function AssetRow({ asset, usageCount, onShowUsages, onContextMenu }: Pro
         type="button"
         onClick={(e) => {
           e.preventDefault();
+          // Same dual-affordance trick as AssetCard: stopPropagation
+          // so this pill's click doesn't also trigger the row's
+          // open-editor handler.
+          e.stopPropagation();
           onShowUsages();
         }}
-        className={`shrink-0 border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors ${
+        className={`shrink-0 cursor-pointer border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors ${
           usageCount === 0
             ? "border-neutral-800 text-neutral-600 hover:border-neutral-700 hover:text-neutral-400"
             : "border-emerald-800 text-emerald-400 hover:border-emerald-600 hover:text-emerald-300"

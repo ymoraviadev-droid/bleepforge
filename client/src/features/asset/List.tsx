@@ -339,12 +339,15 @@ export function AssetList() {
                 asset,
                 openEditor: setEditor,
               });
+              const onOpenEditor = () =>
+                setEditor({ kind: "edit", assetPath: asset.path });
               return view === "cards" ? (
                 <AssetCard
                   key={asset.path}
                   asset={asset}
                   usageCount={usageCounts[asset.path] ?? null}
                   onShowUsages={() => handleShowUsages(asset)}
+                  onOpenEditor={onOpenEditor}
                   onContextMenu={onContextMenu}
                 />
               ) : (
@@ -353,6 +356,7 @@ export function AssetList() {
                   asset={asset}
                   usageCount={usageCounts[asset.path] ?? null}
                   onShowUsages={() => handleShowUsages(asset)}
+                  onOpenEditor={onOpenEditor}
                   onContextMenu={onContextMenu}
                 />
               );

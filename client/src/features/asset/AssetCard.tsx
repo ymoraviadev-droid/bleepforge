@@ -4,7 +4,12 @@ import { CHECKER_STYLE, fmtBytes, fmtDims } from "./format";
 
 // Card view for one image. Big thumbnail on top, metadata + actions below.
 // Pixel-rendered preview (the corpus is pixel-art); checkered bg so
-// transparent pixels are obvious; click "used by N" to open the drawer.
+// transparent pixels are obvious. Whole card is clickable → opens the
+// image editor in Edit mode (same target as the right-click menu's Edit
+// item). The "used by N" pill at the bottom keeps its own click handler
+// (with stopPropagation) so clicking it opens the usages drawer rather
+// than the editor — the pill is small and visually distinct enough that
+// the dual-click affordance reads cleanly.
 
 interface Props {
   asset: ImageAsset;
@@ -12,14 +17,31 @@ interface Props {
    *  triggers compute, this just shows the count if cached). */
   usageCount: number | null;
   onShowUsages: () => void;
+  onOpenEditor: () => void;
   onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export function AssetCard({ asset, usageCount, onShowUsages, onContextMenu }: Props) {
+export function AssetCard({
+  asset,
+  usageCount,
+  onShowUsages,
+  onOpenEditor,
+  onContextMenu,
+}: Props) {
   return (
     <div
+      role="button"
+      tabIndex={0}
+      onClick={onOpenEditor}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onOpenEditor();
+        }
+      }}
       onContextMenu={onContextMenu}
-      className="group flex flex-col border-2 border-neutral-800 bg-neutral-900 transition-colors hover:border-emerald-700"
+      title="Click to edit · Right-click for more"
+      className="group flex cursor-pointer flex-col border-2 border-neutral-800 bg-neutral-900 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
       <div
         className="relative flex h-32 items-center justify-center overflow-hidden"
@@ -73,9 +95,13 @@ export function AssetCard({ asset, usageCount, onShowUsages, onContextMenu }: Pr
           type="button"
           onClick={(e) => {
             e.preventDefault();
+            // stopPropagation so the parent card's onClick doesn't also
+            // fire (which would open the editor). The pill is its own
+            // affordance: opens the usages drawer.
+            e.stopPropagation();
             onShowUsages();
           }}
-          className={`mt-1 w-fit border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors ${
+          className={`mt-1 w-fit cursor-pointer border px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider transition-colors ${
             usageCount === 0
               ? "border-neutral-800 text-neutral-600 hover:border-neutral-700 hover:text-neutral-400"
               : "border-emerald-800 text-emerald-400 hover:border-emerald-600 hover:text-emerald-300"
