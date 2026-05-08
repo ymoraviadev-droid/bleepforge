@@ -237,29 +237,31 @@ export function removeBackground(
 }
 
 /**
- * Linear color overlay tint with three independent dials:
+ * Linear color overlay tint with three dials:
  *
  *   power        0..1  — strength of the color mix on visible pixels.
  *                        0 = no tint, 1 = solid color, fully replacing
- *                        the original RGB. Pixel-art useful range is
- *                        roughly 0.3-0.6: preserves shading while
- *                        shifting the palette toward the tint.
+ *                        the original RGB.
  *
  *   outputAlpha  0..1  — multiplier on the OUTPUT alpha for visible
- *                        pixels. Lets you fade the whole image to
- *                        partial transparency without touching the
- *                        color mix. 1 = unchanged. Independent from
- *                        power so you can fade an un-tinted image.
+ *                        pixels. 1 = unchanged. Lets you fade an image
+ *                        without touching the color mix.
  *
  *   bgFill       0..1  — strength of the tint color painted INTO
- *                        currently-transparent pixels. 0 = leave them
- *                        alone (default — "operate on visible image
- *                        only"); 1 = fill them fully with the tint
- *                        color at full opacity. Use this to add a
- *                        background wash behind a transparent-bg
- *                        sprite without first applying bg removal.
+ *                        currently-transparent pixels (using the same
+ *                        tint color). 0 = visible-only (default); 1 =
+ *                        transparent pixels become solid tint color.
+ *                        "Tint reaches the bg too" — quick path to
+ *                        a subject + bg in the same color without
+ *                        opening the Bg color section.
  *
- * Tint stays a no-op when all three are at their no-effect defaults.
+ * Note: Tint and the Bg color section both touch transparent pixels
+ * but with different colors. Apply order in the editor is tint first
+ * (so its bgFill paints with the tint color), then bg color (which
+ * only fills pixels still at alpha === 0). In practice the user picks
+ * one path or the other — they're mostly mutually exclusive at the
+ * per-pixel level. Tint is the "same color as subject" shortcut; Bg
+ * color is the "different color from subject" path.
  */
 export function applyTint(
   canvas: HTMLCanvasElement,
@@ -284,8 +286,8 @@ export function applyTint(
     const a = px[i + 3]!;
     if (a === 0) {
       // Transparent pixel — paint with the tint color when bgFill > 0.
-      // RGB on transparent pixels is otherwise garbage (encoder leftovers)
-      // so we replace it wholesale rather than mix.
+      // RGB on transparent pixels is otherwise garbage (encoder
+      // leftovers) so we replace it wholesale rather than mix.
       if (bf > 0) {
         px[i] = color.r;
         px[i + 1] = color.g;
@@ -294,7 +296,6 @@ export function applyTint(
       }
       continue;
     }
-    // Visible pixel — color mix + alpha multiplier.
     if (p > 0) {
       px[i] = Math.round(px[i]! * ip + color.r * p);
       px[i + 1] = Math.round(px[i + 1]! * ip + color.g * p);
@@ -303,6 +304,41 @@ export function applyTint(
     if (oa < 1) {
       px[i + 3] = Math.round(a * oa);
     }
+  }
+  ctx.putImageData(img, 0, 0);
+}
+
+/**
+ * Fill currently-transparent pixels with a solid color at the given
+ * alpha. Dual to applyTint — tint operates on visible pixels, bg color
+ * operates on transparent pixels. The two are independent in the
+ * editor (separate color pickers + alpha sliders) so you can tint a
+ * subject AND put it on a different-colored backdrop without the
+ * controls fighting each other.
+ *
+ * Only fully-transparent pixels (alpha === 0) are filled. Semi-
+ * transparent edge pixels (anti-aliased silhouette of the subject)
+ * are left as-is so the subject's outline stays clean.
+ */
+export function applyBgColor(
+  canvas: HTMLCanvasElement,
+  color: RGB,
+  alpha: number,
+): void {
+  if (alpha <= 0) return;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+  const w = canvas.width;
+  const h = canvas.height;
+  const img = ctx.getImageData(0, 0, w, h);
+  const px = img.data;
+  const aByte = Math.round(255 * Math.min(1, Math.max(0, alpha)));
+  for (let i = 0; i < px.length; i += 4) {
+    if (px[i + 3]! !== 0) continue;
+    px[i] = color.r;
+    px[i + 1] = color.g;
+    px[i + 2] = color.b;
+    px[i + 3] = aByte;
   }
   ctx.putImageData(img, 0, 0);
 }

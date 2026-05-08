@@ -10,6 +10,7 @@ import { CropControls } from "./CropControls";
 import { type CropRect } from "./cropMath";
 import { FolderPicker } from "./FolderPicker";
 import {
+  applyBgColor,
   applyTint,
   autoTrim,
   blobToCanvas,
@@ -85,6 +86,8 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
   const [tintPower, setTintPower] = useState<number>(0);
   const [tintAlpha, setTintAlpha] = useState<number>(1);
   const [tintBgFill, setTintBgFill] = useState<number>(0);
+  const [bgColor, setBgColor] = useState<string>("#000000");
+  const [bgColorAlpha, setBgColorAlpha] = useState<number>(0);
 
   // --- Sampler state (one of: none / bg-color eyedropper / magic-crop) ---
   const [samplerMode, setSamplerMode] = useState<SamplerMode>("none");
@@ -163,18 +166,34 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
     };
   }, [mode]);
 
-  // --- Display canvas: working + tint (live preview of the tint sliders) ---
+  // --- Display canvas: working + tint + bg color (live preview) ---
+  // Order is fixed: tint first (its Bg slider can paint transparent
+  // pixels with the tint color), then bg color (fills any remaining
+  // transparent pixels with its own independent color). The two are
+  // mostly mutually exclusive at the per-pixel level — bg color only
+  // touches alpha === 0 pixels, so if tint's bgFill already painted
+  // them, bg color won't override. User picks one path or the other.
   const display = useMemo<HTMLCanvasElement | null>(() => {
     if (!working) return null;
     const tint = parseHexColor(tintColor);
-    if (!tint) return working;
-    const tintIsNoOp =
-      tintPower <= 0 && tintAlpha >= 1 && tintBgFill <= 0;
-    if (tintIsNoOp) return working;
+    const bg = parseHexColor(bgColor);
+    const tintNoOp =
+      !tint || (tintPower <= 0 && tintAlpha >= 1 && tintBgFill <= 0);
+    const bgNoOp = !bg || bgColorAlpha <= 0;
+    if (tintNoOp && bgNoOp) return working;
     const out = snapshotCanvas(working);
-    applyTint(out, tint, tintPower, tintAlpha, tintBgFill);
+    if (tint && !tintNoOp) applyTint(out, tint, tintPower, tintAlpha, tintBgFill);
+    if (bg && !bgNoOp) applyBgColor(out, bg, bgColorAlpha);
     return out;
-  }, [working, tintColor, tintPower, tintAlpha, tintBgFill]);
+  }, [
+    working,
+    tintColor,
+    tintPower,
+    tintAlpha,
+    tintBgFill,
+    bgColor,
+    bgColorAlpha,
+  ]);
 
   // --- Esc closes (unless we're saving) ---
   useEffect(() => {
@@ -331,10 +350,48 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
       const { removeBackground: mlRemoveBg } = await import(
         "@imgly/background-removal"
       );
-      const ctx = working.getContext("2d");
-      if (!ctx) throw new Error("2d context unavailable");
-      const imageData = ctx.getImageData(0, 0, working.width, working.height);
-      const resultBlob = await mlRemoveBg(imageData, {
+      // Crop-aware: when a crop is set, extract that region, run ML
+      // only on it (faster — model preprocesses to 1024×1024 either
+      // way, but we save the output rescale + composite work), then
+      // paste the result back into a copy of working with the
+      // surrounding pixels untouched. No crop → existing whole-image
+      // behavior.
+      let inputCanvas: HTMLCanvasElement;
+      if (crop) {
+        inputCanvas = document.createElement("canvas");
+        inputCanvas.width = crop.w;
+        inputCanvas.height = crop.h;
+        const inCtx = inputCanvas.getContext("2d");
+        if (!inCtx) throw new Error("2d context unavailable");
+        inCtx.imageSmoothingEnabled = false;
+        inCtx.drawImage(
+          working,
+          crop.x,
+          crop.y,
+          crop.w,
+          crop.h,
+          0,
+          0,
+          crop.w,
+          crop.h,
+        );
+      } else {
+        inputCanvas = working;
+      }
+
+      // Pass a PNG Blob, NOT ImageData. The lib's TypeScript types
+      // claim ImageData is acceptable but the runtime tensor path only
+      // handles Blob/URL/ArrayBuffer (which go through imageDecode →
+      // ImageBitmap → NdArray); ImageData inputs fail later with
+      // "undefined is not iterable" when the lib tries to destructure
+      // a non-existent .shape on raw ImageData.
+      const inputBlob = await new Promise<Blob>((resolve, reject) => {
+        inputCanvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+          "image/png",
+        );
+      });
+      const resultBlob = await mlRemoveBg(inputBlob, {
         model: "isnet_fp16",
         output: { format: "image/png" },
         progress: (key, current, total) => {
@@ -342,14 +399,31 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
           setMlProgress({ key, ratio });
         },
       });
-      const newCanvas = await blobToCanvas(resultBlob);
+      const resultCanvas = await blobToCanvas(resultBlob);
+
+      let newWorking: HTMLCanvasElement;
+      if (crop) {
+        // Composite back: clearRect first so transparent ML output
+        // becomes truly transparent in the working canvas (default
+        // source-over blending would otherwise leave the original
+        // pixels visible through the ML's alpha=0 areas).
+        newWorking = snapshotCanvas(working);
+        const outCtx = newWorking.getContext("2d");
+        if (!outCtx) throw new Error("2d context unavailable");
+        outCtx.imageSmoothingEnabled = false;
+        outCtx.clearRect(crop.x, crop.y, crop.w, crop.h);
+        outCtx.drawImage(resultCanvas, crop.x, crop.y, crop.w, crop.h);
+      } else {
+        newWorking = resultCanvas;
+      }
+
       // Same snapshot-then-swap dance as applyDestructive, but we have
       // the fully-formed result canvas already, so we don't go through
       // the in-place mutation path.
       undoStackRef.current.push(snapshotCanvas(working));
       if (undoStackRef.current.length > 24) undoStackRef.current.shift();
       refreshUndo();
-      setWorking(newCanvas);
+      setWorking(newWorking);
     } catch (err) {
       setMlError((err as Error).message);
     } finally {
@@ -391,6 +465,11 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
     setTintBgFill(0);
   };
 
+  const resetBgColor = () => {
+    setBgColor("#000000");
+    setBgColorAlpha(0);
+  };
+
   const handleReset = () => {
     if (!originalRef.current) return;
     undoStackRef.current = [];
@@ -421,6 +500,8 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
       const out = snapshotCanvas(working);
       const tint = parseHexColor(tintColor);
       if (tint) applyTint(out, tint, tintPower, tintAlpha, tintBgFill);
+      const bg = parseHexColor(bgColor);
+      if (bg) applyBgColor(out, bg, bgColorAlpha);
       const finalCanvas = crop ? extractCropToCanvas(out, crop) : out;
       const contentBase64 = canvasToPngBase64(finalCanvas);
       // Edit mode always overwrites since the destination is the same path.
@@ -643,6 +724,15 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
                   />
                 </ToolSection>
 
+                <ToolSection title="Bg color" onReset={resetBgColor}>
+                  <BgColorPanel
+                    color={bgColor}
+                    alpha={bgColorAlpha}
+                    onColorChange={setBgColor}
+                    onAlphaChange={setBgColorAlpha}
+                  />
+                </ToolSection>
+
                 <ToolSection title="Transform">
                   <div className="flex flex-wrap gap-1.5">
                     <ToolButton onClick={handleFlipH} title="Mirror horizontally">
@@ -732,6 +822,44 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
           </Button>
         </footer>
       </div>
+
+      {/* ML loading modal — sits above the editor while inference (and
+          first-run model fetch) is in flight. The progress bar fills
+          based on the lib's progress callback (current/total), and a
+          shimmer sweep across the bar makes the wait feel alive even
+          when the underlying ratio is stuck at 0% or 100% between
+          phases (the lib only emits a few progress events per phase,
+          so without the shimmer the bar would look frozen). */}
+      {mlBusy && (
+        <>
+          <div className="fixed inset-0 z-60 bg-black/80" aria-hidden />
+          <div
+            role="dialog"
+            aria-label="ML background removal"
+            aria-busy="true"
+            className="fixed left-1/2 top-1/2 z-60 w-96 -translate-x-1/2 -translate-y-1/2 border-2 border-emerald-700 bg-neutral-950 p-5"
+          >
+            <p className="font-display text-xs uppercase tracking-wider text-emerald-400">
+              ML background removal
+            </p>
+            <div className="relative mt-4 h-3 w-full overflow-hidden border border-neutral-800 bg-neutral-900">
+              <div
+                className="ml-progress-fill h-full bg-emerald-600 transition-[width] duration-200"
+                style={{ width: `${(mlProgress?.ratio ?? 0) * 100}%` }}
+              />
+            </div>
+            <p className="mt-2 font-mono text-[10px] uppercase tracking-wider text-neutral-500">
+              {mlProgress
+                ? `${mlProgress.key} · ${Math.round(mlProgress.ratio * 100)}%`
+                : "starting…"}
+            </p>
+            <p className="mt-3 font-mono text-[10px] leading-relaxed text-neutral-600">
+              First run downloads ~44MB to your browser cache; subsequent
+              runs skip the fetch and finish in a few seconds.
+            </p>
+          </div>
+        </>
+      )}
     </>
   );
 }
@@ -841,23 +969,8 @@ function BgRemovePanel({
         title="Run BRIA RMBG ML segmentation. Best for photographic / non-pixel-art sources. First click downloads ~44MB model."
       >
         <span aria-hidden>✦</span>
-        {mlBusy ? "Running ML…" : "ML remove bg"}
+        ML remove bg
       </button>
-      {mlBusy && (
-        <div className="flex flex-col gap-0.5">
-          <div className="h-1.5 w-full overflow-hidden border border-neutral-800 bg-neutral-900">
-            <div
-              className="h-full bg-emerald-600 transition-all"
-              style={{ width: `${(mlProgress?.ratio ?? 0) * 100}%` }}
-            />
-          </div>
-          <p className="font-mono text-[9px] uppercase tracking-wider text-neutral-500">
-            {mlProgress
-              ? `${mlProgress.key} · ${Math.round(mlProgress.ratio * 100)}%`
-              : "starting…"}
-          </p>
-        </div>
-      )}
       {mlError && (
         <p className="font-mono text-[10px] text-red-400">{mlError}</p>
       )}
@@ -986,17 +1099,65 @@ function TintPanel({
         hint="Output opacity of visible pixels (1 = unchanged)."
       />
       <SliderField
-        label="Bg fill"
+        label="Bg"
         min={0}
         max={1}
         step={0.01}
         value={bgFill}
         onChange={onBgFillChange}
         format={(v) => `${Math.round(v * 100)}%`}
-        hint="Paint transparent pixels with the tint color (0 = visible image only)."
+        hint="Extend the tint into transparent pixels too (uses the tint color). 0 = visible-only."
       />
       <p className="font-mono text-[10px] text-neutral-600">
-        All three are live preview; baked in on save.
+        Live preview; baked in on save. For a backdrop in a different
+        color, use the Bg color section below.
+      </p>
+    </div>
+  );
+}
+
+function BgColorPanel({
+  color,
+  alpha,
+  onColorChange,
+  onAlphaChange,
+}: {
+  color: string;
+  alpha: number;
+  onColorChange: (hex: string) => void;
+  onAlphaChange: (n: number) => void;
+}) {
+  const rgb = parseHexColor(color);
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={color}
+          onChange={(e) => onColorChange(e.target.value)}
+          className="size-7 cursor-pointer border border-neutral-700 bg-neutral-900"
+        />
+        <input
+          type="text"
+          value={rgb ? rgbToHex(rgb) : color}
+          onChange={(e) => onColorChange(e.target.value)}
+          className={`${textInput} mt-0 flex-1 font-mono`}
+          placeholder="#rrggbb"
+        />
+      </div>
+      <SliderField
+        label="Alpha"
+        min={0}
+        max={1}
+        step={0.01}
+        value={alpha}
+        onChange={onAlphaChange}
+        format={(v) => `${Math.round(v * 100)}%`}
+        hint="Solid color filled into transparent pixels. 0 = no fill (default)."
+      />
+      <p className="font-mono text-[10px] text-neutral-600">
+        Independent from Tint above — pick separate colors for the
+        subject and the backdrop.
       </p>
     </div>
   );

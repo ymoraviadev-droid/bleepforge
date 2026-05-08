@@ -592,3 +592,31 @@ html {
 .pixel-range:active::-moz-range-thumb {
   background: var(--color-emerald-300);
 }
+
+/* Shimmer sweep on the ML progress bar's filled region. The lib's
+   progress callback emits coarse events (a few per phase) so the
+   width-based fill bar visibly stalls between updates and feels
+   frozen — the shimmer makes the wait read as "still working" even
+   when the underlying ratio hasn't changed. Uses ::after on the fill
+   layer so it inherits the bar's clipping; the gradient sweeps left-
+   to-right indefinitely while inference is running. */
+.ml-progress-fill {
+  position: relative;
+  overflow: hidden;
+}
+.ml-progress-fill::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, white 40%, transparent) 50%,
+    transparent 100%
+  );
+  animation: ml-progress-shimmer 1.4s linear infinite;
+}
+@keyframes ml-progress-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
