@@ -10,8 +10,9 @@
     "typecheck": "tsc -b --noEmit"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^3.0.0",
     "@bleepforge/shared": "workspace:*",
+    "@dagrejs/dagre": "^3.0.0",
+    "@imgly/background-removal": "^1.7.0",
     "@xyflow/react": "^12.10.2",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

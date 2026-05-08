@@ -707,6 +707,24 @@ export function imageToCanvas(
 }
 
 /**
+ * Decode a Blob (PNG / WebP / etc.) into a fresh HTMLCanvasElement at
+ * its natural resolution. Used to receive the output of ML bg removal
+ * — the @imgly/background-removal API returns a Blob; we need a canvas
+ * to swap into the editor's working surface.
+ */
+export async function blobToCanvas(blob: Blob): Promise<HTMLCanvasElement> {
+  const url = URL.createObjectURL(blob);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    return imageToCanvas(img, img.naturalWidth, img.naturalHeight);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
  * Convert canvas → base64 PNG (no data: prefix), used at save-time
  * just like the existing extractToPngBase64 but for a canvas instead
  * of an Image. Lives here next to the other ops so the editor's save

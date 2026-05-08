@@ -12,6 +12,7 @@ import { FolderPicker } from "./FolderPicker";
 import {
   applyTint,
   autoTrim,
+  blobToCanvas,
   canvasToPngBase64,
   detectSubjectBoundsAtClick,
   flipHorizontal,
@@ -101,6 +102,19 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- ML bg-removal state ---
+  // First-call download is ~44MB (isnet_fp16 model) cached to the
+  // browser's CacheStorage; subsequent calls skip the fetch step. The
+  // progress callback emits (key, current, total) where key tags the
+  // phase (`fetch:model`, `compute:inference`, …). We surface key + %
+  // in the panel so the user understands a long first-call wait.
+  const [mlBusy, setMlBusy] = useState(false);
+  const [mlProgress, setMlProgress] = useState<{
+    key: string;
+    ratio: number;
+  } | null>(null);
+  const [mlError, setMlError] = useState<string | null>(null);
 
   // --- Source preload for edit / duplicate ---
   useEffect(() => {
@@ -301,6 +315,48 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
     });
   };
 
+  // ML bg removal — for photographic / non-pixel-art sources where the
+  // perimeter heuristic falls down. Runs the BRIA RMBG model in a Web
+  // Worker (proxyToWorker is the lib's default; keeps the UI responsive
+  // during inference). Result is a PNG Blob with the bg's alpha zeroed
+  // out — we decode that into a fresh canvas, push the previous working
+  // state to the undo stack, and swap the new canvas in. Lazy-imports
+  // the lib so the editor's first paint doesn't pay the load cost.
+  const handleMlBgRemove = async () => {
+    if (!working) return;
+    setMlBusy(true);
+    setMlError(null);
+    setMlProgress(null);
+    try {
+      const { removeBackground: mlRemoveBg } = await import(
+        "@imgly/background-removal"
+      );
+      const ctx = working.getContext("2d");
+      if (!ctx) throw new Error("2d context unavailable");
+      const imageData = ctx.getImageData(0, 0, working.width, working.height);
+      const resultBlob = await mlRemoveBg(imageData, {
+        model: "isnet_fp16",
+        output: { format: "image/png" },
+        progress: (key, current, total) => {
+          const ratio = total > 0 ? current / total : 0;
+          setMlProgress({ key, ratio });
+        },
+      });
+      const newCanvas = await blobToCanvas(resultBlob);
+      // Same snapshot-then-swap dance as applyDestructive, but we have
+      // the fully-formed result canvas already, so we don't go through
+      // the in-place mutation path.
+      undoStackRef.current.push(snapshotCanvas(working));
+      if (undoStackRef.current.length > 24) undoStackRef.current.shift();
+      refreshUndo();
+      setWorking(newCanvas);
+    } catch (err) {
+      setMlError((err as Error).message);
+    } finally {
+      setMlBusy(false);
+      setMlProgress(null);
+    }
+  };
 
   const handleUndo = () => {
     const prev = undoStackRef.current.pop();
@@ -567,6 +623,10 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
                     onModeChange={setBgMode}
                     onToleranceChange={setBgTolerance}
                     onApply={handleApplyBgRemove}
+                    onMlRemove={handleMlBgRemove}
+                    mlBusy={mlBusy}
+                    mlProgress={mlProgress}
+                    mlError={mlError}
                   />
                 </ToolSection>
 
@@ -744,6 +804,10 @@ function BgRemovePanel({
   onModeChange,
   onToleranceChange,
   onApply,
+  onMlRemove,
+  mlBusy,
+  mlProgress,
+  mlError,
 }: {
   eyedropperActive: boolean;
   sample: RGB | null;
@@ -753,9 +817,54 @@ function BgRemovePanel({
   onModeChange: (m: BgRemoveMode) => void;
   onToleranceChange: (n: number) => void;
   onApply: () => void;
+  onMlRemove: () => void;
+  mlBusy: boolean;
+  mlProgress: { key: string; ratio: number } | null;
+  mlError: string | null;
 }) {
   return (
     <div className="flex flex-col gap-2">
+      {/* ML bg removal — destructive, one-click. Sits at the top of
+          the Background section since it's the high-quality option for
+          photographic / non-pixel-art sources where the manual
+          eyedropper + tolerance flow can't easily separate subject
+          from gradient bg. First call downloads the BRIA RMBG model
+          (~44MB at fp16) to the browser's cache; subsequent calls
+          skip the fetch. Progress callback emits a key + (current,
+          total) — we surface it as a tiny progress bar below the
+          button so a long first-call wait is legible. */}
+      <button
+        type="button"
+        onClick={onMlRemove}
+        disabled={mlBusy}
+        className="flex w-fit items-center gap-1.5 border border-emerald-700 bg-emerald-950/40 px-2 py-1 font-mono text-[10px] uppercase tracking-wider text-emerald-300 transition-colors hover:border-emerald-500 hover:bg-emerald-950/60 disabled:cursor-not-allowed disabled:border-neutral-700 disabled:bg-neutral-900 disabled:text-neutral-500"
+        title="Run BRIA RMBG ML segmentation. Best for photographic / non-pixel-art sources. First click downloads ~44MB model."
+      >
+        <span aria-hidden>✦</span>
+        {mlBusy ? "Running ML…" : "ML remove bg"}
+      </button>
+      {mlBusy && (
+        <div className="flex flex-col gap-0.5">
+          <div className="h-1.5 w-full overflow-hidden border border-neutral-800 bg-neutral-900">
+            <div
+              className="h-full bg-emerald-600 transition-all"
+              style={{ width: `${(mlProgress?.ratio ?? 0) * 100}%` }}
+            />
+          </div>
+          <p className="font-mono text-[9px] uppercase tracking-wider text-neutral-500">
+            {mlProgress
+              ? `${mlProgress.key} · ${Math.round(mlProgress.ratio * 100)}%`
+              : "starting…"}
+          </p>
+        </div>
+      )}
+      {mlError && (
+        <p className="font-mono text-[10px] text-red-400">{mlError}</p>
+      )}
+      <p className="font-mono text-[10px] text-neutral-600">
+        For photographic / non-pixel-art sources. First run downloads ~44MB to your browser cache.
+      </p>
+
       <div className="flex items-center gap-2">
         <button
           type="button"
