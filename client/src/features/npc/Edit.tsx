@@ -15,6 +15,7 @@ import { DL } from "../../components/CatalogDatalists";
 import { useCatalog } from "../../lib/useCatalog";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { showConfirm } from "../../components/Modal";
+import { SliderField } from "../../components/SliderField";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 const empty = (): Npc => ({
@@ -663,102 +664,85 @@ function LootEditor({
             return (
               <div
                 key={entry._subId ?? idx}
-                className="grid grid-cols-12 items-center gap-2 rounded border border-neutral-800 bg-neutral-950/40 p-2 text-xs"
+                className="space-y-3 rounded border border-neutral-800 bg-neutral-950/40 p-3 text-xs"
               >
-                <label className="col-span-6 block">
-                  <span className={fieldLabel}>Pickup scene</span>
-                  <select
-                    value={entry.PickupScene}
-                    onChange={(e) =>
-                      updateEntry(idx, { PickupScene: e.target.value })
-                    }
-                    className={`${textInput} mt-0.5 font-mono text-[11px] ${
-                      !known && entry.PickupScene
-                        ? "border-red-700 text-red-200"
-                        : ""
-                    }`}
-                  >
-                    {/* Preserve the existing value as an option even if it's
-                        not in the picker list (stale ref / scene removed) so
-                        the user can see what's there before fixing it. */}
-                    {entry.PickupScene && !known && (
-                      <option value={entry.PickupScene}>
-                        ⚠ missing — {entry.PickupScene}
-                      </option>
-                    )}
-                    {pickups.map((p) => (
-                      <option key={p.path} value={p.path}>
-                        {p.name}
-                        {p.dbItemName
-                          ? ` → ${itemNameBySlug.get(p.dbItemName) ?? p.dbItemName}`
-                          : ""}
-                      </option>
-                    ))}
-                  </select>
-                  {wrapsItem && (
-                    <p className="mt-0.5 text-[10px] text-neutral-500">
-                      wraps item:{" "}
-                      <span className="font-mono text-neutral-300">
-                        {pickup!.dbItemName}
-                      </span>{" "}
-                      ({wrapsItem})
-                    </p>
-                  )}
-                </label>
-                <label className="col-span-2 block">
-                  <span className={fieldLabel}>Chance</span>
-                  <input
-                    type="number"
-                    step="0.05"
-                    min="0"
-                    max="1"
-                    value={entry.Chance}
-                    onChange={(e) =>
-                      updateEntry(idx, {
-                        Chance: clampFloat(parseFloat(e.target.value), 0, 1),
-                      })
-                    }
-                    className={`${textInput} mt-0.5 font-mono`}
-                  />
-                </label>
-                <label className="col-span-1 block">
-                  <span className={fieldLabel}>Min</span>
-                  <input
-                    type="number"
-                    step="1"
-                    min="0"
-                    value={entry.MinAmount}
-                    onChange={(e) =>
-                      updateEntry(idx, {
-                        MinAmount: parseInt(e.target.value) || 0,
-                      })
-                    }
-                    className={`${textInput} mt-0.5 font-mono`}
-                  />
-                </label>
-                <label className="col-span-1 block">
-                  <span className={fieldLabel}>Max</span>
-                  <input
-                    type="number"
-                    step="1"
-                    min="0"
-                    value={entry.MaxAmount}
-                    onChange={(e) =>
-                      updateEntry(idx, {
-                        MaxAmount: parseInt(e.target.value) || 0,
-                      })
-                    }
-                    className={`${textInput} mt-0.5 font-mono`}
-                  />
-                </label>
-                <div className="col-span-2 flex justify-end">
+                <div className="flex items-end gap-2">
+                  <label className="block flex-1 min-w-0">
+                    <span className={fieldLabel}>Pickup scene</span>
+                    <select
+                      value={entry.PickupScene}
+                      onChange={(e) =>
+                        updateEntry(idx, { PickupScene: e.target.value })
+                      }
+                      className={`${textInput} mt-0.5 font-mono text-[11px] ${
+                        !known && entry.PickupScene
+                          ? "border-red-700 text-red-200"
+                          : ""
+                      }`}
+                    >
+                      {/* Preserve the existing value as an option even if it's
+                          not in the picker list (stale ref / scene removed) so
+                          the user can see what's there before fixing it. */}
+                      {entry.PickupScene && !known && (
+                        <option value={entry.PickupScene}>
+                          ⚠ missing — {entry.PickupScene}
+                        </option>
+                      )}
+                      {pickups.map((p) => (
+                        <option key={p.path} value={p.path}>
+                          {p.name}
+                          {p.dbItemName
+                            ? ` → ${itemNameBySlug.get(p.dbItemName) ?? p.dbItemName}`
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
                   <button
                     type="button"
                     onClick={() => removeEntry(idx)}
-                    className="text-[10px] text-red-400 hover:text-red-300"
+                    className="text-[10px] text-red-400 hover:text-red-300 pb-2 whitespace-nowrap"
                   >
                     Remove
                   </button>
+                </div>
+                {wrapsItem && (
+                  <p className="-mt-1 text-[10px] text-neutral-500">
+                    wraps item:{" "}
+                    <span className="font-mono text-neutral-300">
+                      {pickup!.dbItemName}
+                    </span>{" "}
+                    ({wrapsItem})
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-4">
+                  <SliderField
+                    label="Chance"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={entry.Chance}
+                    onChange={(v) =>
+                      updateEntry(idx, { Chance: clampFloat(v, 0, 1) })
+                    }
+                    format={(v) => v.toFixed(2)}
+                  />
+                  <SliderField
+                    label="Min"
+                    min={0}
+                    max={20}
+                    step={1}
+                    value={entry.MinAmount}
+                    onChange={(v) => updateEntry(idx, { MinAmount: v })}
+                  />
+                  <SliderField
+                    label="Max"
+                    min={0}
+                    max={20}
+                    step={1}
+                    value={entry.MaxAmount}
+                    onChange={(v) => updateEntry(idx, { MaxAmount: v })}
+                  />
                 </div>
               </div>
             );

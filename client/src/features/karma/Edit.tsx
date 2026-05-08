@@ -4,6 +4,7 @@ import { ButtonLink } from "../../components/Button";
 import type { Faction, KarmaDelta, KarmaImpact } from "@bleepforge/shared";
 import { karmaApi } from "../../lib/api";
 import { showConfirm } from "../../components/Modal";
+import { SliderField } from "../../components/SliderField";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
@@ -167,17 +168,16 @@ export function KarmaEdit() {
                     ))}
                   </select>
                 </label>
-                <label className="block">
-                  <span className={fieldLabel}>Amount</span>
-                  <input
-                    type="number"
-                    value={delta.Amount}
-                    onChange={(e) =>
-                      updateDelta(idx, { Amount: parseInt(e.target.value) || 0 })
-                    }
-                    className={textInput}
-                  />
-                </label>
+                <SliderField
+                  label="Amount"
+                  min={-50}
+                  max={100}
+                  step={1}
+                  value={delta.Amount}
+                  onChange={(v) => updateDelta(idx, { Amount: v })}
+                  format={(v) => (v > 0 ? `+${v}` : String(v))}
+                />
+
                 <button
                   onClick={() => removeDelta(idx)}
                   className="self-end pb-2 text-xs text-red-400 hover:text-red-300"

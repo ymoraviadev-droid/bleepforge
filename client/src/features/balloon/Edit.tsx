@@ -4,6 +4,7 @@ import type { Balloon, Npc } from "@bleepforge/shared";
 import { balloonsApi, npcsApi } from "../../lib/api";
 import { ButtonLink } from "../../components/Button";
 import { showConfirm } from "../../components/Modal";
+import { SliderField } from "../../components/SliderField";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
@@ -182,37 +183,27 @@ export function BalloonEdit() {
             className={`${textInput} font-mono`}
           />
         </label>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className={fieldLabel}>Type speed</span>
-            <input
-              type="number"
-              step="0.1"
-              value={balloon.TypeSpeed}
-              onChange={(e) =>
-                update({ TypeSpeed: parseFloat(e.target.value) || 0 })
-              }
-              className={textInput}
-            />
-            <span className="mt-1 block text-[10px] text-neutral-600">
-              Characters per second. 0 = instant. Godot default: 30.
-            </span>
-          </label>
-          <label className="block">
-            <span className={fieldLabel}>Hold duration</span>
-            <input
-              type="number"
-              step="0.1"
-              value={balloon.HoldDuration}
-              onChange={(e) =>
-                update({ HoldDuration: parseFloat(e.target.value) || 0 })
-              }
-              className={textInput}
-            />
-            <span className="mt-1 block text-[10px] text-neutral-600">
-              Seconds visible after typing finishes. Godot default: 2.0.
-            </span>
-          </label>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SliderField
+            label="Type speed"
+            min={0}
+            max={100}
+            step={1}
+            value={balloon.TypeSpeed}
+            onChange={(v) => update({ TypeSpeed: v })}
+            format={(v) => (v === 0 ? "instant" : `${v} cps`)}
+            hint="Characters per second. 0 = instant. Godot default: 30."
+          />
+          <SliderField
+            label="Hold duration"
+            min={0}
+            max={10}
+            step={0.1}
+            value={balloon.HoldDuration}
+            onChange={(v) => update({ HoldDuration: v })}
+            format={(v) => `${v.toFixed(1)}s`}
+            hint="Seconds visible after typing finishes. Godot default: 2.0."
+          />
         </div>
       </section>
 
