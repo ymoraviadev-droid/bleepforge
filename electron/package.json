@@ -2,16 +2,25 @@
   "name": "@bleepforge/electron",
   "version": "0.1.0",
   "private": true,
+  "description": "Bleepforge desktop wrapper",
+  "author": "Yehonatan Moravia",
   "main": "dist/main.js",
   "scripts": {
     "dev": "tsc && node ./scripts/dev.mjs",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "start": "electron dist/main.js"
+    "start": "electron dist/main.js",
+    "dist": "node ./scripts/dist.mjs"
+  },
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "express": "^5.0.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "electron": "^33.0.0",
+    "electron-builder": "^25.1.0",
     "typescript": "^5.6.0"
   }
 }

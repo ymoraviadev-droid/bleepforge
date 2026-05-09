@@ -1,7 +1,12 @@
 node_modules
 dist
+dist-bundle
 *.log
 .env
 .DS_Store
 .tres-staging/
 .tres-harness-report.txt
+
+# Electron-builder packaged-app output. Per-build ~400MB (AppImage 115MB +
+# unpacked linux-unpacked/ tree). Recreate via `pnpm dist`.
+electron/release/

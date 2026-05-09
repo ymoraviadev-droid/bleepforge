@@ -1,0 +1,34 @@
+{
+  "appId": "dev.ymoravia.bleepforge",
+  "productName": "Bleepforge",
+  "executableName": "bleepforge",
+  "directories": {
+    "output": "release",
+    "buildResources": "build-resources"
+  },
+  "asar": true,
+  "files": [
+    "dist/**",
+    "package.json",
+    {
+      "from": "../server/dist-bundle",
+      "to": "server/dist-bundle",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "../client/dist",
+      "to": "client/dist",
+      "filter": ["**/*"]
+    },
+    {
+      "from": "../data/help",
+      "to": "seed/help",
+      "filter": ["**/*"]
+    }
+  ],
+  "linux": {
+    "target": ["AppImage"],
+    "category": "Development",
+    "artifactName": "${productName}-${version}-${arch}.${ext}"
+  }
+}

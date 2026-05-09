@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "tsx watch --env-file=../.env src/index.ts",
     "build": "tsc",
+    "build:bundle": "esbuild src/lib-entry.ts --bundle --platform=node --format=esm --target=node20 --external:express --external:chokidar --external:zod --outfile=dist-bundle/server.mjs",
     "start": "node --env-file=../.env dist/index.js",
     "typecheck": "tsc --noEmit",
     "harness": "tsx --env-file=../.env src/internal/tres/harness.ts",
@@ -25,6 +26,7 @@
   "devDependencies": {
     "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
+    "esbuild": "^0.24.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
   }
