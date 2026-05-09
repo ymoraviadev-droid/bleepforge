@@ -10,6 +10,7 @@ import { NotFoundPage } from "./components/NotFoundPage";
 import { SplashScreen } from "./components/SplashScreen";
 import { ToastHost } from "./components/Toast";
 import { ImageEditorHost } from "./features/asset/imageEditorHost";
+import { isPopout, popoutOrNavigate } from "./lib/electron";
 import { useSyncToasts } from "./lib/sync/syncToasts";
 import { ConceptView } from "./features/concept/View";
 import { ConceptEdit } from "./features/concept/Edit";
@@ -104,12 +105,18 @@ const diagNavClass = (
   };
 
 export function App() {
+  // Popouts (chromeless secondary windows opened by Electron for
+  // Diagnostics / Help / Preferences) live for the lifetime of one
+  // window; the URL ?popout=1 marker is read once at module load so
+  // in-popout React Router navigations don't lose the chromeless layout.
+  const popout = isPopout();
+
   // Splash fires on every fresh mount (i.e. real refresh / first load).
   // The current URL is preserved across the splash because the router doesn't
   // re-mount — F5 on /quests goes splash → /quests; logo click does
   // location.href = "/" which both reloads AND lands on /concept.
-  // Eventually replaced by Tauri's native splash for the desktop build.
-  const [showSplash, setShowSplash] = useState(true);
+  // Popouts skip the splash — they're focused subviews, not full sessions.
+  const [showSplash, setShowSplash] = useState(!popout);
 
   // Browsers restore a previously-rendered page from the back-forward cache
   // when you navigate back to it (e.g. Google → click → app, then back ←
@@ -141,18 +148,14 @@ export function App() {
 
   return (
     <div className="flex h-screen flex-col">
+      {!popout && (
       <header className="flex shrink-0 items-center gap-6 border-b-2 border-neutral-800 bg-neutral-950 px-6 py-4">
-        <button
-          type="button"
-          onClick={() => {
-            // Hard reload to /. Replays the splash and lands on /concept.
-            window.location.href = "/";
-          }}
-          className="font-display text-sm tracking-wider text-emerald-400 transition-colors hover:text-emerald-300"
-          title="Refresh to home"
+        <span
+          className="font-display text-sm tracking-wider text-emerald-400 select-none"
+          aria-label="Bleepforge"
         >
           BLEEPFORGE
-        </button>
+        </span>
         <nav className="flex gap-2">
           <NavLink to="/concept" className={navLinkClass}>
             Game concept
@@ -189,6 +192,7 @@ export function App() {
         <AppSearch />
         <NavLink
           to="/diagnostics"
+          onClick={(e) => popoutOrNavigate(e, "/diagnostics")}
           className={diagNavClass(diagnostics.overall)}
           title={diagnosticsTitle(diagnostics.overall, diagnostics.totalCount)}
           aria-label={diagnosticsTitle(diagnostics.overall, diagnostics.totalCount)}
@@ -209,6 +213,7 @@ export function App() {
         </NavLink>
         <NavLink
           to="/preferences"
+          onClick={(e) => popoutOrNavigate(e, "/preferences")}
           className={prefsNavClass}
           title="Preferences"
           aria-label="Preferences"
@@ -217,6 +222,7 @@ export function App() {
         </NavLink>
         <NavLink
           to="/help"
+          onClick={(e) => popoutOrNavigate(e, "/help")}
           className={prefsNavClass}
           title="Help"
           aria-label="Help"
@@ -224,6 +230,7 @@ export function App() {
           <HelpIcon size={20} />
         </NavLink>
       </header>
+      )}
       <CatalogDatalists />
       <ModalHost />
       <ContextMenuHost />
@@ -286,7 +293,7 @@ export function App() {
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
         </div>
-        <Footer />
+        {!popout && <Footer />}
         </ErrorBoundary>
       </main>
     </div>

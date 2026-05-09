@@ -32,6 +32,10 @@ import { getTheme, setTheme, type ThemeId } from "./Theme";
 
 const DEFAULT_NAME = "default";
 const CACHE_KEY = "bleepforge:globalThemesCache";
+// Cross-window sync channel name. Every Bleepforge window (main + any
+// chromeless popouts) joins this channel; whoever changes prefs posts
+// the full Preferences doc, the others apply it.
+const SYNC_CHANNEL_NAME = "bleepforge:preferences";
 
 export type { GlobalTheme };
 
@@ -103,6 +107,12 @@ let saveQueue: Promise<void> = Promise.resolve();
 function persist() {
   const next = snapshotPreferences();
   writeCache(next); // synchronous so the cache always matches state
+  // Push the new prefs to every other Bleepforge window in the same
+  // browser/Electron session. Skipped when we got here BY adopting a
+  // broadcast (would cause a feedback loop).
+  if (!receivingBroadcast) {
+    broadcastPreferences(next);
+  }
   saveQueue = saveQueue.then(async () => {
     try {
       await preferencesApi.save(next);
@@ -110,6 +120,46 @@ function persist() {
       console.warn("[global-theme] server save failed:", err);
     }
   });
+}
+
+// ---- Cross-window sync ------------------------------------------------------
+// Same-origin BroadcastChannel: any Bleepforge window subscribes; whoever
+// mutates prefs posts the full doc; others apply via adopt(). We keep a
+// `receivingBroadcast` flag to suppress the rebroadcast that would otherwise
+// fire when the receiver's adopt() → applyToDom() → notify() chain settles.
+// (Mutators don't go through that chain — only adopt() does — but the wrapped
+// setters call persist() directly, so the flag is the cleanest gate.)
+
+let channel: BroadcastChannel | null = null;
+let receivingBroadcast = false;
+
+function getSyncChannel(): BroadcastChannel | null {
+  if (typeof window === "undefined") return null;
+  if (typeof BroadcastChannel === "undefined") return null;
+  if (channel) return channel;
+  channel = new BroadcastChannel(SYNC_CHANNEL_NAME);
+  channel.addEventListener("message", (event) => {
+    const parsed = PreferencesSchema.safeParse(event.data);
+    if (!parsed.success) {
+      console.warn(
+        "[global-theme] cross-window sync: invalid payload, ignoring",
+        parsed.error,
+      );
+      return;
+    }
+    receivingBroadcast = true;
+    try {
+      adopt(parsed.data, true);
+      writeCache(parsed.data);
+    } finally {
+      receivingBroadcast = false;
+    }
+  });
+  return channel;
+}
+
+function broadcastPreferences(prefs: Preferences) {
+  getSyncChannel()?.postMessage(prefs);
 }
 
 function adopt(prefs: Preferences, applyDom: boolean) {
@@ -176,6 +226,11 @@ async function initAsync() {
 }
 
 initSync();
+// Subscribe to cross-window sync at module load so we don't miss the first
+// broadcast. (Calling it lazily from broadcastPreferences would only set up
+// the listener once *we* persist — too late to catch a sibling popout's
+// initial change.)
+getSyncChannel();
 // Schedule the async reconcile after the splash starts so it doesn't compete
 // with the initial paint.
 if (typeof window !== "undefined") {

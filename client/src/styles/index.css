@@ -342,10 +342,19 @@ html {
 
 /* Body text using Pixelify Sans benefits from a slight letter-spacing tweak
    so that runs of similar-width pixel glyphs are easier to scan. The actual
-   value is a CSS variable so the Preferences slider can tune it live. */
+   value is a CSS variable so the Preferences slider can tune it live.
+   The 2px theme-aware accent edge uses outline + outline-offset:-2px (not
+   border) so it doesn't consume 4px of layout. A real border would push
+   the App's h-screen content past body's content area, producing a second
+   scrollbar on body alongside the inner <main>'s own overflow. Outline
+   draws inside the border edge without affecting flow. The
+   --color-emerald-* re-pointing in each [data-theme="..."] block keeps it
+   theme-aware automatically. */
 body {
   font-feature-settings: "kern" 0;
   letter-spacing: var(--body-letter-spacing);
+  outline: 2px solid var(--color-emerald-700);
+  outline-offset: -2px;
 }
 
 /* Chunky pixel-art button: hard offset shadow + "press" on click. */

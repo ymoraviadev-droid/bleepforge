@@ -29,11 +29,15 @@ const BOOT_LINES = [
 ];
 
 // Pixel-themed splash that fires on initial mount of the app. The bar fills
-// 0 → 100% over `durationMs` (default 2s), then `onDone` is called and the
-// host hides the splash. Eventually replaced by Tauri's native splash; the
-// React version stays as a fallback for non-Tauri (web/dev) sessions.
+// 0 → 100% over `durationMs` (default 2s), then a "CONTINUE" button takes
+// over from the cycling boot line — the user clicks it (or hits Enter /
+// Space) to dismiss the splash and land on the home page. Auto-dismiss
+// was dropped in the desktop wrap because the splash is also the "loaded
+// and ready" signal — holding until the user acknowledges keeps the
+// entry deliberate.
 export function SplashScreen({ onDone, durationMs = 2000 }: Props) {
   const [progress, setProgress] = useState(0);
+  const [ready, setReady] = useState(false);
   // Random starting index so back-to-back reloads don't always show the same
   // boot line first; cycle through the list in order from there.
   const [bootLineIdx, setBootLineIdx] = useState(() =>
@@ -49,7 +53,7 @@ export function SplashScreen({ onDone, durationMs = 2000 }: Props) {
       const pct = Math.min(100, (elapsed / durationMs) * 100);
       setProgress(pct);
       if (elapsed >= durationMs) {
-        onDone();
+        setReady(true);
       } else {
         requestAnimationFrame(tick);
       }
@@ -58,14 +62,29 @@ export function SplashScreen({ onDone, durationMs = 2000 }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [durationMs, onDone]);
+  }, [durationMs]);
 
   useEffect(() => {
+    if (ready) return;
     const id = setInterval(() => {
       setBootLineIdx((i) => (i + 1) % BOOT_LINES.length);
     }, 700);
     return () => clearInterval(id);
-  }, []);
+  }, [ready]);
+
+  // Enter / Space dismiss once ready, so the splash doesn't demand a mouse
+  // if the user was keyboard-driving.
+  useEffect(() => {
+    if (!ready) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        onDone();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ready, onDone]);
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-neutral-950">
@@ -85,9 +104,20 @@ export function SplashScreen({ onDone, durationMs = 2000 }: Props) {
       <div className="mt-2 font-mono text-[10px] tabular-nums text-neutral-500">
         {Math.round(progress)}%
       </div>
-      <div className="mt-3 font-mono text-[11px] tracking-wider text-emerald-400/70">
-        {BOOT_LINES[bootLineIdx]}
-      </div>
+      {ready ? (
+        <button
+          type="button"
+          onClick={onDone}
+          autoFocus
+          className="mt-3 border-2 border-emerald-600 bg-emerald-950/40 px-5 py-2 font-display text-xs tracking-wider text-emerald-300 transition-colors hover:bg-emerald-900/40 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+        >
+          CONTINUE
+        </button>
+      ) : (
+        <div className="mt-3 font-mono text-[11px] tracking-wider text-emerald-400/70">
+          {BOOT_LINES[bootLineIdx]}
+        </div>
+      )}
 
       {/* Credit pinned to the bottom — same content as the app footer so
           the attribution greets you on both ends of the session. */}

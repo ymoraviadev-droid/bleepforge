@@ -324,10 +324,18 @@ export const preferencesApi = {
     return r.json();
   },
   save: async (prefs: Preferences): Promise<Preferences> => {
+    // keepalive: lets the request finish flying even if the renderer
+    // closes mid-PUT (Electron popout window closed right after a
+    // theme change). Without this, the request gets killed with the
+    // renderer process and the server keeps the old value — which then
+    // beats the local cache on the next initAsync reconcile, flipping
+    // the user's just-applied change back. The Preferences doc is
+    // well under the 64KB keepalive body limit.
     const r = await fetch("/api/preferences", {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(prefs),
+      keepalive: true,
     });
     if (!r.ok) {
       const body = await r.text();
