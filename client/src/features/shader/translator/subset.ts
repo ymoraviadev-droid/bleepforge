@@ -101,7 +101,14 @@ export const SUPPORTED_UNIFORM_TYPES: readonly string[] = [
  *  the Bleepforge preview the runtime aliases it to texture unit 0
  *  (the same image the main TEXTURE picker drives) so post-process
  *  shaders can be authored against Godot's native syntax and
- *  previewed against a representative screenshot. */
+ *  previewed against a representative screenshot.
+ *
+ *  hint_previous_frame is Bleepforge-specific: flags the sampler as
+ *  "the previous frame's rendered output." The runtime ping-pongs
+ *  two framebuffers so iterative effects (trails, feedback loops,
+ *  decay echoes) work natively. Godot doesn't recognize this hint —
+ *  for Godot deployment, comment-toggle or wire a SubViewport
+ *  ping-pong manually. */
 export const UI_HINTS: readonly string[] = [
   "hint_range",
   "hint_color",
@@ -116,6 +123,7 @@ export const SAMPLER_HINTS: readonly string[] = [
   "repeat_enable",
   "repeat_disable",
   "hint_screen_texture",
+  "hint_previous_frame",
 ];
 
 /** Combined set for the parser's existing validation pass — anything
@@ -127,6 +135,14 @@ export const SUPPORTED_HINTS: readonly string[] = [
 
 /** Sentinel for sampler-hint inspection at the runtime layer. */
 export const HINT_SCREEN_TEXTURE = "hint_screen_texture";
+
+/** Bleepforge-specific hint: bind this sampler2D to the previous
+ *  frame's rendered output (ping-pong framebuffer). Lets users author
+ *  trail / iterative-blend effects against a stable sampler name.
+ *  Godot doesn't recognize this hint natively — for Godot deployment,
+ *  comment-toggle it OR set up SubViewport ping-pong manually and
+ *  bind the same uniform name there. */
+export const HINT_PREVIOUS_FRAME = "hint_previous_frame";
 
 /** Features we refuse with a clear error message. Each entry pairs a
  *  source-text needle (matched against tokens — see parser.ts) with a

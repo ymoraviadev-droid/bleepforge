@@ -11,7 +11,7 @@
 
 import type { EmitResult } from "./emit";
 import { mapEmittedLineToUser } from "./emit";
-import { HINT_SCREEN_TEXTURE } from "./subset";
+import { HINT_PREVIOUS_FRAME, HINT_SCREEN_TEXTURE } from "./subset";
 import type { UniformHint } from "./parser";
 
 /** Vertex shader stays fixed: emits a full-screen quad in NDC and a
@@ -107,6 +107,25 @@ export class ShaderRuntime {
    *  `uniform sampler2D SCREEN_TEXTURE : hint_screen_texture, filter_linear;`
    *  and have warped UV sampling look smooth instead of jagged. */
   private mainTextureParams: TextureParams = defaultTextureParams();
+
+  // --- Ping-pong framebuffers for hint_previous_frame ---
+  // Two color-attached FBOs swap roles each frame: "front" receives
+  // this frame's render; "back" is sampled by user shaders that
+  // declare a `hint_previous_frame` sampler. After both passes, the
+  // front FBO blits to the canvas. Allocated lazily on first draw +
+  // re-created on resize.
+  private fboA: WebGLFramebuffer | null = null;
+  private fboB: WebGLFramebuffer | null = null;
+  private texA: WebGLTexture | null = null;
+  private texB: WebGLTexture | null = null;
+  private fboSize: [number, number] = [0, 0];
+  private frontIsA = true;
+  /** Reserved high texture unit for binding the back-FBO texture at
+   *  draw time. prev_frame sampler entries route their uniform
+   *  location here. Picked at construction from MAX_COMBINED -
+   *  1 so it doesn't collide with owned-sampler allocations
+   *  starting at 1. */
+  private readonly prevFrameUnit: number;
   /** User uniform values keyed by name. Re-bound every frame. */
   private uniformValues = new Map<string, UniformValue>();
   /** Uniform locations cached per program (re-resolved on compile). */
@@ -165,6 +184,15 @@ export class ShaderRuntime {
     // a Bleepforge bug (the shader is fixed); propagate as a throw.
     this.passthroughProgram = compileFixedProgram(gl, VERTEX_GLSL, PASSTHROUGH_FRAG_GLSL);
     this.passthroughSamplerLoc = gl.getUniformLocation(this.passthroughProgram, "u_texture");
+
+    // Reserve the highest texture unit for prev_frame routing. WebGL2
+    // guarantees MAX_COMBINED_TEXTURE_IMAGE_UNITS >= 32; reserving the
+    // top one leaves the bottom 30+ for owned samplers (unit 0 is
+    // u_texture, units 1..30 are user samplers).
+    const maxUnits = gl.getParameter(
+      gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
+    ) as number;
+    this.prevFrameUnit = maxUnits - 1;
   }
 
   /**
@@ -313,6 +341,17 @@ export class ShaderRuntime {
         continue;
       }
       const { source, hints } = normalized;
+      // hint_previous_frame wins over hint_screen_texture if both are
+      // present (rare). Both flip the entry into a routing role with
+      // no owned texture.
+      if (hints.some((h) => h.name === HINT_PREVIOUS_FRAME)) {
+        const existing = this.samplerEntries.get(name);
+        if (existing && existing.kind === "owned") {
+          this.gl.deleteTexture(existing.texture);
+        }
+        this.samplerEntries.set(name, { kind: "prev_frame", hints });
+        continue;
+      }
       if (hints.some((h) => h.name === HINT_SCREEN_TEXTURE)) {
         // Screen alias — no source needed, no texture owned.
         // Release any owned entry under the same name (user changed
@@ -461,6 +500,14 @@ export class ShaderRuntime {
       if (entry.kind === "owned") gl.deleteTexture(entry.texture);
     }
     this.samplerEntries.clear();
+    if (this.fboA) gl.deleteFramebuffer(this.fboA);
+    if (this.fboB) gl.deleteFramebuffer(this.fboB);
+    if (this.texA) gl.deleteTexture(this.texA);
+    if (this.texB) gl.deleteTexture(this.texB);
+    this.fboA = null;
+    this.fboB = null;
+    this.texA = null;
+    this.texB = null;
     if (this.vao) gl.deleteVertexArray(this.vao);
     if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer);
     this.program = null;
@@ -468,21 +515,28 @@ export class ShaderRuntime {
     this.destroyed = true;
   }
 
-  /** Draw a single frame. Two passes:
+  /** Draw a single frame. Three passes, all targeting a ping-pong
+   *  framebuffer (so user shaders can sample the previous frame via
+   *  `hint_previous_frame`); a final blit lifts the result to the
+   *  canvas.
    *
-   *  PASS 1 — passthrough: draws the bound texture (user-picked image or
-   *  the procedural UV grid) edge to edge, no blending. Establishes an
-   *  opaque base that's visible whatever the user shader does.
+   *  PASS 1 — passthrough: draws the bound u_texture (user-picked image
+   *  or the procedural UV grid) edge to edge, no blending. Establishes
+   *  an opaque base that's visible whatever the user shader does.
    *
    *  PASS 2 — user shader: runs the compiled user GLSL with standard
-   *  alpha blending. Shaders that write opaque fragColors fully replace
-   *  the base; shaders that write low-alpha (like scanlines) composite
-   *  over the base, dimming it instead of disappearing. blendFuncSeparate
-   *  preserves the framebuffer alpha at 1.0 (canvas stays opaque even
-   *  when the shader's a is 0) regardless of context-level alpha flag.
+   *  alpha blending. prev_frame samplers read from the OTHER FBO (last
+   *  frame's output) so iterative effects (trails, decay) just work.
+   *  blendFuncSeparate preserves the framebuffer alpha at 1.0 so the
+   *  canvas presents opaque regardless of fragColor.a.
+   *
+   *  BLIT — passthrough again, this time sampling the front FBO's
+   *  texture and rendering to the canvas. After the blit we swap
+   *  front/back FBOs for the next frame.
    *
    *  Public so the React wrapper can force a re-render when a uniform
-   *  changes outside the RAF loop (e.g. user drags a slider while paused). */
+   *  changes outside the RAF loop (e.g. user drags a slider while
+   *  paused). */
   drawFrame(): void {
     if (this.destroyed) return;
     const gl = this.gl;
@@ -490,14 +544,38 @@ export class ShaderRuntime {
     // Resize the drawing buffer to match the canvas's CSS size so the
     // preview stays sharp under DPR + responsive layouts.
     syncCanvasSize(this.canvas, gl);
+    const w = gl.drawingBufferWidth;
+    const h = gl.drawingBufferHeight;
+    this.ensureFBOs(w, h);
 
-    gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
+    const frontFBO = this.frontIsA ? this.fboA : this.fboB;
+    const frontTex = this.frontIsA ? this.texA : this.texB;
+    const backTex = this.frontIsA ? this.texB : this.texA;
+    if (!frontFBO || !frontTex || !backTex) return;
+
+    // --- Bind ping-pong FBO as render target ---
+    gl.bindFramebuffer(gl.FRAMEBUFFER, frontFBO);
+    gl.viewport(0, 0, w, h);
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
-
     gl.bindVertexArray(this.vao);
 
-    // Texture unit 0 is shared by both programs — bind once.
+    // Bind back-FBO texture to its reserved unit so prev_frame
+    // samplers can read it. Apply hints from the FIRST prev_frame
+    // sampler found (multi-entry conflicts: first wins — rare in
+    // practice). Filter defaults to LINEAR for prev_frame since trails
+    // almost always want smooth sampling; user can override with
+    // filter_nearest.
+    gl.activeTexture(gl.TEXTURE0 + this.prevFrameUnit);
+    gl.bindTexture(gl.TEXTURE_2D, backTex);
+    const prevFrameHints = this.firstPrevFrameHints();
+    applyTextureParams(
+      gl,
+      prevFrameHints ? paramsFromHints(prevFrameHints, gl) : prevFrameDefaultParams(),
+    );
+
+    // Bind u_texture to TEXTURE0 for the base pass (and any TEXTURE /
+    // screen-alias references in the user shader).
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
@@ -510,9 +588,6 @@ export class ShaderRuntime {
     // --- PASS 2: user shader over the base ---
     if (this.program) {
       gl.enable(gl.BLEND);
-      // Standard alpha blending for RGB; preserve framebuffer alpha at
-      // 1.0 so the canvas stays opaque against the page bg even when
-      // the user shader writes alpha 0 everywhere.
       gl.blendFuncSeparate(
         gl.SRC_ALPHA,
         gl.ONE_MINUS_SRC_ALPHA,
@@ -523,19 +598,18 @@ export class ShaderRuntime {
 
       // Built-in uniforms.
       this.bindFloat("u_time", (performance.now() - this.startTime) / 1000);
-      this.bindVec2("u_resolution", gl.drawingBufferWidth, gl.drawingBufferHeight);
-      this.bindVec2("u_texture_pixel_size", 1 / this.textureSize[0], 1 / this.textureSize[1]);
+      this.bindVec2("u_resolution", w, h);
+      this.bindVec2(
+        "u_texture_pixel_size",
+        1 / this.textureSize[0],
+        1 / this.textureSize[1],
+      );
 
-      // Sampler binding for TEXTURE → u_texture, reuses TEXTURE0.
+      // u_texture → unit 0 (already bound above).
       const samplerLoc = this.getLocation("u_texture");
       if (samplerLoc) gl.uniform1i(samplerLoc, 0);
 
-      // User sampler2D uniforms — owned entries bind their texture to
-      // their dedicated unit; screen-alias entries point their uniform
-      // location at unit 0 (where u_texture lives, already bound above).
-      // Entries whose user-source uniform was removed are already
-      // cleaned up by setSamplerTextures' reconciliation, so iterating
-      // entries here doesn't risk binding orphaned samplers.
+      // User sampler2D uniforms.
       for (const [name, entry] of this.samplerEntries) {
         const loc = this.getLocation(name);
         if (!loc) continue;
@@ -543,11 +617,14 @@ export class ShaderRuntime {
           gl.activeTexture(gl.TEXTURE0 + entry.unit);
           gl.bindTexture(gl.TEXTURE_2D, entry.texture);
           gl.uniform1i(loc, entry.unit);
-        } else {
-          // Screen alias — share u_texture's unit. u_texture's texture
-          // params already reflect this sampler's filter/wrap hints
-          // (folded in via setSamplerTextures → setMainTexture pipeline).
+        } else if (entry.kind === "screen") {
+          // Share u_texture's unit. u_texture's params already reflect
+          // this sampler's filter/wrap hints (set at setMainTexture time).
           gl.uniform1i(loc, 0);
+        } else {
+          // prev_frame — back-FBO texture already bound to prevFrameUnit
+          // at the top of drawFrame.
+          gl.uniform1i(loc, this.prevFrameUnit);
         }
       }
 
@@ -560,7 +637,53 @@ export class ShaderRuntime {
       gl.disable(gl.BLEND);
     }
 
+    // --- BLIT: front FBO → canvas ---
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.viewport(0, 0, w, h);
+    gl.clearColor(0, 0, 0, 1);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.disable(gl.BLEND);
+    gl.useProgram(this.passthroughProgram);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, frontTex);
+    if (this.passthroughSamplerLoc) gl.uniform1i(this.passthroughSamplerLoc, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 6);
+
     gl.bindVertexArray(null);
+
+    // Swap roles for next frame — the frame we just rendered becomes
+    // the "previous frame" that next frame's user shader can sample.
+    this.frontIsA = !this.frontIsA;
+  }
+
+  /** Allocate (or re-allocate on resize) the two ping-pong framebuffers
+   *  + their color-attachment textures. Sized to match the current
+   *  drawing buffer. Trails / iterative state is lost on resize —
+   *  acceptable since resize is rare and the next frame rebuilds from
+   *  the source. */
+  private ensureFBOs(width: number, height: number): void {
+    if (this.fboSize[0] === width && this.fboSize[1] === height && this.fboA) {
+      return;
+    }
+    const gl = this.gl;
+    if (this.fboA) gl.deleteFramebuffer(this.fboA);
+    if (this.fboB) gl.deleteFramebuffer(this.fboB);
+    if (this.texA) gl.deleteTexture(this.texA);
+    if (this.texB) gl.deleteTexture(this.texB);
+    this.texA = createFBOTexture(gl, width, height);
+    this.texB = createFBOTexture(gl, width, height);
+    this.fboA = createFBOWithColor(gl, this.texA);
+    this.fboB = createFBOWithColor(gl, this.texB);
+    this.fboSize = [width, height];
+  }
+
+  /** First prev_frame sampler's hints, or null if none. Used to pick
+   *  the back-FBO texture's filter/wrap params at draw time. */
+  private firstPrevFrameHints(): UniformHint[] | null {
+    for (const entry of this.samplerEntries.values()) {
+      if (entry.kind === "prev_frame") return entry.hints;
+    }
+    return null;
   }
 
   private bindFloat(name: string, v: number): void {
@@ -616,12 +739,25 @@ export class ShaderRuntime {
   }
 }
 
-// SamplerEntry — two flavors. "owned" carries its own WebGLTexture
-// on a dedicated unit (1..N). "screen" is a routing alias that points
-// at unit 0 (u_texture) at draw time; no texture / unit of its own.
+// SamplerEntry — three flavors. "owned" carries its own WebGLTexture
+// on a dedicated unit (1..N). "screen" routes to unit 0 (u_texture)
+// at draw time. "prev_frame" routes to the reserved high unit (set
+// once at construction) where the runtime binds the back ping-pong
+// FBO's color texture each frame.
+//
+// Owned entries store their hints so we can reapply them per-frame
+// (cheap; texParameteri is just state writes). prev_frame entries
+// also store hints — applied to the back-FBO texture at bind time so
+// `hint_previous_frame, filter_linear` gives smooth-sampled trails.
 type SamplerEntry =
-  | { kind: "owned"; unit: number; texture: WebGLTexture; size: [number, number] }
-  | { kind: "screen" };
+  | {
+      kind: "owned";
+      unit: number;
+      texture: WebGLTexture;
+      size: [number, number];
+    }
+  | { kind: "screen" }
+  | { kind: "prev_frame"; hints: UniformHint[] };
 
 interface TextureParams {
   minFilter: GLenum;
@@ -644,6 +780,65 @@ function defaultTextureParams(): TextureParams {
     wrapT: 0x812f,
     generateMipmaps: false,
   };
+}
+
+function prevFrameDefaultParams(): TextureParams {
+  // Trails / iterative effects almost always want LINEAR sampling —
+  // sub-pixel drift produces clean smears rather than blocky steps.
+  // Filter overridable via explicit hints (filter_nearest on a
+  // hint_previous_frame sampler).
+  return {
+    minFilter: 0x2601, // gl.LINEAR
+    magFilter: 0x2601,
+    wrapS: 0x812f, // gl.CLAMP_TO_EDGE
+    wrapT: 0x812f,
+    generateMipmaps: false,
+  };
+}
+
+function createFBOTexture(
+  gl: WebGL2RenderingContext,
+  w: number,
+  h: number,
+): WebGLTexture {
+  const tex = gl.createTexture();
+  if (!tex) throw new Error("WebGL2: couldn't allocate FBO texture");
+  gl.bindTexture(gl.TEXTURE_2D, tex);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    w,
+    h,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    null,
+  );
+  // Default to LINEAR + CLAMP — overridden per-frame at bind time
+  // when a prev_frame sampler has explicit filter/wrap hints.
+  applyTextureParams(gl, prevFrameDefaultParams());
+  return tex;
+}
+
+function createFBOWithColor(
+  gl: WebGL2RenderingContext,
+  tex: WebGLTexture,
+): WebGLFramebuffer {
+  const fbo = gl.createFramebuffer();
+  if (!fbo) throw new Error("WebGL2: couldn't allocate FBO");
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  gl.framebufferTexture2D(
+    gl.FRAMEBUFFER,
+    gl.COLOR_ATTACHMENT0,
+    gl.TEXTURE_2D,
+    tex,
+    0,
+  );
+  // Restore default render target so callers don't accidentally render
+  // into the FBO before they intend to.
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+  return fbo;
 }
 
 // Derives texture parameters from a uniform's hint list. Multiple

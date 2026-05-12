@@ -99,6 +99,22 @@ function UniformRow({
     const isScreenTexture = uniform.samplerHints.some(
       (h) => h.name === "hint_screen_texture",
     );
+    const isPrevFrame = uniform.samplerHints.some(
+      (h) => h.name === "hint_previous_frame",
+    );
+    if (isPrevFrame) {
+      // hint_previous_frame samplers read from the runtime's
+      // ping-pong back-FBO — no user input. Render a read-only note
+      // (same shape as the screen-texture one).
+      return (
+        <div className="space-y-1">
+          <span className={fieldLabel}>{name}</span>
+          <div className="border border-neutral-800 bg-neutral-900 px-2 py-1.5 font-mono text-[10px] text-neutral-500">
+            previous frame · automatically wired (ping-pong FBO)
+          </div>
+        </div>
+      );
+    }
     if (isScreenTexture) {
       // hint_screen_texture samplers don't get their own AssetPicker —
       // the runtime aliases them to the same image the "Test image"
