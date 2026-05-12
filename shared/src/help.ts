@@ -30,6 +30,7 @@ export const HELP_COLORS = [
   "cyan",
   "orange",
   "pink",
+  "lime",
 ] as const;
 export type HelpColor = (typeof HELP_COLORS)[number];
 

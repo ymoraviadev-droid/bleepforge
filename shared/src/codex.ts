@@ -32,6 +32,7 @@ export const CODEX_COLORS = [
   "cyan",
   "orange",
   "pink",
+  "lime",
 ] as const;
 export type CodexColor = (typeof CODEX_COLORS)[number];
 

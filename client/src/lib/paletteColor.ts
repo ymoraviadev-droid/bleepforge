@@ -14,7 +14,8 @@ export type PaletteColor =
   | "violet"
   | "cyan"
   | "orange"
-  | "pink";
+  | "pink"
+  | "lime";
 
 export interface PaletteColorClasses {
   /** Section header text + a card's accent stripe. */
@@ -105,6 +106,19 @@ const STYLES: Record<PaletteColor, PaletteColorClasses> = {
     stripe: "bg-pink-600",
     swatch: "bg-pink-500",
     surface: "bg-pink-950/20",
+  },
+  // Lime — added for the shaders Help category so its accent color
+  // matches the AppSearch kind badge + the canvas_item card tint we
+  // already use elsewhere in the shader surface. Reuses the same set
+  // of class strings as every other palette entry.
+  lime: {
+    text: "text-lime-300",
+    border: "border-lime-700/60",
+    borderHover: "hover:border-lime-500",
+    bgTint: "bg-lime-950/40",
+    stripe: "bg-lime-600",
+    swatch: "bg-lime-500",
+    surface: "bg-lime-950/20",
   },
 };
 

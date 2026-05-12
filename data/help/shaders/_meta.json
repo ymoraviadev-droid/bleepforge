@@ -1,0 +1,8 @@
+{
+  "Category": "shaders",
+  "DisplayName": "Shaders",
+  "Color": "lime",
+  "Description": "Authoring .gdshader files in Bleepforge — the editor, the live WebGL preview, and the GDShader → GLSL ES translator's subset.",
+  "Order": 70,
+  "CreatedAt": "2026-05-12T00:00:00.000Z"
+}
