@@ -5,6 +5,7 @@ import {
   type Preferences,
 } from "@bleepforge/shared";
 import { preferencesApi } from "../lib/api";
+import { markBootCheckpoint } from "../lib/boot/progress";
 import {
   FONT_SIZE,
   LETTER_SPACING,
@@ -233,6 +234,12 @@ async function initAsync() {
     writeCache(remote);
   } catch (err) {
     console.warn("[global-theme] server fetch failed, staying on cache:", err);
+  } finally {
+    // Splash checkpoint #2: preferences fetched + active theme applied
+    // (whether from server or kept-from-cache on fetch failure). Either
+    // way, the user's saved theme is now in effect, so the splash can
+    // dismiss without a theme-flash on first paint.
+    markBootCheckpoint("preferences");
   }
 }
 

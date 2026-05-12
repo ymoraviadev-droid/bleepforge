@@ -11,6 +11,20 @@ import { closeSavesStream, startSavesStream } from "./lib/saves/stream";
 import { closeSyncStream, startSyncStream } from "./lib/sync/stream";
 import { closeGlobalThemeChannel } from "./styles/GlobalTheme";
 import { refreshCatalog } from "./lib/catalog-bus";
+import { markBootCheckpoint } from "./lib/boot/progress";
+
+// First boot checkpoint: server is up. Fires the splash's progress bar
+// past the "Connecting to server…" phase. /api/health is a tiny cached
+// endpoint, so this is essentially free. Failure leaves the checkpoint
+// unmarked → splash hits its 10s timeout → user sees the "Continue
+// anyway" affordance.
+void fetch("/api/health")
+  .then((r) => {
+    if (r.ok) markBootCheckpoint("server");
+  })
+  .catch(() => {
+    /* leave unmarked; splash timeout will surface the issue */
+  });
 
 // Open the live-sync SSE channel once at startup. Components subscribe via
 // window's "Bleepforge:sync" CustomEvent.

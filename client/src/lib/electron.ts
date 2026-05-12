@@ -14,6 +14,7 @@ import type { MouseEvent } from "react";
 export type BleepforgeBridge = {
   popout: (routePath: string) => Promise<void>;
   restart: () => Promise<void>;
+  reveal: () => Promise<void>;
 };
 
 declare global {
@@ -56,5 +57,16 @@ export async function restartApp(): Promise<boolean> {
   const bf = typeof window !== "undefined" ? window.bleepforge : undefined;
   if (!bf) return false;
   await bf.restart();
+  return true;
+}
+
+// Flip the splash-sized main window to maximized. No-op in browser mode
+// (the splash there is just an overlay over the React app, no window
+// resize involved). Fired from the SplashScreen on CONTINUE click, in
+// parallel with the fade-out so the window grows while the splash fades.
+export async function revealMainWindow(): Promise<boolean> {
+  const bf = typeof window !== "undefined" ? window.bleepforge : undefined;
+  if (!bf) return false;
+  await bf.reveal();
   return true;
 }

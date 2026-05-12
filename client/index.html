@@ -4,6 +4,15 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Bleepforge</title>
+    <!-- Inline dark background applied BEFORE the Tailwind CSS bundle
+         loads, so the very first browser paint is dark instead of white.
+         Without this the user sees a brief white flash on cold start
+         while Vite/the bundle parses, then it goes dark when CSS hits —
+         which interacts badly with the centered-card splash because the
+         flash is now visible AROUND the card. -->
+    <style>
+      html, body { background: #0a0a0a; color: #e5e5e5; margin: 0; }
+    </style>
   </head>
   <body class="bg-neutral-950 text-neutral-100 min-h-screen">
     <div id="root"></div>

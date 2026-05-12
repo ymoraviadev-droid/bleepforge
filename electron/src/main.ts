@@ -85,6 +85,18 @@ function appUrl(): string {
 
 const popouts = new Map<string, BrowserWindow>();
 
+// Tracks the main window so the `app:reveal` IPC handler can find it
+// when the splash finishes and the user clicks CONTINUE. (Could also walk
+// BrowserWindow.getAllWindows() but a direct ref is cleaner and survives
+// popouts being open at the time.)
+let mainWin: BrowserWindow | null = null;
+
+// Splash window dimensions — matches the centered card so the OS window
+// looks like a real app splash, not "a giant maximized window with a
+// tiny card in the middle." On `app:reveal` we flip to maximized.
+const SPLASH_WIDTH = 640;
+const SPLASH_HEIGHT = 520;
+
 // Per-route popout sizes. Numbers are eyeballed to fit each surface's
 // natural content extent; the user can resize freely from there.
 const POPOUT_SIZES: Record<string, { width: number; height: number }> = {
@@ -139,16 +151,25 @@ function attachOpenHandler(win: BrowserWindow): void {
 }
 
 function createMainWindow(): BrowserWindow {
+  // Window starts at splash size — small, centered, fixed-size. The
+  // `app:reveal` IPC handler flips it to maximized + resizable + opens
+  // DevTools (in dev) once the user clicks CONTINUE in the splash. This
+  // gives the desktop wrap a real "app launcher" feel instead of a giant
+  // empty window with a tiny card in the middle while the user reads
+  // the splash.
   const win = new BrowserWindow({
-    width: 1400,
-    height: 900,
-    minWidth: 800,
-    minHeight: 600,
+    width: SPLASH_WIDTH,
+    height: SPLASH_HEIGHT,
+    center: true,
+    resizable: false,
+    maximizable: false,
+    fullscreenable: false,
     title: "Bleepforge",
     backgroundColor: "#0a0a0a",
     autoHideMenuBar: true,
     webPreferences: makeWebPreferences(),
   });
+  mainWin = win;
   // Belt-and-braces: Menu.setApplicationMenu(null) at app.whenReady is
   // supposed to suppress the menu globally, but Electron will sometimes
   // still attach a default menu to a fresh BrowserWindow. removeMenu()
@@ -158,14 +179,10 @@ function createMainWindow(): BrowserWindow {
   attachOpenHandler(win);
 
   win.loadURL(appUrl());
-  if (isDev) {
-    win.webContents.openDevTools({ mode: "detach" });
-  }
-
-  // Maximize rather than literal fullscreen — keeps the title bar / close
-  // controls visible and Alt+Tab behavior normal across WMs. F11 / the
-  // window's maximize control still toggle fullscreen if the user wants.
-  win.maximize();
+  // DevTools auto-open is deferred to `app:reveal` — opening it while
+  // the splash window is 640×520 puts the detached DevTools next to a
+  // tiny window, which looks wrong. Once the main window maximizes,
+  // DevTools opens detached as before.
 
   // Close every open popout when the main window closes. Popouts are
   // children-of-main conceptually (they were spawned from main and can't
@@ -180,8 +197,28 @@ function createMainWindow(): BrowserWindow {
     }
     popouts.clear();
   });
+  win.on("closed", () => {
+    if (mainWin === win) mainWin = null;
+  });
 
   return win;
+}
+
+// Called from the splash's CONTINUE click → IPC → here. Flips the window
+// from splash-sized to a real app window: removes the size constraints,
+// maximizes, and opens DevTools (dev only). Idempotent — calling twice
+// just re-maximizes a no-op.
+function revealMainWindow(): void {
+  const win = mainWin;
+  if (!win || win.isDestroyed()) return;
+  win.setResizable(true);
+  win.setMaximizable(true);
+  win.setFullScreenable(true);
+  win.setMinimumSize(800, 600);
+  win.maximize();
+  if (isDev && !win.webContents.isDevToolsOpened()) {
+    win.webContents.openDevTools({ mode: "detach" });
+  }
 }
 
 function openPopout(routePath: string): void {
@@ -326,6 +363,13 @@ ipcMain.handle("popout:open", (_event, routePath: unknown) => {
 ipcMain.handle("app:restart", () => {
   app.relaunch();
   app.exit(0);
+});
+
+// Flip the splash-sized main window into a real app window. Called by
+// the splash's CONTINUE click — removes size constraints, maximizes,
+// opens DevTools in dev.
+ipcMain.handle("app:reveal", () => {
+  revealMainWindow();
 });
 
 app.on("window-all-closed", () => {

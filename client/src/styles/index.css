@@ -629,3 +629,34 @@ html {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
+
+/* Splash CONTINUE button — a slow emerald "breath" once the boot
+   finishes. Implemented as an ::after pseudo-element behind the button
+   (z-index: -1) carrying a fixed blurred emerald fill; only `opacity`
+   animates. Earlier versions animated `box-shadow` color (alpha via
+   color-mix), which looked like flicker on/off because box-shadow is a
+   PAINT property — Chromium repaints every frame and the dithering on
+   the blurred shadow shifts visibly between samples. `opacity` is a
+   COMPOSITOR-only property in Chromium — interpolated on the GPU
+   without repainting — so the breath reads as a real fade. The fill
+   uses `background: var(--color-emerald-500)` so it retints with the
+   active color theme alongside the rest of the emerald accent. 2.4s
+   cycle, ease-in-out — slower than a heartbeat, deliberately calm. */
+.splash-continue-glow {
+  position: relative;
+  isolation: isolate;
+}
+.splash-continue-glow::after {
+  content: "";
+  position: absolute;
+  inset: -8px;
+  background: var(--color-emerald-500);
+  filter: blur(14px);
+  z-index: -1;
+  pointer-events: none;
+  animation: splash-continue-glow 2.4s ease-in-out infinite;
+}
+@keyframes splash-continue-glow {
+  0%, 100% { opacity: 0.18; }
+  50% { opacity: 0.6; }
+}

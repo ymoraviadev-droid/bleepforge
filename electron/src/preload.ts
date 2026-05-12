@@ -14,6 +14,9 @@
 //   - `restart()`: relaunch the app (`app.relaunch() + app.exit()`).
 //     Triggered from the header's restart icon when the user changes a
 //     boot-captured config (project root, future folder overrides).
+//   - `reveal()`: flip the splash-sized main window into a maximized
+//     real app window. Called by the SplashScreen on CONTINUE click,
+//     in parallel with the splash fade-out animation.
 
 import { contextBridge, ipcRenderer } from "electron";
 
@@ -21,6 +24,7 @@ const bridge = {
   popout: (routePath: string): Promise<void> =>
     ipcRenderer.invoke("popout:open", routePath),
   restart: (): Promise<void> => ipcRenderer.invoke("app:restart"),
+  reveal: (): Promise<void> => ipcRenderer.invoke("app:reveal"),
 };
 
 contextBridge.exposeInMainWorld("bleepforge", bridge);
