@@ -24,6 +24,7 @@ import { config } from "../../config.js";
 import { removeImage, upsertImage } from "../../lib/assets/cache.js";
 import { isImagePath } from "../../lib/assets/discover.js";
 import { publishAssetEvent } from "../../lib/assets/eventBus.js";
+import { projectIndex } from "../../lib/projectIndex/index.js";
 import { recordSave } from "../../lib/saves/buffer.js";
 import { removeShader, upsertShader } from "../../lib/shaders/cache.js";
 import { publishShaderEvent } from "../../lib/shaders/eventBus.js";
@@ -101,11 +102,14 @@ export function startTresWatcher(): void {
     ignored: (p: string, stats?: Stats): boolean => {
       if (p.includes("/.godot/") || p.endsWith("/.godot")) return true;
       if (stats?.isFile()) {
-        // Pass through .tres + image files + .gdshader. Filter everything
-        // else (sidecars incl. .gdshader.uid, scripts, scenes — the
-        // watcher feeds three cache pipelines and only those file types
+        // Pass through .tres + .tscn + image files + .gdshader. .tscn is
+        // here for the pickup catalog (a .tscn whose root node has
+        // DbItemName counts as a pickup; the projectIndex picks this up).
+        // Filter everything else (sidecars incl. .gdshader.uid, scripts —
+        // the watcher feeds four cache pipelines and only those file types
         // matter).
         if (p.endsWith(".tres")) return false;
+        if (p.endsWith(".tscn")) return false;
         if (isImagePath(p)) return false;
         if (p.endsWith(".gdshader")) return false;
         return true;
@@ -236,12 +240,45 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
     return;
   }
 
+  // .tscn files: pickup-catalog only. Keep the ProjectIndex live so the
+  // /api/pickups endpoint reflects scenes added/removed at runtime. No
+  // SSE event (today nothing in the UI subscribes to pickup changes
+  // beyond an immediate refetch) — same shape as the watch hook that
+  // used to call invalidatePickupCache().
+  if (absPath.endsWith(".tscn")) {
+    if (kind === "unlink") {
+      projectIndex.remove(absPath);
+    } else {
+      await projectIndex.upsert(absPath);
+    }
+    return;
+  }
+
   if (!absPath.endsWith(".tres")) return;
   const ts = new Date().toISOString();
 
   if (isRecentSelfWrite(absPath)) {
     recordEvent({ ts, kind, path: absPath, outcome: "ignored-self-write" });
+    // Still keep the index in sync — a self-write changes the file's
+    // content (and possibly its identity), so even when we skip the
+    // reimport path the index needs to reflect the new state for the
+    // next save's lookups.
+    if (kind === "unlink") {
+      projectIndex.remove(absPath);
+    } else {
+      await projectIndex.upsert(absPath);
+    }
     return;
+  }
+
+  // External change. Update the index FIRST for add/change so detectDomain
+  // (which reads from the index) sees the latest classification. For
+  // unlink we keep the entry in the index until detectDomain can read it
+  // — the deleteJsonFor pass below needs the canonical key, which we
+  // recover from the still-present entry. We remove from the index after
+  // the JSON delete completes.
+  if (kind !== "unlink") {
+    await projectIndex.upsert(absPath);
   }
 
   const detected = detectDomain(absPath);
@@ -285,8 +322,8 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
         outcome: "failed",
         detail: result.error ?? "delete returned !ok",
       });
-      // Use the path-derived domain/key from detectDomain so the failure
-      // still surfaces in the Saves feed with enough context to act on.
+      // Use the domain/key from detectDomain so the failure still
+      // surfaces in the Saves feed with enough context to act on.
       recordSave({
         ts,
         direction: "incoming",
@@ -298,6 +335,10 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
         error: result.error ?? "delete returned !ok",
       });
     }
+    // Now safe to drop from the index — detectDomain has read what it
+    // needed. Subsequent lookups by id will return null, which is the
+    // correct post-delete state.
+    projectIndex.remove(absPath);
     return;
   }
 

@@ -7,7 +7,7 @@ import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { dirname, sep } from "node:path";
 
 import { folderAbs } from "../../config.js";
-import { parseTres } from "./parser.js";
+import { projectIndex } from "../../lib/projectIndex/index.js";
 import {
   mapBalloon,
   mapDialogSequence,
@@ -32,65 +32,26 @@ export interface ReimportResult {
   error?: string;
 }
 
-// Determines the domain from a .tres path. Returns null if the path doesn't
-// match any authored domain (e.g. NPC scenes, internal scripts, etc.).
+// Determines the domain + canonical id from a .tres path. Reads from
+// ProjectIndex — content-driven, no hardcoded folder pattern matching.
+// Returns null if the file isn't indexed (e.g. a support resource the
+// classifier didn't bucket into any domain).
 export function detectDomain(absPath: string): {
   domain: SyncDomain;
   key: string;
 } | null {
-  // Items: world/collectibles/<category>/data/<slug>.tres
-  const itemMatch = absPath.match(
-    /[/\\]world[/\\]collectibles[/\\][^/\\]+[/\\]data[/\\]([^/\\]+)\.tres$/,
-  );
-  if (itemMatch) return { domain: "item", key: itemMatch[1]! };
-
-  // Karma: shared/components/karma/impacts/<id>.tres
-  const karmaMatch = absPath.match(
-    /[/\\]shared[/\\]components[/\\]karma[/\\]impacts[/\\]([^/\\]+)\.tres$/,
-  );
-  if (karmaMatch) return { domain: "karma", key: karmaMatch[1]! };
-
-  // Factions: shared/components/factions/<subfolder>/<file>.tres — there's
-  // exactly one .tres per faction subfolder. The key (Faction enum value)
-  // isn't recoverable from the path; the watcher's reimport flow re-parses
-  // the file to get it. We tag with a placeholder key here that gets replaced
-  // by the actual Faction enum value once the file is parsed.
-  const factionMatch = absPath.match(
-    /[/\\]shared[/\\]components[/\\]factions[/\\]([^/\\]+)[/\\]([^/\\]+)\.tres$/,
-  );
-  if (factionMatch) return { domain: "faction", key: factionMatch[1]! };
-
-  // Quests: shared/components/quest/quests/<id>.tres
-  const questMatch = absPath.match(
-    /[/\\]shared[/\\]components[/\\]quest[/\\]quests[/\\]([^/\\]+)\.tres$/,
-  );
-  if (questMatch) return { domain: "quest", key: questMatch[1]! };
-
-  // Dialogs: */dialogs/<folder>/<id>.tres
-  const dialogMatch = absPath.match(/[/\\]dialogs[/\\]([^/\\]+)[/\\]([^/\\]+)\.tres$/);
-  if (dialogMatch) {
-    return { domain: "dialog", key: `${dialogMatch[1]}/${dialogMatch[2]}` };
+  const entry = projectIndex.getByAbsPath(absPath);
+  if (!entry) return null;
+  if (entry.domain === "pickup") return null; // pickups not a sync-domain
+  // entry.id is the canonical identity (Slug for items, NpcId for npcs,
+  // composite "folder/basename" for balloons + dialogs, Faction enum
+  // string for factions). For dialogs, the SyncEvent shape historically
+  // used "folder/Id" — preserve that for the client subscribers (they
+  // listen on the composite key from the dialog list pages).
+  if (entry.domain === "dialog" && entry.folder) {
+    return { domain: "dialog", key: `${entry.folder}/${entry.id}` };
   }
-
-  // NPCs: characters/npcs/<model>/data/<file>.tres — file basename is not
-  // necessarily the NpcId (e.g. eddie_npc_data.tres → NpcId="eddie"), so we
-  // tag with the basename here and let the reimport flow re-parse to recover
-  // the actual NpcId.
-  const npcMatch = absPath.match(
-    /[/\\]characters[/\\]npcs[/\\]([^/\\]+)[/\\]data[/\\]([^/\\]+)\.tres$/,
-  );
-  if (npcMatch) return { domain: "npc", key: npcMatch[2]! };
-
-  // Balloons: characters/npcs/<model>/balloons/<basename>.tres. Key is the
-  // composite Bleepforge id "<model>/<basename>" — same scheme as dialogs.
-  const balloonMatch = absPath.match(
-    /[/\\]characters[/\\]npcs[/\\]([^/\\]+)[/\\]balloons[/\\]([^/\\]+)\.tres$/,
-  );
-  if (balloonMatch) {
-    return { domain: "balloon", key: `${balloonMatch[1]}/${balloonMatch[2]}` };
-  }
-
-  return null;
+  return { domain: entry.domain, key: entry.id };
 }
 
 export async function reimportOne(absPath: string): Promise<ReimportResult> {
@@ -136,17 +97,16 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
       return { ok: true, domain: "faction", key: faction.Faction, jsonPath };
     }
     case "npc": {
-      // Single-file watcher path: no global dialog map. Use the
-      // filename-as-Id heuristic, matching the convention used by Bleepforge's
-      // own `data/dialogs/<folder>/<id>.json` storage and seen consistently in
-      // the Godot project (eddie_intro.tres → "eddie_intro"). Falls back to
-      // empty string if no match — JSON keeps it as "" rather than failing.
+      // Resolve dialog refs via ProjectIndex: each ext_resource's path is
+      // looked up in the index, and the indexed entry's `id` is the
+      // canonical DialogSequence Id. Content-driven, so the dialog .tres
+      // can live anywhere in the project.
       const npc = mapNpc(parsed, {
         resolveDialogSequenceId: (p, id) => {
           const ext = p.extResources.get(id);
           if (!ext) return null;
-          const m = ext.path.match(/[/\\]([^/\\]+)\.tres$/);
-          return m ? m[1]! : null;
+          const entry = projectIndex.getByResPath(ext.path);
+          return entry && entry.domain === "dialog" ? entry.id : null;
         },
       });
       if (!npc) return { ok: false, error: "mapNpc returned null" };
@@ -155,15 +115,13 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
       return { ok: true, domain: "npc", key: npc.NpcId, jsonPath };
     }
     case "quest": {
+      // Same pattern for item refs.
       const quest = mapQuest(parsed, {
         resolveItemSlugByExtRef: (p, id) => {
           const ext = p.extResources.get(id);
           if (!ext) return null;
-          // res://world/collectibles/<category>/data/<slug>.tres -> <slug>
-          const m = ext.path.match(
-            /[/\\]world[/\\]collectibles[/\\][^/\\]+[/\\]data[/\\]([^/\\]+)\.tres$/,
-          );
-          return m ? m[1]! : null;
+          const entry = projectIndex.getByResPath(ext.path);
+          return entry && entry.domain === "item" ? entry.id : null;
         },
       });
       if (!quest) return { ok: false, error: "mapQuest returned null" };
@@ -196,6 +154,8 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
 }
 
 // Watch event for a deleted .tres: remove the corresponding JSON.
+// Caller must NOT remove the file from ProjectIndex before invoking this
+// — detectDomain reads from the index to recover the canonical key.
 export async function deleteJsonFor(absPath: string): Promise<ReimportResult> {
   const detected = detectDomain(absPath);
   if (!detected) return { ok: false, error: "path doesn't match any authored domain" };
@@ -207,34 +167,12 @@ export async function deleteJsonFor(absPath: string): Promise<ReimportResult> {
     case "karma":
       jsonPath = `${folderAbs.karma}${sep}${detected.key}.json`;
       break;
-    case "faction": {
-      // detected.key is the subfolder name; map it to the Faction enum value.
-      // Robotek has no enum entry (lore-only) so it has no JSON to delete.
-      const SUBFOLDER_TO_FACTION: Record<string, string> = {
-        scavengers: "Scavengers",
-        free_robots: "FreeRobots",
-        rff: "RFF",
-        grove: "Grove",
-      };
-      const factionKey = SUBFOLDER_TO_FACTION[detected.key];
-      if (!factionKey) {
-        return { ok: true, domain: "faction", key: detected.key };
-      }
-      jsonPath = `${folderAbs.faction}${sep}${factionKey}.json`;
-      // Re-tag the key with the resolved faction so the SSE event matches what
-      // the client actually subscribes to.
-      detected.key = factionKey;
+    case "faction":
+      jsonPath = `${folderAbs.faction}${sep}${detected.key}.json`;
       break;
-    }
-    case "npc": {
-      // detected.key is the .tres basename (e.g. "eddie_npc_data"). We need
-      // the NpcId for the JSON filename, but the .tres is gone — best-effort
-      // heuristic: strip the `_npc_data` suffix used by the current files.
-      const stripped = detected.key.replace(/_npc_data$/, "");
-      jsonPath = `${folderAbs.npc}${sep}${stripped}.json`;
-      detected.key = stripped;
+    case "npc":
+      jsonPath = `${folderAbs.npc}${sep}${detected.key}.json`;
       break;
-    }
     case "quest":
       jsonPath = `${folderAbs.quest}${sep}${detected.key}.json`;
       break;

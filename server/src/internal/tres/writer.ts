@@ -13,7 +13,7 @@
 // treat .tres write as best-effort: a failure here does not invalidate the
 // JSON save (which is authoritative for Bleepforge).
 
-import { readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 
 import { config } from "../../config.js";
@@ -26,7 +26,7 @@ import type {
   Npc,
   Quest,
 } from "@bleepforge/shared";
-import { discoverGodotContent } from "../import/discover.js";
+import { projectIndex } from "../../lib/projectIndex/index.js";
 import { parseTres } from "./parser.js";
 import { emitTres } from "./emitter.js";
 import { removeOrphanExtResources } from "./mutate.js";
@@ -222,12 +222,12 @@ export async function writeNpcTres(json: Npc): Promise<TresWriteResult> {
     string,
     { resPath: string; uid: string } | null
   >();
-  if (dialogIds.size > 0) {
-    const discovery = await discoverGodotContent(root);
-    const candidatePaths: string[] = [];
-    for (const paths of discovery.dialogs.values()) candidatePaths.push(...paths);
-    for (const id of dialogIds) {
-      dialogRefCache.set(id, await findDialogRefById(root, candidatePaths, id));
+  for (const id of dialogIds) {
+    const entry = projectIndex.get("dialog", id);
+    if (entry && entry.uid) {
+      dialogRefCache.set(id, { resPath: entry.resPath, uid: entry.uid });
+    } else {
+      dialogRefCache.set(id, null);
     }
   }
   const questCtx: NpcQuestApplyContext = {
@@ -295,45 +295,6 @@ export async function writeNpcTres(json: Npc): Promise<TresWriteResult> {
       ...remarks.warnings,
     ];
   });
-}
-
-// Looks up a DialogSequence .tres by its `Id = "..."` body field, scanning
-// the candidate paths discovered for the dialogs domain. Returns the res://
-// path + uid needed to declare an ext_resource for the dialog ref. Cheap
-// enough at this corpus size (~50 candidates × small files); cache via
-// `dialogRefCache` in the caller so each unique Id is resolved once per save.
-async function findDialogRefById(
-  godotRoot: string,
-  candidatePaths: string[],
-  sequenceId: string,
-): Promise<{ resPath: string; uid: string } | null> {
-  // Anchor on start-of-line. A naive `Id = "<seq>"` substring also matches
-  // DialogChoice's `NextSequenceId = "<seq>"`, which would let any sequence
-  // referencing <seq> claim to BE <seq> — concretely, this caused
-  // OfferDialog refs to swap to the wrong .tres on save. The line anchor
-  // ensures we only accept the resource-level Id property.
-  const wantBodyRe = new RegExp(`^Id\\s*=\\s*"${escapeRegex(sequenceId)}"\\s*$`, "m");
-  for (const abs of candidatePaths) {
-    let text: string;
-    try {
-      text = await readFile(abs, "utf8");
-    } catch {
-      continue;
-    }
-    if (!wantBodyRe.test(text)) continue;
-    const m = text.match(/^\[gd_resource[^\]]*\buid="([^"]+)"/m);
-    if (!m) continue;
-    const rel = abs.startsWith(godotRoot + "/")
-      ? abs.substring(godotRoot.length + 1)
-      : null;
-    if (!rel) continue;
-    return { resPath: `res://${rel}`, uid: m[1]! };
-  }
-  return null;
-}
-
-function escapeRegex(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 export async function writeKarmaTres(json: KarmaImpact): Promise<TresWriteResult> {
@@ -500,200 +461,73 @@ async function runWrite(
 }
 
 // ---- Filesystem locators --------------------------------------------------
+//
+// All locators read from the runtime ProjectIndex (built at boot, kept
+// live by the watcher). The index is content-classified, so the .tres
+// can live anywhere in the Godot project — the writer doesn't care where.
+// `godotRoot` is kept on the signature for callsite stability but unused.
 
 async function findItemTres(
-  godotRoot: string,
+  _godotRoot: string,
   slug: string,
 ): Promise<{ path: string } | null> {
-  // Items live at world/collectibles/<category>/data/<file>.tres. The
-  // category dir is not derivable from the slug (e.g. "rff_keycard" lives in
-  // "keycards/", "small_gun" in "small_gun/"), so we walk category subfolders
-  // and content-match on Slug — same shape as findNpcTres.
-  const dir = join(godotRoot, "world", "collectibles");
-  let categoryDirs;
-  try {
-    categoryDirs = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return null;
-  }
-  for (const c of categoryDirs) {
-    if (!c.isDirectory()) continue;
-    const dataDir = join(dir, c.name, "data");
-    const found = await findInDirByContent(dataDir, (text) =>
-      text.includes(`Slug = "${slug}"`),
-    );
-    if (found) return found;
-  }
-  return null;
+  const entry = projectIndex.get("item", slug);
+  return entry ? { path: entry.absPath } : null;
 }
 
 async function findKarmaTres(
-  godotRoot: string,
+  _godotRoot: string,
   id: string,
 ): Promise<{ path: string } | null> {
-  const dir = join(godotRoot, "shared", "components", "karma", "impacts");
-  return findInDirByContent(dir, (text) => text.includes(`Id = "${id}"`));
+  const entry = projectIndex.get("karma", id);
+  return entry ? { path: entry.absPath } : null;
 }
 
 async function findNpcTres(
-  godotRoot: string,
+  _godotRoot: string,
   npcId: string,
 ): Promise<{ path: string } | null> {
-  // NPCs live at characters/npcs/<model>/data/<file>.tres. Walk model
-  // subfolders, look in their data/ folder, match by NpcId content.
-  const dir = join(godotRoot, "characters", "npcs");
-  let modelDirs;
-  try {
-    modelDirs = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return null;
-  }
-  for (const m of modelDirs) {
-    if (!m.isDirectory()) continue;
-    const dataDir = join(dir, m.name, "data");
-    let entries;
-    try {
-      entries = await readdir(dataDir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const f of entries) {
-      if (!f.isFile() || !f.name.endsWith(".tres")) continue;
-      const abs = join(dataDir, f.name);
-      let text: string;
-      try {
-        text = await readFile(abs, "utf8");
-      } catch {
-        continue;
-      }
-      if (!text.includes(`script_class="NpcData"`)) continue;
-      if (text.includes(`NpcId = "${npcId}"`)) return { path: abs };
-    }
-  }
-  return null;
+  const entry = projectIndex.get("npc", npcId);
+  return entry ? { path: entry.absPath } : null;
 }
 
 async function findFactionTres(
-  godotRoot: string,
+  _godotRoot: string,
   faction: string,
 ): Promise<{ path: string } | null> {
-  // Factions live one-per-subfolder under shared/components/factions/.
-  // Match by Faction enum int (Scavengers omits the line — match script_class).
-  const dir = join(godotRoot, "shared", "components", "factions");
-  const factionInt = (
-    { Scavengers: 0, FreeRobots: 1, RFF: 2, Grove: 3 } as Record<string, number>
-  )[faction];
-  if (factionInt === undefined) return null;
-
-  let entries;
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return null;
-  }
-  for (const e of entries) {
-    if (!e.isDirectory()) continue;
-    const sub = join(dir, e.name);
-    let subEntries;
-    try {
-      subEntries = await readdir(sub, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const f of subEntries) {
-      if (!f.isFile() || !f.name.endsWith(".tres")) continue;
-      const abs = join(sub, f.name);
-      let text: string;
-      try {
-        text = await readFile(abs, "utf8");
-      } catch {
-        continue;
-      }
-      if (!text.includes(`script_class="FactionData"`)) continue;
-      // Faction = 0 (Scavengers) is omitted by Godot. For non-zero, match the int.
-      if (factionInt === 0) {
-        if (!/^Faction\s*=\s*\d+/m.test(text)) return { path: abs };
-      } else if (text.includes(`Faction = ${factionInt}`)) {
-        return { path: abs };
-      }
-    }
-  }
-  return null;
+  const entry = projectIndex.get("faction", faction);
+  return entry ? { path: entry.absPath } : null;
 }
 
 async function findQuestTres(
-  godotRoot: string,
+  _godotRoot: string,
   id: string,
 ): Promise<{ path: string } | null> {
-  const dir = join(godotRoot, "shared", "components", "quest", "quests");
-  return findInDirByContent(dir, (text) => text.includes(`Id = "${id}"`));
+  const entry = projectIndex.get("quest", id);
+  return entry ? { path: entry.absPath } : null;
 }
 
 async function findDialogTres(
-  godotRoot: string,
-  folder: string,
+  _godotRoot: string,
+  _folder: string,
   id: string,
 ): Promise<{ path: string } | null> {
-  const wantSuffix = `${sep}dialogs${sep}${folder}${sep}${id}.tres`;
-  const all: string[] = [];
-  await walk(godotRoot, all);
-  const match = all.find((p) => p.endsWith(wantSuffix));
-  return match ? { path: match } : null;
+  // DialogSequence Ids are globally unique by spec (DialogRegistry errors
+  // on duplicates), so folder is not needed for the lookup — kept on the
+  // signature for callsite stability.
+  const entry = projectIndex.get("dialog", id);
+  return entry ? { path: entry.absPath } : null;
 }
 
 async function findBalloonTres(
-  godotRoot: string,
+  _godotRoot: string,
   folder: string,
   id: string,
 ): Promise<{ path: string } | null> {
-  // Direct path lookup — convention is rigid:
-  // characters/npcs/<folder>/balloons/<id>.tres.
-  const abs = join(godotRoot, "characters", "npcs", folder, "balloons", `${id}.tres`);
-  try {
-    await readFile(abs, "utf8");
-    return { path: abs };
-  } catch {
-    return null;
-  }
-}
-
-async function findInDirByContent(
-  dir: string,
-  matches: (text: string) => boolean,
-): Promise<{ path: string } | null> {
-  let entries;
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return null;
-  }
-  for (const e of entries) {
-    if (!e.isFile() || !e.name.endsWith(".tres")) continue;
-    const abs = join(dir, e.name);
-    let text: string;
-    try {
-      text = await readFile(abs, "utf8");
-    } catch {
-      continue;
-    }
-    if (matches(text)) return { path: abs };
-  }
-  return null;
-}
-
-async function walk(dir: string, out: string[]): Promise<void> {
-  let entries;
-  try {
-    entries = await readdir(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const e of entries) {
-    if (e.name === ".godot" || e.name === ".git") continue;
-    const full = join(dir, e.name);
-    if (e.isDirectory()) await walk(full, out);
-    else if (e.isFile() && e.name.endsWith(".tres")) out.push(full);
-  }
+  // BalloonLine has no Id field in C#; the index key is the composite
+  // "<model>/<basename>".
+  const entry = projectIndex.get("balloon", `${folder}/${id}`);
+  return entry ? { path: entry.absPath } : null;
 }
 
 // Re-exported for callers (e.g. dialogRouter, jsonCrud) that need to know

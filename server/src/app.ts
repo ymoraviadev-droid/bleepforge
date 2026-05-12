@@ -23,6 +23,7 @@ import { config, folderAbs } from "./config.js";
 import { assetRouter } from "./lib/asset/router.js";
 import { assetsRouter } from "./lib/assets/router.js";
 import { rebuildAssetCache } from "./lib/assets/cache.js";
+import { projectIndex } from "./lib/projectIndex/index.js";
 import { balloonRouter } from "./features/balloon/router.js";
 import { codexRouter } from "./features/codex/router.js";
 import { conceptRouter } from "./features/concept/router.js";
@@ -234,6 +235,16 @@ export async function startServer(): Promise<StartedServer> {
       if (config.godotProjectRoot) {
         console.log(
           `[bleepforge/server] godot root: ${config.godotProjectRoot} (from ${config.godotProjectRootSource})`,
+        );
+        // Project-index FIRST — every downstream "find this entity's
+        // .tres" path (reconcile, watcher reimports, writer save-back,
+        // icon resolution, pickup catalog) reads from it. Content-driven
+        // classification means moving files around in the Godot project
+        // doesn't break Bleepforge (until/unless we add a domain whose
+        // identity isn't extractable from the file's body).
+        const stats = await projectIndex.build(config.godotProjectRoot);
+        console.log(
+          `[bleepforge/server] project index: ${stats.tresCount} .tres + ${stats.pickupCount} pickup .tscn in ${stats.durationMs}ms (${stats.filesVisited} files visited)`,
         );
         await runBootReconcile();
         // Build the image-asset + shader caches once before the watcher

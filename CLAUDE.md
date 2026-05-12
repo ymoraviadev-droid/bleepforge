@@ -223,7 +223,7 @@ Both `QuestObjective` and `QuestReward` are **discriminated unions in disguise**
 
 ### Domain 3 — Items
 
-Loaded by `ItemDatabase` (autoload). Scans `res://world/collectibles/` recursively, picks up every `.tres` / `.res`, indexes by `ItemData.Slug`. **Empty slugs warn; duplicate slugs warn (first one wins).** Items live next to their collectible scenes at `world/collectibles/<category>/data/<slug>.tres` where `<category>` is the collectible-type folder (`ammo`, `credits`, `keycards`, `medkit`, `optical_part`, `small_gun`, …). The category dir isn't derivable from the slug, so Bleepforge's writeback locators (`findItemTres` in [writer.ts](server/src/internal/tres/writer.ts), `readItemUid` in [uidLookup.ts](server/src/internal/tres/uidLookup.ts)) walk the category subfolders content-matching on `Slug = "<slug>"` — same shape as `findNpcTres`. Boot reconcile + the orchestrator's quest-side ext-ref resolver are already path-agnostic (discovery buckets items by `Slug` presence regardless of folder); the per-file watcher reimport regex in [reimportOne.ts](server/src/internal/tres/reimportOne.ts) and the live icon endpoint in [iconRouter.ts](server/src/features/item/iconRouter.ts) (more on this below) are the two path-coupled pieces on the read side.
+Loaded by `ItemDatabase` (autoload). Scans `res://world/collectibles/` recursively in the current corpus (the C# side's path is project-specific; Bleepforge no longer assumes it), picks up every `.tres` / `.res`, indexes by `ItemData.Slug`. **Empty slugs warn; duplicate slugs warn (first one wins).** Items in this corpus typically live next to their collectible scenes at `world/collectibles/<category>/data/<slug>.tres`, but **Bleepforge does not require that location** — every "find this item's .tres" path goes through the [ProjectIndex](#projectindex) which classifies by `Slug = "..."` content presence, not by directory. The `.tres` can live anywhere in the Godot project and Bleepforge will find it. (As of v0.2.0 — see ProjectIndex section for the architecture.)
 
 **Item icons live as standalone PNGs** at `world/collectibles/<category>/art/<slug>.png`, referenced from the item `.tres` as `Icon = ExtResource("...")` pointing at a `Texture2D` ext_resource. This is the second authored form; **the corpus originated with AtlasTexture sub_resources** — a `Rect2` region inside the shared `world/art/Tileset-32x32-Objects-Sci-Fi.png` tileset — but those were swapped to standalone PNGs in May 2026 because Bleepforge's image pipeline serves flat PNG bytes only (no live atlas-slicing). The atlas form is still legal and tolerated: the writer's [textureRef.ts](server/src/internal/tres/textureRef.ts) preserves any existing `AtlasTexture` sub_resource when JSON's `Icon` is empty (so a user-authored atlas region isn't blown away on save), and swaps to `Texture2D` ExtResource only when JSON sets `Icon` to an absolute path. **The Items page does NOT read JSON's `Icon` field directly** — `ItemIcon` calls `/api/item-icon/:slug` ([iconRouter.ts](server/src/features/item/iconRouter.ts)) which re-parses the live `.tres` and returns either `{kind:"image", imagePath}` or `{kind:"atlas", atlasPath, region}`. The client then renders the atlas case as a CSS-clipped sub-rect of the source tileset. So even if you author an AtlasTexture by hand in Godot, Bleepforge's items page will display it correctly; only the writeback path stays flat-PNG-only. **Note on art-file naming**: 4 of 7 items follow `world/collectibles/<category>/art/<slug>.png` strictly (`small_gun`, `ammo`, `credits`, `rff_keycard`). The other 3 use a category-name basename instead of the slug (`medkit/art/medkit.png` for slug `medkit_small`, `optical_part/art/optical_part.png` for slug `eddie_optical_part`, `keycards/art/facility_keycard.png` for slug `recycling_facility_keycard` after the May 2026 keycard slug rename). Functional but inconsistent — slug-equals-basename is the convention to follow for new items.
 
@@ -677,6 +677,51 @@ Several authored fields are C# enums: `ItemCategory`, `ObjectiveType`, `RewardTy
 
 Flags are **free-form strings** — no schema, no declared registry. Used as boolean state across `NpcState` (seen referenced in `QuestManager`). Set by quest state transitions, dialog choices, dialog sequence entry, and quest rewards. The editor should at minimum offer autocomplete from flags seen elsewhere in the corpus.
 
+## ProjectIndex
+
+Runtime singleton ([server/src/lib/projectIndex/](server/src/lib/projectIndex/)) that maps every authored Godot resource → its `.tres` (or `.tscn` for pickups) location by **content classification**, not by hardcoded folder convention. Single source of truth for every "find this entity's file" lookup in Bleepforge — save-writeback, watcher reimports, the icon router, the pickup catalog, the UID lookups for ext_resource minting, and the boot reconcile all read from it. Added in v0.2.0 as the foundation for project-agnostic operation; before that, ~8 separate hardcoded-path walks lived across the codebase and silently broke whenever a `.tres` moved.
+
+**Three files:**
+
+- [types.ts](server/src/lib/projectIndex/types.ts) — `IndexedTres` (domain + id + absPath + resPath + uid + scriptClass + folder) and `IndexedPickup` (.tscn-backed: name + dbItemName + path triple). Eight domains total: `item / quest / karma / faction / npc / dialog / balloon / pickup`.
+- [build.ts](server/src/lib/projectIndex/build.ts) — whole-project walk that classifies every `.tres` and `.tscn` in one pass. Exports `buildProjectIndex(root)` for the initial build plus `classifyTresOne(absPath, root)` / `classifyTscnOne(absPath, root)` for single-file re-classification (used by the watcher's upsert path so we don't re-walk on every change).
+- [index.ts](server/src/lib/projectIndex/index.ts) — the singleton wrapper. Holds per-domain `Map<id, IndexedTres>` for O(1) lookups, plus three reverse-index maps (`byAbsPath`, `byUid`, `byResPath`) for the consumers that look up entries by Godot's identity primitives. Exposes `get(domain, id)` / `getByUid(uid)` / `getByResPath(resPath)` / `getByAbsPath(absPath)` / `list(domain)` / `listPickups()` for reads; `upsert(absPath)` / `remove(absPath)` for the watcher.
+
+**Identity per domain** (what `.id` carries):
+
+| Domain | id source | Notes |
+| --- | --- | --- |
+| item | `Slug = "..."` body | Subclass-agnostic — `ItemData`, `MedkitData`, `WeaponData`, any future subclass with a Slug field lands here. |
+| quest | `Id = "..."` body | script_class="Quest" required. |
+| karma | `Id = "..."` body | script_class="KarmaImpact" required. |
+| faction | `Faction = N` body → enum string | `Faction = 0` is omitted by Godot (default) → mapped to "Scavengers". Otherwise int → enum via the canonical map. |
+| npc | `NpcId = "..."` body | script_class="NpcData" required. |
+| dialog | `Id = "..."` body | script_class="DialogSequence" required. `folder` meta = parent-dir basename (Eddie, Krang, …). |
+| balloon | `<model>/<basename>` composite | BalloonLine has no `Id` field in C#; basename = filename without `.tres`, model = grandparent dir basename. Defensive convention check: immediate parent dir must be named `balloons`. |
+| pickup | absPath (internal) | `.tscn` whose root node body has `DbItemName = "..."`. Display name = filename basename. Multiple pickups can share a `name` (different folders) — the picker handles it. |
+
+**Boot wiring** ([app.ts](server/src/app.ts)): `projectIndex.build(root)` runs FIRST in the post-listen sequence — before `runBootReconcile` (which reads from the index), before `rebuildAssetCache` and `rebuildShaderCache` (which don't depend on it but boot alongside), before `startTresWatcher` (which feeds the index on every change). Build cost in the current corpus: ~50ms for 69 indexed `.tres` + 5 pickup `.tscn` across 130 files visited. Scales linearly with project size.
+
+**Watcher integration** ([internal/tres/watcher.ts](server/src/internal/tres/watcher.ts)): every `.tres` and `.tscn` add/change/unlink event flows through the index before going anywhere else:
+
+- **add/change**: `await projectIndex.upsert(absPath)` runs FIRST, so `detectDomain(absPath)` (which reads from the index) sees the latest classification. The new content might have changed identity (e.g. user renamed an NpcId) — upsert removes the old entry and inserts the new one in one shot.
+- **unlink**: `detectDomain` reads from the index while the entry still exists, recovers the canonical key, runs `deleteJsonFor`, and only THEN calls `projectIndex.remove(absPath)`. Order matters because the canonical id isn't always recoverable from the filename alone (e.g. NPC files end in `_npc_data.tres` but the NpcId is `eddie` not `eddie_npc_data`).
+- **self-writes**: a save by Bleepforge itself still updates the index (the file's content has changed and future lookups need to see it), but the reimport pipeline is skipped (the JSON is already authoritative).
+- **.tscn**: pickup catalog only. Upsert/remove keeps `listPickups()` live; no SSE event today (the LootTable picker refetches on focus).
+
+**Content-driven ext_resource resolution.** Two callbacks in `reimportOne` used to use filename heuristics to convert ext_resource paths to canonical Ids:
+
+- `resolveDialogSequenceId`: the old version did `ext.path.match(/[/\\]([^/\\]+)\.tres$/)` and returned the basename — assumed filename = Id. The new version: `projectIndex.getByResPath(ext.path)` → returns the entry → uses `entry.id` (the actual `Id = "..."` from the file body). Works regardless of where the `.tres` lives or what its filename is.
+- `resolveItemSlugByExtRef`: same shape — was a regex against `res://world/collectibles/<category>/data/<slug>.tres`; now `projectIndex.getByResPath(ext.path)` returning the entry's canonical Slug.
+
+Both are more correct AND fully content-driven now.
+
+**Cost / scaling.** Boot build is one-pass walk + read every `.tres` (~1KB each) and `.tscn`. At 90+ files total, ~50ms. Per-file upsert during runtime is a single read + classification (single-digit ms). Reverse-index maps consume ~200 bytes per entry × ~75 entries ≈ 15KB of memory. Negligible.
+
+**Why not unify with the assets cache or shaders cache?** They're orthogonal concerns. `lib/assets/` indexes images for the gallery + usage scans; `lib/shaders/` indexes `.gdshader` files for the shader gallery; `lib/projectIndex/` indexes `.tres` entity → file + pickup scenes. Three separate Maps, three separate consumer surfaces. Merging would couple lifecycles that don't share a domain. The watcher routes events to all three based on file extension at the top of `handleEvent` — same shape as before.
+
+**What ProjectIndex did NOT replace.** Image UIDs (`readTextureUid` in [uidLookup.ts](server/src/internal/tres/uidLookup.ts)) still read the `.png.import` sidecar directly per call — they're small single-file reads and the asset cache also tracks them, so a follow-up could route texture UID reads through the asset cache too. Cross-reference script UID scans (`findScriptUidInProject`) iterate the index's `.tres` entries to find files that reference a given script path — still O(n) reads but only across indexed files, not the whole filesystem.
+
 ## `.tres` write-back
 
 Bleepforge can now write JSON edits back to `.tres` files. The mappers live in `server/src/internal/tres/domains/{item,karma,dialog,quest,faction,npc,balloon}.ts`; the format library (parser, emitter, mutation helpers, ext-resource creation) is in [server/src/internal/tres/](server/src/internal/tres/). Each domain has a CLI canary that takes a slug/id (and optional JSON overrides), parses the matching `.tres`, applies the JSON, emits to `dialoguer/.tres-staging/`, and shows a unified diff:
@@ -709,7 +754,7 @@ Plus `pnpm harness` walks every `.tres` in the project and confirms parser+emitt
 
 **Reconcile diagnostics surfaced in the UI.** The boot reconcile itself runs from [server/src/lib/reconcile/bootReconcile.ts](server/src/lib/reconcile/bootReconcile.ts) (extracted from `index.ts` so the entry stays a thin composition file). Its result — per-domain `{imported, skipped, errors}` counts plus the full `errorDetails`/`skippedDetails` lists — is stashed in [server/src/lib/reconcile/router.ts](server/src/lib/reconcile/router.ts) and served at `GET /api/reconcile/status`. The boot log widens whenever something's wrong (`items=6 (errors:1)` instead of `items=6`) and prints one line per skipped/errored file. The client surfaces this in the **Reconcile** tab of the [/diagnostics](client/src/features/diagnostics/DiagnosticsPage.tsx) page (per-domain breakdown + file paths + reasons), and the unified header diagnostics icon reflects the worst-of severity across both tabs. Mappers throw on malformed required fields (e.g. `Slug = ""` or `Id = ""`) so those land in the `errors` bucket with accurate messages instead of being mislabeled as "wrong script_class" skips — the orchestrator's existing `try/catch` routes throws to errors and the message comes through verbatim. Without this, a single broken file silently leaves one domain with stale JSON and the UI gives no signal — easy to miss in browser dev mode and much easier to miss once the app's wrapped in a desktop shell.
 
-**Auto-discovery — no hardcoded subfolders.** [server/src/internal/import/discover.ts](server/src/internal/import/discover.ts) walks the Godot project once and buckets every `.tres` by what it is: `script_class` for `Quest` / `KarmaImpact` / `FactionData` / `NpcData` / `DialogSequence` / `BalloonLine`, and `Slug = "..."` presence for items (so `MedkitData`, `WeaponData`, and any future `ItemData` subclass land in the items bucket without a code change). DialogSequence files are grouped by parent-dir basename (`.../dialogs/Krang/foo.tres` → folder `"Krang"`); BalloonLine files are similarly grouped by their grandparent dir basename, with a defensive check that the immediate parent dir is named `balloons` (so a stray BalloonLine elsewhere wouldn't be misclassified). The previous `KNOWN_DIALOG_FOLDERS` constant and the per-domain `*_GODOT_PATH` constants in the orchestrator are gone — adding a new NPC's dialog folder or balloons folder, or moving content under the project, just works at next boot. Reads the whole file (each is ~1KB; total ~90KB) instead of a header-bytes prefix because the cost is negligible and it removes any "did I read enough bytes for the marker to appear?" fragility.
+**Content-driven file discovery — no hardcoded paths anywhere.** Every "find this entity's .tres" path in Bleepforge — save-writeback, watcher reimports, the icon router, the pickup catalog, the boot reconcile — reads from the runtime **ProjectIndex** singleton ([server/src/lib/projectIndex/](server/src/lib/projectIndex/)). The index is built once at boot via a single whole-project walk that classifies every `.tres` by content (`script_class` for `Quest` / `KarmaImpact` / `FactionData` / `NpcData` / `DialogSequence` / `BalloonLine`; `Slug = "..."` presence for items, so any `ItemData` subclass — `MedkitData`, `WeaponData`, etc. — lands in the items bucket without code changes) and every `.tscn` with a `DbItemName` property on its root node (pickup scenes for the NPC LootTable picker). Per-domain identity is extracted in the same pass (Slug for items, Id for quest/karma/dialog, NpcId, Faction enum, `<model>/<basename>` composite for balloons). DialogSequences are tagged with their parent-dir basename as `folder` meta (Eddie, Krang, …) and balloons with the grandparent dir as `folder` meta (the NPC model) — those folder names are still the Bleepforge groupings the UI uses, but they're discovered from layout, not enumerated in code. The watcher keeps the index live via `upsert`/`remove` on every `.tres` and `.tscn` event. Reads the whole file (each is ~1KB; total ~90KB) instead of a header-bytes prefix because the cost is negligible and it removes any "did I read enough bytes for the marker to appear?" fragility. **Result: moving a `.tres` to a new folder, renaming a category subfolder, or restructuring the Godot project mid-development never breaks Bleepforge** — at next boot the index rebuilds against the new layout. The previous round of hardcoded walks (`findItemTres` / `findNpcTres` / `findFactionTres` / `findBalloonTres` / `findDialogTres`, the icon router's `world/collectibles/<category>/data/` assumption, `detectDomain`'s path-regex classification, the pickup router's `world/collectibles/` walk, the orchestrator's `discoverGodotContent`) all collapse to `projectIndex.get(domain, id)` / `getByResPath(path)` / `getByAbsPath(path)` lookups. See the ProjectIndex section below for the architecture.
 
 **Live-sync from Godot (always on):** the server watches `GODOT_PROJECT_ROOT` via [chokidar](https://github.com/paulmillr/chokidar) (filtered to `.tres` and excluding the `.godot/` cache). On external change: re-imports that one file via the import mappers, overwrites the matching JSON in `data/`, and publishes a `SyncEvent` (`{ domain, key, action }`) on an in-memory bus. The SSE endpoint `GET /api/sync/events` streams those events to any open browser tab. The client opens an `EventSource` once at app boot ([client/src/lib/sync/stream.ts](client/src/lib/sync/stream.ts)), re-dispatches each event as a `Bleepforge:sync` window CustomEvent, and components register via `useSyncRefresh({ domain, key, onChange })` to refetch when their entity changes.
 
@@ -840,8 +885,15 @@ server/src/
                                     folder endpoints
                  lib/godotProject/  project-root introspection + validate
                  lib/logs/          ring buffer + GET /api/logs
-                 lib/pickup/        collectible-scene catalog (read-only)
+                 lib/pickup/        collectible-scene catalog (read-only,
+                                    sourced from lib/projectIndex/)
                  lib/process/       server identity / uptime / config
+                 lib/projectIndex/  content-driven .tres + pickup .tscn
+                                    runtime index — single source of
+                                    truth for every "find this entity's
+                                    file" lookup. types.ts + build.ts +
+                                    index.ts (singleton). Built at boot,
+                                    kept live by the watcher.
                  lib/reconcile/     status router + bootReconcile.ts
                  lib/refScan/       cross-system reference helpers shared
                                     by lib/assets/ + lib/shaders/ —
@@ -870,8 +922,10 @@ server/src/
                                     mappers (domains/) + CLI scripts
                                     (canary*, harness, migrate-subids,
                                     test-mutations)
-                 internal/import/   boot reconcile pipeline (discover,
-                                    mappers, orchestrator, tresParser)
+                 internal/import/   boot reconcile pipeline (mappers,
+                                    orchestrator, tresParser). The
+                                    orchestrator reads from lib/projectIndex/
+                                    rather than walking the project itself.
   config.ts    folderAbs + Godot project root resolution
   index.ts     entry — phase-numbered: log capture (1) → fail-fast on
                missing godotProjectRoot (2) → build app: storages + route

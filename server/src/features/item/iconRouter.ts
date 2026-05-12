@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 
 import { config } from "../../config.js";
@@ -9,6 +9,7 @@ import {
   valueAsString,
   valueAsSubRef,
 } from "../../internal/import/tresParser.js";
+import { projectIndex } from "../../lib/projectIndex/index.js";
 
 export const itemIconRouter: Router = Router();
 
@@ -27,6 +28,11 @@ type IconResponse = AtlasIconResponse | ImageIconResponse;
 // JSON-side Icon field has historically been empty for atlas-textured items
 // because the importer skipped them; this endpoint sidesteps that and reads
 // the source of truth on demand. Bleepforge's JSON is unaffected.
+//
+// The .tres file is found via ProjectIndex (content-driven, anywhere in
+// the Godot project). Once we have the file, the Icon ext_resource path
+// resolves through the file's own [ext_resource] table — so the actual
+// PNG can live anywhere too. No hardcoded path assumptions.
 
 itemIconRouter.get("/:slug", async (req, res) => {
   if (!config.godotProjectRoot) {
@@ -34,91 +40,78 @@ itemIconRouter.get("/:slug", async (req, res) => {
     return;
   }
   const slug = String(req.params.slug);
-  // Items live at world/collectibles/<category>/data/<slug>.tres. The
-  // category dir isn't derivable from the slug, so walk category subfolders
-  // matching on Slug content — same shape as findItemTres in writer.ts.
-  const collectiblesDir = path.join(config.godotProjectRoot, "world", "collectibles");
-  let categoryDirs;
-  try {
-    categoryDirs = await readdir(collectiblesDir, { withFileTypes: true });
-  } catch {
-    res.status(404).json({ error: `collectibles directory not found: ${collectiblesDir}` });
+
+  const entry = projectIndex.get("item", slug);
+  if (!entry) {
+    res.status(404).json({ error: `item slug not in project index: ${slug}` });
     return;
   }
 
-  const candidates: string[] = [];
-  for (const c of categoryDirs) {
-    if (!c.isDirectory()) continue;
-    const dataDir = path.join(collectiblesDir, c.name, "data");
-    let entries;
-    try {
-      entries = await readdir(dataDir, { withFileTypes: true });
-    } catch {
-      continue;
-    }
-    for (const e of entries) {
-      if (!e.isFile() || !e.name.endsWith(".tres")) continue;
-      candidates.push(path.join(dataDir, e.name));
-    }
+  let text: string;
+  try {
+    text = await readFile(entry.absPath, "utf8");
+  } catch (err) {
+    res.status(500).json({
+      error: `failed to read indexed .tres for ${slug}: ${(err as Error).message}`,
+    });
+    return;
   }
 
-  for (const abs of candidates) {
-    let text: string;
-    try {
-      text = await readFile(abs, "utf8");
-    } catch {
-      continue;
-    }
-    const parsed = parseTres(text);
-    if (valueAsString(parsed.resourceProps.Slug) !== slug) continue;
-
-    const iconVal = parsed.resourceProps.Icon;
-    if (!iconVal) {
-      res.json(null);
-      return;
-    }
-
-    // Atlas case: Icon = SubResource("AtlasTexture_xxx")
-    const subId = valueAsSubRef(iconVal);
-    if (subId) {
-      const sub = parsed.subResources.get(subId);
-      if (sub && sub.type === "AtlasTexture") {
-        const atlasRef = valueAsExtRef(sub.props.atlas);
-        const region = sub.props.region;
-        if (atlasRef && region?.kind === "rect2") {
-          const ext = parsed.extResources.get(atlasRef);
-          if (ext?.path) {
-            const response: AtlasIconResponse = {
-              kind: "atlas",
-              atlasPath: resPathToAbs(ext.path, config.godotProjectRoot),
-              region: { x: region.x, y: region.y, w: region.w, h: region.h },
-            };
-            res.json(response);
-            return;
-          }
-        }
-      }
-    }
-
-    // Direct image case: Icon = ExtResource("...")
-    const extId = valueAsExtRef(iconVal);
-    if (extId) {
-      const ext = parsed.extResources.get(extId);
-      if (ext?.path) {
-        const response: ImageIconResponse = {
-          kind: "image",
-          imagePath: resPathToAbs(ext.path, config.godotProjectRoot),
-        };
-        res.json(response);
-        return;
-      }
-    }
-
+  const parsed = parseTres(text);
+  if (valueAsString(parsed.resourceProps.Slug) !== slug) {
+    // Sanity check — index pointed us at a file whose Slug doesn't match.
+    // This shouldn't happen if the watcher is keeping the index live, but
+    // log it so we notice drift instead of silently returning a wrong icon.
+    console.warn(
+      `[item-icon] index pointed to ${entry.absPath} for slug=${slug} but file's Slug is ${valueAsString(parsed.resourceProps.Slug)}`,
+    );
     res.json(null);
     return;
   }
 
-  res.status(404).json({ error: `item slug not found in .tres files: ${slug}` });
+  const iconVal = parsed.resourceProps.Icon;
+  if (!iconVal) {
+    res.json(null);
+    return;
+  }
+
+  // Atlas case: Icon = SubResource("AtlasTexture_xxx")
+  const subId = valueAsSubRef(iconVal);
+  if (subId) {
+    const sub = parsed.subResources.get(subId);
+    if (sub && sub.type === "AtlasTexture") {
+      const atlasRef = valueAsExtRef(sub.props.atlas);
+      const region = sub.props.region;
+      if (atlasRef && region?.kind === "rect2") {
+        const ext = parsed.extResources.get(atlasRef);
+        if (ext?.path) {
+          const response: AtlasIconResponse = {
+            kind: "atlas",
+            atlasPath: resPathToAbs(ext.path, config.godotProjectRoot),
+            region: { x: region.x, y: region.y, w: region.w, h: region.h },
+          };
+          res.json(response);
+          return;
+        }
+      }
+    }
+  }
+
+  // Direct image case: Icon = ExtResource("...")
+  const extId = valueAsExtRef(iconVal);
+  if (extId) {
+    const ext = parsed.extResources.get(extId);
+    if (ext?.path) {
+      const response: ImageIconResponse = {
+        kind: "image",
+        imagePath: resPathToAbs(ext.path, config.godotProjectRoot),
+      };
+      res.json(response);
+      return;
+    }
+  }
+
+  res.json(null);
 });
 
 function resPathToAbs(resPath: string, root: string): string {

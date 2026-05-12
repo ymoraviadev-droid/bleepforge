@@ -47,7 +47,7 @@ Twelve distinct surfaces, each tailored to one slice of the work:
 ### Cross-cutting features
 
 - **Two-way `.tres` sync.** Save in Bleepforge → atomic write to the matching `.tres`. Save in Godot → live watcher reimports and refreshes any open editor. No "click reimport" button.
-- **Boot-time reconcile.** Every server start rebuilds the JSON cache from `.tres`. If you edit Godot while Bleepforge is off, the next launch picks it up. No drift.
+- **Boot-time reconcile.** Every server start rebuilds the JSON cache from `.tres` via the **ProjectIndex** — a content-driven runtime index that classifies every `.tres` by what it is (script_class / Slug presence) and every `.tscn` with a `DbItemName` as a pickup, with no hardcoded folder conventions anywhere. Move files around inside your Godot project freely; Bleepforge finds them at next boot. If you edit Godot while Bleepforge is off, the next launch picks it up. No drift.
 - **Live SSE.** Four event channels (sync / saves / assets / shaders) drive auto-refresh, toast notifications, and the live save-activity feed in real time. Shaders participate in the full sync surface — catalog refresh, Saves tab activity feed, and toasts on external add/change/remove (with per-window suppression so your own save doesn't double-feedback).
 - **Diagnostics page.** Six tabs - Integrity, Reconcile, Logs, Saves, Process, Watcher - with severity-aware unified header icon. The save activity feed is SSE-pushed and updates as you edit.
 - **App-wide search** at `Ctrl+K` - substring matching across every authored entity by id and display name. No fuzzy-typo-tolerance to keep results predictable.

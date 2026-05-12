@@ -11,8 +11,8 @@ import {
 import { folderAbs } from "../../config.js";
 import * as balloonStorage from "../../features/balloon/storage.js";
 import * as dialogStorage from "../../features/dialog/storage.js";
+import { projectIndex } from "../../lib/projectIndex/index.js";
 import { makeJsonStorage } from "../../lib/util/jsonCrud.js";
-import { discoverGodotContent, type Discovery } from "./discover.js";
 import {
   mapBalloon,
   mapDialogSequence,
@@ -49,6 +49,47 @@ interface DomainResult {
   errors: { file: string; error: string }[];
 }
 
+/**
+ * The shape the per-domain reconcile passes expect: arrays of absolute
+ * .tres paths, plus per-folder maps for the two folder-aware domains.
+ * Previously produced by `discoverGodotContent`; now produced by
+ * `discoveryFromIndex` reading from the runtime ProjectIndex.
+ */
+interface Discovery {
+  items: string[];
+  quests: string[];
+  karma: string[];
+  factions: string[];
+  npcs: string[];
+  dialogs: Map<string, string[]>;
+  balloons: Map<string, string[]>;
+}
+
+function discoveryFromIndex(): Discovery {
+  const out: Discovery = {
+    items: projectIndex.list("item").map((e) => e.absPath),
+    quests: projectIndex.list("quest").map((e) => e.absPath),
+    karma: projectIndex.list("karma").map((e) => e.absPath),
+    factions: projectIndex.list("faction").map((e) => e.absPath),
+    npcs: projectIndex.list("npc").map((e) => e.absPath),
+    dialogs: new Map(),
+    balloons: new Map(),
+  };
+  for (const e of projectIndex.list("dialog")) {
+    const folder = e.folder ?? "";
+    const list = out.dialogs.get(folder) ?? [];
+    list.push(e.absPath);
+    out.dialogs.set(folder, list);
+  }
+  for (const e of projectIndex.list("balloon")) {
+    const folder = e.folder ?? "";
+    const list = out.balloons.get(folder) ?? [];
+    list.push(e.absPath);
+    out.balloons.set(folder, list);
+  }
+  return out;
+}
+
 interface DialogDomainResult {
   imported: { folder: string; id: string; file: string }[];
   skipped: { folder: string; file: string; reason: string }[];
@@ -76,11 +117,11 @@ export async function runImport(opts: ImportOptions): Promise<ImportResult> {
     );
   }
 
-  // Discovery: walk the project once and bucket every .tres by its
-  // script_class. Replaces the previous hardcoded folder lists, so adding
-  // a new NPC (with its own dialogs/<Speaker>/ folder) just works without
-  // a code change.
-  const discovery: Discovery = await discoverGodotContent(root);
+  // Discovery: read from the ProjectIndex (already built at boot before
+  // this reconcile pass runs — see app.ts). Content-driven classification
+  // means moving .tres files around in the Godot project doesn't break
+  // the reconcile.
+  const discovery: Discovery = discoveryFromIndex();
 
   // 1. Items pass — needed first so quests can resolve TargetItem ExtResource → slug.
   const itemAbsToSlug = new Map<string, string>();
