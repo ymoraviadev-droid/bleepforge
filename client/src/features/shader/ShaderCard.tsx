@@ -24,9 +24,13 @@ interface Props {
   usageCount: number | null;
   /** Click on the "used by N" pill — independent affordance from the card. */
   onShowUsages: () => void;
+  /** Right-click handler. List page wires up the shader context menu
+   *  (Open / Duplicate / Delete); other surfaces (none yet, but
+   *  symmetric with the asset card prop) can omit. */
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export function ShaderCard({ asset, usageCount, onShowUsages }: Props) {
+export function ShaderCard({ asset, usageCount, onShowUsages, onContextMenu }: Props) {
   const navigate = useNavigate();
   const style = shaderTypeStyle(asset.shaderType);
   const href = buildShaderEditUrl(asset.path);
@@ -42,7 +46,8 @@ export function ShaderCard({ asset, usageCount, onShowUsages }: Props) {
           navigate(href);
         }
       }}
-      title={`${asset.basename} — click to view source`}
+      onContextMenu={onContextMenu}
+      title={`${asset.basename} — click to open · right-click for more`}
       className="group flex cursor-pointer flex-col border-2 border-neutral-800 bg-neutral-900 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
       <div

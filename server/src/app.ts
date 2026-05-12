@@ -37,6 +37,7 @@ import { processRouter } from "./lib/process/router.js";
 import { runBootReconcile } from "./lib/reconcile/bootReconcile.js";
 import { reconcileRouter } from "./lib/reconcile/router.js";
 import { savesRouter } from "./lib/saves/router.js";
+import { rebuildShaderCache } from "./lib/shaders/cache.js";
 import { shadersRouter } from "./lib/shaders/router.js";
 import { syncRouter } from "./lib/sync/router.js";
 import { makeCrudRouter, makeJsonStorage } from "./lib/util/jsonCrud.js";
@@ -235,9 +236,12 @@ export async function startServer(): Promise<StartedServer> {
           `[bleepforge/server] godot root: ${config.godotProjectRoot} (from ${config.godotProjectRootSource})`,
         );
         await runBootReconcile();
-        // Build the image-asset cache once before the watcher starts, so
-        // the gallery has full data on first paint. Cheap (<100ms).
+        // Build the image-asset + shader caches once before the watcher
+        // starts, so both galleries have full data on first paint and the
+        // watcher's first delta event lands on a populated map. Cheap
+        // (<100ms each; shader walk is even quicker — single-digit files).
         await rebuildAssetCache();
+        await rebuildShaderCache();
         startTresWatcher();
       } else {
         console.warn(

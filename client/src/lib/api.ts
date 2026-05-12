@@ -909,6 +909,23 @@ export interface ShaderUsagesResponse {
   usages: ShaderUsage[];
 }
 
+export interface ShaderSaveResult {
+  ok: boolean;
+  asset: ShaderAsset | null;
+}
+
+export interface ShaderCreateResult {
+  ok: boolean;
+  path: string;
+  asset: ShaderAsset | null;
+  source: string;
+}
+
+export interface ShaderDeleteResult {
+  ok: boolean;
+  removed: string[];
+}
+
 export const shadersApi = {
   list: async (): Promise<ShadersResponse> => {
     const r = await fetch("/api/shaders");
@@ -934,5 +951,44 @@ export const shadersApi = {
     if (!r.ok) throw new Error(`get shader usage-counts failed: ${r.status}`);
     const body = await r.json();
     return body.counts;
+  },
+  save: async (path: string, source: string): Promise<ShaderSaveResult> => {
+    const r = await fetch("/api/shaders/file", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, source }),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`save shader failed: ${r.status} ${body}`);
+    }
+    return r.json();
+  },
+  create: async (input: {
+    targetDir: string;
+    filename: string;
+    shaderType?: ShaderType;
+  }): Promise<ShaderCreateResult> => {
+    const r = await fetch("/api/shaders/new", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`create shader failed: ${r.status} ${body}`);
+    }
+    return r.json();
+  },
+  deleteFile: async (path: string): Promise<ShaderDeleteResult> => {
+    const r = await fetch(
+      `/api/shaders/file?path=${encodeURIComponent(path)}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`delete shader failed: ${r.status} ${body}`);
+    }
+    return r.json();
   },
 };

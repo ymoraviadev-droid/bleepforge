@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 
+import { Button } from "../../components/Button";
 import { EmptyState, WorkshopEmpty } from "../../components/EmptyState";
 import {
   CARDS_LIST_OPTIONS,
@@ -8,11 +10,13 @@ import {
 } from "../../components/ViewToggle";
 import type { ShaderAsset, ShaderType } from "../../lib/api";
 import { shadersApi } from "../../lib/api";
+import { useShaderRefresh } from "../../lib/shaders/useShaderRefresh";
 import { textInput } from "../../styles/classes";
+import { NewShaderModal } from "./NewShaderModal";
 import { ShaderCard } from "./ShaderCard";
 import { ShaderRow } from "./ShaderRow";
 import { buildShaderEditUrl } from "./format";
-import { useNavigate } from "react-router";
+import { makeShaderContextMenuHandler } from "./shaderMenu";
 
 // Shader gallery — Phase 1 of the shader work. Browses every .gdshader
 // found under the Godot project, with a "used by N" reverse-lookup pill
@@ -55,19 +59,14 @@ export function ShaderList() {
   const [groupBy, setGroupBy] = useState<GroupBy>("folder");
   const [view, setView] = useViewMode("shader");
   const [usageCounts, setUsageCounts] = useState<Record<string, number>>({});
+  const [creatingNew, setCreatingNew] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     shadersApi
       .list()
       .then((r) => setShaders(r.shaders))
       .catch((e) => setError(String(e)));
-  }, []);
-
-  // Eager "used by N" counts. Single round trip on page load. Phase 2
-  // will refresh on SSE; for Phase 1 the user reloads after Godot-side
-  // edits, which is fine since the watcher isn't wired yet.
-  useEffect(() => {
     shadersApi
       .usageCounts()
       .then(setUsageCounts)
@@ -75,6 +74,15 @@ export function ShaderList() {
         // Non-fatal — pills just stay at "…" until next refresh.
       });
   }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // Phase 2: SSE auto-refresh. Any shader add/change/remove pushes a
+  // re-fetch of the list + usage counts. Coalescing isn't worth the
+  // complexity at this corpus size — even a burst of events is cheap.
+  useShaderRefresh(refresh);
 
   const folderOptions = useMemo(() => {
     if (!shaders) return [];
@@ -166,6 +174,13 @@ export function ShaderList() {
           </span>
         </h1>
         <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="primary"
+            onClick={() => setCreatingNew(true)}
+          >
+            + New shader
+          </Button>
           <ViewToggle mode={view} onChange={setView} options={CARDS_LIST_OPTIONS} />
         </div>
       </div>
@@ -244,12 +259,17 @@ export function ShaderList() {
           title="No shaders yet"
           body={
             <>
-              Drop <span className="font-mono">.gdshader</span> files anywhere
-              under the Godot project; the gallery picks them up automatically.
-              Phase 2 (in-app authoring + live save) and Phase 3 (subset
-              translator + WebGL preview) land here next.
+              Use <span className="font-mono">+ New shader</span> above to
+              create one from a template, or drop a{" "}
+              <span className="font-mono">.gdshader</span> anywhere under the
+              Godot project — the gallery picks them up automatically. Phase 3
+              (subset translator + WebGL preview) lands next.
             </>
           }
+          action={{
+            label: "+ New shader",
+            onClick: () => setCreatingNew(true),
+          }}
         />
       ) : totalShown === 0 ? (
         <p className="text-neutral-500">No shaders match the current filter.</p>
@@ -257,21 +277,24 @@ export function ShaderList() {
         <div className="space-y-6">
           {renderGroups.map((g) => {
             const onShowUsages = (asset: ShaderAsset) => {
-              // For Phase 1 the "used by N" pill navigates straight to
-              // the view page — the full usage list is rendered inline
-              // there. Phase 2 may revisit with a slide-in drawer if the
-              // corpus grows enough that "quick peek without leaving the
-              // list" becomes valuable, but for the single-digit shader
-              // count we ship with that round trip is overhead.
+              // "used by N" pill navigates to the edit page where the
+              // full usage list renders inline (no drawer — the corpus
+              // is small and the destination's where you'd go to act
+              // on the info anyway).
               navigate(buildShaderEditUrl(asset.path));
             };
-            const renderItem = (sh: ShaderAsset) =>
-              view === "cards" ? (
+            const renderItem = (sh: ShaderAsset) => {
+              const onContextMenu = makeShaderContextMenuHandler({
+                asset: sh,
+                navigate: (to) => navigate(to),
+              });
+              return view === "cards" ? (
                 <ShaderCard
                   key={sh.path}
                   asset={sh}
                   usageCount={usageCounts[sh.path] ?? null}
                   onShowUsages={() => onShowUsages(sh)}
+                  onContextMenu={onContextMenu}
                 />
               ) : (
                 <ShaderRow
@@ -279,8 +302,10 @@ export function ShaderList() {
                   asset={sh}
                   usageCount={usageCounts[sh.path] ?? null}
                   onShowUsages={() => onShowUsages(sh)}
+                  onContextMenu={onContextMenu}
                 />
               );
+            };
 
             const grid =
               view === "cards" ? (
@@ -308,6 +333,16 @@ export function ShaderList() {
             );
           })}
         </div>
+      )}
+
+      {creatingNew && (
+        <NewShaderModal
+          onClose={() => setCreatingNew(false)}
+          onCreated={(path) => {
+            setCreatingNew(false);
+            navigate(buildShaderEditUrl(path));
+          }}
+        />
       )}
     </div>
   );

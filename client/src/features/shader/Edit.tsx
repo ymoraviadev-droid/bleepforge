@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 
-import { ButtonLink } from "../../components/Button";
+import { Button, ButtonLink } from "../../components/Button";
+import { showConfirm, showPrompt } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
+import { pushToast } from "../../components/Toast";
 import type { ShaderAsset, ShaderUsage } from "../../lib/api";
 import { shadersApi } from "../../lib/api";
+import { useShaderRefresh } from "../../lib/shaders/useShaderRefresh";
+import { CodeEditor } from "./CodeEditor";
 import {
   fmtBytes,
   shaderTypeLabel,
@@ -12,28 +16,46 @@ import {
 } from "./format";
 import { ShaderUsagesPanel } from "./UsagesPanel";
 
-// Shader detail page. Phase 1 is view-only: source on the left, info +
-// usages on the right. Phase 2 will swap the `<pre>` source block for a
-// CodeMirror editor with GDShader syntax highlighting + save, plus
-// import / duplicate / delete buttons in the header. Phase 3 adds the
-// preview canvas alongside the editor with the live WebGL2 + uniform
-// controls.
+// Shader edit page. Phase 2 ships full authoring: CodeMirror editor with
+// GDShader syntax highlighting, dirty indicator, save (button + Ctrl+S),
+// delete, duplicate, and external-edit banner when the watcher detects
+// disk changes during in-flight edits.
 //
 // Path comes via ?path= so the URL stays valid for any shader regardless
-// of folder depth (basename alone wouldn't work — two shaders in different
-// folders could share a name). The asset surface uses the same shape for
-// its (so-far-internal) editor host.
+// of folder depth. Same shape as the Phase 1 view page; we just gained
+// edit affordances around the existing structure.
+
+type SaveState =
+  | { kind: "idle" }
+  | { kind: "saving" }
+  | { kind: "saved"; at: number }
+  | { kind: "error"; message: string };
 
 export function ShaderEdit() {
   const [searchParams] = useSearchParams();
   const path = searchParams.get("path") ?? "";
+  const navigate = useNavigate();
 
   const [asset, setAsset] = useState<ShaderAsset | null>(null);
-  const [source, setSource] = useState<string>("");
+  /** Source as last seen on disk — the baseline against which dirtiness
+   *  is computed. Updates on initial load + after every successful save +
+   *  on accepted external-edit reload. */
+  const [saved, setSaved] = useState<string>("");
+  /** Source currently in the editor — diverges from `saved` while the
+   *  user types. */
+  const [editing, setEditing] = useState<string>("");
   const [usages, setUsages] = useState<ShaderUsage[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [usagesError, setUsagesError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>({ kind: "idle" });
+  /** Set when an external SSE event hits this path while we have
+   *  unsaved local edits — banner prompts the user to keep or discard. */
+  const [externalChange, setExternalChange] = useState<
+    null | { kind: "changed" | "removed" }
+  >(null);
+
+  const dirty = saved !== editing;
 
   useEffect(() => {
     if (!path) {
@@ -50,14 +72,11 @@ export function ShaderEdit() {
           return;
         }
         setAsset(r.asset);
-        setSource(r.source);
+        setSaved(r.source);
+        setEditing(r.source);
       })
       .catch((e) => {
         const msg = String(e);
-        // Server responds 404 when the file doesn't exist; map that
-        // to the standard NotFoundPage rather than the inline error
-        // since "you visited a URL for a shader that's gone" is the
-        // same shape as the other entity-edit pages' 404 path.
         if (msg.includes("404")) setNotFound(true);
         else setError(msg);
       });
@@ -72,9 +91,158 @@ export function ShaderEdit() {
       .catch((e) => setUsagesError(String(e)));
   }, [path, notFound]);
 
+  const reloadFromDisk = useCallback(() => {
+    if (!path) return;
+    shadersApi
+      .getFile(path)
+      .then((r) => {
+        if (!r.asset) {
+          setNotFound(true);
+          return;
+        }
+        setAsset(r.asset);
+        setSaved(r.source);
+        setEditing(r.source);
+        setExternalChange(null);
+      })
+      .catch((e) => setError(String(e)));
+  }, [path]);
+
+  // External-edit handling. Three cases for an event on THIS path:
+  //   - removed: file is gone. Surface a banner; user can navigate away
+  //     or wait for it to come back (e.g. rename in flight).
+  //   - changed/added on a CLEAN local copy: silently refetch — no
+  //     conflict possible.
+  //   - changed/added with LOCAL DIRTY: show banner so the user can
+  //     keep their edits OR discard + reload.
+  useShaderRefresh((event) => {
+    if (!asset || event.path !== asset.path) return;
+    if (event.kind === "removed") {
+      setExternalChange({ kind: "removed" });
+      return;
+    }
+    if (dirty) {
+      setExternalChange({ kind: "changed" });
+      return;
+    }
+    reloadFromDisk();
+  });
+
+  const handleSave = useCallback(async () => {
+    if (!path || !dirty || saveState.kind === "saving") return;
+    setSaveState({ kind: "saving" });
+    try {
+      const r = await shadersApi.save(path, editing);
+      if (r.asset) setAsset(r.asset);
+      setSaved(editing);
+      setSaveState({ kind: "saved", at: Date.now() });
+      // Clear external-change banner — a successful save resolves the
+      // conflict in favor of local edits, which is what the user asked
+      // for by pressing Save.
+      setExternalChange(null);
+    } catch (e) {
+      setSaveState({ kind: "error", message: String(e) });
+      pushToast({
+        id: `shader-save-error:${path}`,
+        variant: "error",
+        title: "Save failed",
+        body: String(e),
+      });
+    }
+  }, [path, dirty, editing, saveState.kind]);
+
+  // Auto-clear the "Saved ✓" indicator after 2s so it doesn't sit there
+  // forever and obscure that the buffer is now clean.
+  useEffect(() => {
+    if (saveState.kind !== "saved") return;
+    const timer = setTimeout(() => setSaveState({ kind: "idle" }), 2000);
+    return () => clearTimeout(timer);
+  }, [saveState]);
+
+  const handleDelete = useCallback(async () => {
+    if (!path || !asset) return;
+    const ok = await showConfirm({
+      title: "Delete shader?",
+      message: `This will remove ${asset.basename} from disk along with its .gdshader.uid sidecar. Any .tres / .tscn references will dangle until you point them somewhere else.`,
+      confirmLabel: "Delete",
+      cancelLabel: "Cancel",
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await shadersApi.deleteFile(path);
+      pushToast({
+        id: `shader-deleted:${path}`,
+        variant: "info",
+        title: "Shader deleted",
+        body: asset.basename,
+      });
+      navigate("/shaders");
+    } catch (e) {
+      pushToast({
+        id: `shader-delete-error:${path}`,
+        variant: "error",
+        title: "Delete failed",
+        body: String(e),
+      });
+    }
+  }, [path, asset, navigate]);
+
+  const handleDuplicate = useCallback(async () => {
+    if (!asset) return;
+    const stem = asset.basename.replace(/\.gdshader$/, "");
+    const proposed = `${stem}-copy`;
+    const newName = await showPrompt({
+      title: "Duplicate shader",
+      message: `Save a copy in the same folder. The .gdshader extension will be appended if you leave it off.`,
+      placeholder: proposed,
+      defaultValue: proposed,
+      confirmLabel: "Duplicate",
+      cancelLabel: "Cancel",
+      validate: (v) => {
+        const t = v.trim();
+        if (!t) return "Name is required";
+        if (t.includes("/") || t.includes("\\")) return "No slashes";
+        if (t.startsWith(".")) return "No leading dots";
+        return null;
+      },
+    });
+    if (!newName) return;
+    try {
+      // Server emits the template by default — to copy the current source
+      // we POST /new (which creates with template), then PUT /file (which
+      // overwrites with our actual source). Two round-trips, but the
+      // server stays simpler (one entry point per concern) and the
+      // duplication is rare enough that the extra ms doesn't matter.
+      const created = await shadersApi.create({
+        targetDir: asset.parentDir,
+        filename: newName,
+        shaderType: asset.shaderType ?? "canvas_item",
+      });
+      // Push our current editor contents (not the on-disk `saved`) so
+      // duplicate captures the user's in-progress work too — matches
+      // intuition: "what's on screen is what I want copied".
+      await shadersApi.save(created.path, editing);
+      pushToast({
+        id: `shader-duplicated:${created.path}`,
+        variant: "success",
+        title: "Shader duplicated",
+        body: created.asset?.basename ?? newName,
+      });
+      navigate(`/shaders/edit?path=${encodeURIComponent(created.path)}`);
+    } catch (e) {
+      pushToast({
+        id: `shader-duplicate-error:${asset.path}`,
+        variant: "error",
+        title: "Duplicate failed",
+        body: String(e),
+      });
+    }
+  }, [asset, editing, navigate]);
+
   const lineCount = useMemo(
-    () => (source ? source.split("\n").length : 0),
-    [source],
+    () => (editing ? editing.split("\n").length : 0),
+    [editing],
   );
 
   if (notFound) return <NotFoundPage />;
@@ -88,10 +256,18 @@ export function ShaderEdit() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
           <h1
-            className="truncate font-mono text-lg text-neutral-100"
+            className="flex items-center gap-2 truncate font-mono text-lg text-neutral-100"
             title={asset.basename}
           >
             {asset.basename}
+            {dirty && (
+              <span
+                className="font-mono text-xs text-amber-400"
+                title="Unsaved changes"
+              >
+                ●
+              </span>
+            )}
           </h1>
           {asset.parentRel && (
             <div
@@ -102,7 +278,28 @@ export function ShaderEdit() {
             </div>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <SaveStatusIndicator state={saveState} dirty={dirty} />
+          <Button
+            onClick={handleSave}
+            disabled={!dirty || saveState.kind === "saving"}
+            variant="primary"
+            size="sm"
+            title="Save (Ctrl+S)"
+          >
+            {saveState.kind === "saving" ? "Saving…" : "Save"}
+          </Button>
+          <Button onClick={handleDuplicate} variant="secondary" size="sm">
+            Duplicate
+          </Button>
+          <Button
+            onClick={handleDelete}
+            variant="danger"
+            size="sm"
+            title="Delete this shader from disk"
+          >
+            Delete
+          </Button>
           <ButtonLink to="/shaders" variant="secondary">
             ← Back
           </ButtonLink>
@@ -135,49 +332,129 @@ export function ShaderEdit() {
         )}
       </div>
 
+      {externalChange && (
+        <ExternalChangeBanner
+          kind={externalChange.kind}
+          onReload={reloadFromDisk}
+          onDismiss={() => setExternalChange(null)}
+        />
+      )}
+
       <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
-        <SourceBlock source={source} />
+        <section className="overflow-hidden border-2 border-neutral-800 bg-neutral-950">
+          <header className="flex items-center justify-between border-b-2 border-neutral-800 px-3 py-2">
+            <h2 className="font-display text-xs uppercase tracking-wider text-neutral-300">
+              Source
+            </h2>
+            <span className="font-mono text-[9px] uppercase tracking-wider text-neutral-600">
+              Ctrl+S to save
+            </span>
+          </header>
+          <div className="min-h-[60vh]">
+            <CodeEditor
+              value={editing}
+              onChange={setEditing}
+              onSave={handleSave}
+              readOnly={externalChange?.kind === "removed"}
+            />
+          </div>
+        </section>
         <ShaderUsagesPanel usages={usages} error={usagesError} />
       </div>
 
       <div className="border-t-2 border-neutral-800/60 pt-3 font-mono text-[10px] text-neutral-600">
-        Phase 1 of the shader work — view-only. Phase 2 brings in CodeMirror
-        + save, Phase 3 the GDShader → GLSL ES translator + a live WebGL
-        preview canvas you can point at any image.
+        Phase 2 of the shader work — in-app authoring (save / new / duplicate /
+        delete). Phase 3 will add the GDShader → GLSL ES translator and a
+        live WebGL preview canvas next to the editor.
       </div>
     </div>
   );
 }
 
-// Phase 1 source view: monospace `<pre>` with line numbers in a left
-// gutter. Plain text — no syntax highlighting. CodeMirror lands in
-// Phase 2 with proper GDShader highlighting + edit affordances; the
-// styled <pre> here is the simplest shape that still reads as a code
-// viewer rather than a raw text blob.
-function SourceBlock({ source }: { source: string }) {
-  const lines = useMemo(() => (source ? source.split("\n") : []), [source]);
+function SaveStatusIndicator({
+  state,
+  dirty,
+}: {
+  state: SaveState;
+  dirty: boolean;
+}) {
+  if (state.kind === "saved") {
+    return (
+      <span
+        className="font-mono text-[10px] uppercase tracking-wider text-emerald-400"
+        title="Saved to disk"
+      >
+        Saved ✓
+      </span>
+    );
+  }
+  if (state.kind === "error") {
+    return (
+      <span
+        className="font-mono text-[10px] uppercase tracking-wider text-red-400"
+        title={state.message}
+      >
+        Save failed
+      </span>
+    );
+  }
+  if (state.kind === "saving") {
+    return (
+      <span className="font-mono text-[10px] uppercase tracking-wider text-amber-400">
+        Saving…
+      </span>
+    );
+  }
+  if (dirty) {
+    return (
+      <span className="font-mono text-[10px] uppercase tracking-wider text-amber-400/80">
+        Unsaved
+      </span>
+    );
+  }
+  return null;
+}
+
+// Banner shown when the watcher emits a change/remove event for the
+// file we're currently editing AND we have local unsaved edits. Lets the
+// user choose: keep editing (their save will resolve the conflict in
+// their favor) or reload from disk (their unsaved work is discarded).
+function ExternalChangeBanner({
+  kind,
+  onReload,
+  onDismiss,
+}: {
+  kind: "changed" | "removed";
+  onReload: () => void;
+  onDismiss: () => void;
+}) {
+  if (kind === "removed") {
+    return (
+      <div className="flex items-center justify-between gap-3 border-2 border-red-700 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+        <span>
+          This shader was deleted on disk. Your editor still has the last-known
+          source; you can save to recreate it, or navigate away.
+        </span>
+        <Button onClick={onDismiss} variant="secondary" size="sm">
+          Dismiss
+        </Button>
+      </div>
+    );
+  }
   return (
-    <section className="overflow-hidden border-2 border-neutral-800 bg-neutral-950">
-      <header className="border-b-2 border-neutral-800 px-3 py-2">
-        <h2 className="font-display text-xs uppercase tracking-wider text-neutral-300">
-          Source
-        </h2>
-      </header>
-      <pre className="max-h-[70vh] overflow-auto p-0 font-mono text-xs leading-relaxed text-neutral-200">
-        <code>
-          {lines.map((line, i) => (
-            <div key={i} className="flex">
-              <span
-                className="sticky left-0 inline-block w-10 shrink-0 select-none border-r border-neutral-800/80 bg-neutral-950 px-2 py-0 text-right text-[10px] text-neutral-600"
-                aria-hidden
-              >
-                {i + 1}
-              </span>
-              <span className="whitespace-pre px-3 py-0">{line || " "}</span>
-            </div>
-          ))}
-        </code>
-      </pre>
-    </section>
+    <div className="flex items-center justify-between gap-3 border-2 border-amber-700 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
+      <span>
+        Modified externally while you had unsaved edits. Save to overwrite
+        their changes, or reload to discard yours.
+      </span>
+      <div className="flex gap-2">
+        <Button onClick={onReload} variant="secondary" size="sm">
+          Reload from disk
+        </Button>
+        <Button onClick={onDismiss} variant="secondary" size="sm">
+          Keep editing
+        </Button>
+      </div>
+    </div>
   );
 }

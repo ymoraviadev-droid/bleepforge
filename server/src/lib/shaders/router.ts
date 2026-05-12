@@ -1,27 +1,33 @@
-// HTTP surface for the shader gallery. Endpoints (Phase 1 — read-only):
+// HTTP surface for the shader gallery. Endpoints:
 //
-//   GET /api/shaders              list every discovered .gdshader file
-//   GET /api/shaders/file?path=…  full source + descriptor for one shader
-//   GET /api/shaders/usages?path=…  reverse-lookup references for one shader
-//   GET /api/shaders/usage-counts  per-shader "used by N" map for the list page
+//   GET    /api/shaders              list every discovered .gdshader file
+//   GET    /api/shaders/file?path=…  full source + descriptor for one shader
+//   PUT    /api/shaders/file         save source back to disk (Phase 2)
+//   POST   /api/shaders/new          create a new .gdshader from a template (Phase 2)
+//   DELETE /api/shaders/file?path=…  remove file + .gdshader.uid sidecar (Phase 2)
+//   GET    /api/shaders/usages?path=…  reverse-lookup references for one shader
+//   GET    /api/shaders/usage-counts  per-shader "used by N" map for the list page
+//   GET    /api/shaders/events       SSE stream of add/change/remove (Phase 2)
 //
-// Phase 2 will add POST /import (create), PUT /file (save), DELETE /file
-// (delete), and GET /events (SSE). Phase 1 is intentionally read-only —
-// validates the storage model + the cross-system reference search before
-// we add writeback.
+// Phase 1 was read-only (the four GETs above except /events). Phase 2
+// added authoring: write endpoints, watcher integration, the SSE
+// channel, and the in-memory cache that backs all three of them.
 //
-// No in-memory cache yet: Phase 1 re-discovers on every list call. The
-// corpus is tiny (single-digit shaders) so the walk + parse runs in well
-// under 10ms; caching earns its keep once the watcher and SSE land in
-// Phase 2 (we'll want a single source of truth that delta updates push
-// into).
+// No self-write suppression: the watcher upserts the cache + publishes
+// SSE on every .gdshader change regardless of who wrote it. That keeps
+// other open windows in sync (a save in window A shows up in window B's
+// list). The saving window's edit page suppresses the "external change"
+// banner against its own save via a dirty check in useShaderRefresh's
+// callback, not by hiding the event.
 
 import fs from "node:fs/promises";
 import path from "node:path";
 import { Router } from "express";
 
 import { config } from "../../config.js";
+import { listShaders, rebuildShaderCache } from "./cache.js";
 import { discoverShaders, summarizeShader } from "./discover.js";
+import { subscribeShaderEvents } from "./eventBus.js";
 import { countAllShaderUsages, findShaderUsages } from "./usages.js";
 import type { ShaderAsset } from "./types.js";
 
@@ -33,11 +39,13 @@ shadersRouter.get("/", async (_req, res) => {
     return;
   }
   try {
-    const shaders = await discoverShaders(config.godotProjectRoot);
-    // Stable order by parentRel then basename, so the list page renders
-    // the same way across reloads. The list page sorts again client-side,
-    // but starting from a deterministic order makes diffs / debugging
-    // easier.
+    // Prefer the in-memory cache; fall back to a fresh walk if the cache
+    // hasn't been built yet (e.g. boot reconcile is still running). The
+    // fall-through keeps the endpoint useful during the boot window.
+    let shaders = listShaders();
+    if (shaders.length === 0) {
+      shaders = await discoverShaders(config.godotProjectRoot);
+    }
     shaders.sort(
       (a, b) =>
         a.parentRel.localeCompare(b.parentRel) ||
@@ -132,7 +140,11 @@ shadersRouter.get("/usage-counts", async (_req, res) => {
     return;
   }
   try {
-    const shaders = await discoverShaders(config.godotProjectRoot);
+    // Same cache-first / walk-fallback pattern as the list endpoint.
+    let shaders = listShaders();
+    if (shaders.length === 0) {
+      shaders = await discoverShaders(config.godotProjectRoot);
+    }
     const counts = await countAllShaderUsages(
       shaders.map((s) => ({ path: s.path, uid: s.uid })),
     );
@@ -143,3 +155,265 @@ shadersRouter.get("/usage-counts", async (_req, res) => {
       .json({ error: `usage-counts failed: ${(err as Error).message}` });
   }
 });
+
+// SSE stream of shader add/change/remove events. The renderer keeps one
+// EventSource open per browser origin; popouts use a same-origin
+// BroadcastChannel relay rather than each opening their own (would
+// otherwise hit the 6-per-origin HTTP connection cap, same fix the
+// asset / sync / saves streams use).
+shadersRouter.get("/events", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders();
+
+  const heartbeat = setInterval(() => {
+    res.write(": heartbeat\n\n");
+  }, 25_000);
+
+  const unsubscribe = subscribeShaderEvents((event) => {
+    res.write(`data: ${JSON.stringify(event)}\n\n`);
+  });
+
+  req.on("close", () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+    res.end();
+  });
+
+  res.write(": connected\n\n");
+});
+
+interface SaveBody {
+  /** Absolute filesystem path to the .gdshader being saved. Must be inside
+   *  the Godot project root and end in .gdshader. */
+  path: string;
+  /** New source text. Stored verbatim — no syntax validation server-side;
+   *  Godot reports compile errors when it reloads the shader. */
+  source: string;
+}
+
+// Atomic save. Self-write is recorded BEFORE the rename so the watcher's
+// debounce window sees us first when the rename's add event fires. Returns
+// the fresh descriptor so the client can update its local copy without a
+// round-trip GET.
+shadersRouter.put("/file", async (req, res) => {
+  if (!config.godotProjectRoot) {
+    res.status(503).json({ error: "godotProjectRoot not configured" });
+    return;
+  }
+  const body = req.body as Partial<SaveBody> | undefined;
+  if (!body || typeof body !== "object") {
+    res.status(400).json({ error: "JSON body required" });
+    return;
+  }
+  const requested = typeof body.path === "string" ? body.path : "";
+  const source = typeof body.source === "string" ? body.source : "";
+  if (!requested) {
+    res.status(400).json({ error: "path is required" });
+    return;
+  }
+  const resolved = path.resolve(requested);
+  const rel = path.relative(config.godotProjectRoot, resolved);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    res
+      .status(403)
+      .json({ error: "path must be inside the Godot project root" });
+    return;
+  }
+  if (!resolved.endsWith(".gdshader")) {
+    res.status(400).json({ error: "path must be a .gdshader file" });
+    return;
+  }
+  try {
+    await fs.access(resolved);
+  } catch {
+    res
+      .status(404)
+      .json({ error: `file does not exist: ${resolved} — use POST /new for new shaders` });
+    return;
+  }
+
+  const tmpPath = `${resolved}.tmp.${process.pid}.${Date.now()}`;
+  try {
+    await fs.writeFile(tmpPath, source, "utf8");
+    await fs.rename(tmpPath, resolved);
+  } catch (err) {
+    try {
+      await fs.unlink(tmpPath);
+    } catch {
+      // ignore — temp may not exist if rename failed before it landed
+    }
+    res
+      .status(500)
+      .json({ error: `write failed: ${(err as Error).message}` });
+    return;
+  }
+
+  const asset = await summarizeShader(resolved, config.godotProjectRoot);
+  console.log(`[shaders/save] wrote ${source.length} bytes → ${resolved}`);
+  res.json({ ok: true, asset });
+});
+
+interface NewBody {
+  /** Target directory (absolute or godot-root-relative). Must be inside
+   *  the Godot project root. */
+  targetDir: string;
+  /** Filename — basename only. `.gdshader` extension is appended if
+   *  missing so the user doesn't have to type it. */
+  filename: string;
+  /** Initial shader_type — defaults to canvas_item, the only type the
+   *  Phase 3 translator will support. Stored in the template's first
+   *  line; user can change it afterwards. */
+  shaderType?: "canvas_item" | "spatial" | "particles" | "sky" | "fog";
+}
+
+const NEW_SHADER_TEMPLATES: Record<NonNullable<NewBody["shaderType"]>, string> = {
+  canvas_item: `shader_type canvas_item;\n\nvoid fragment() {\n    COLOR = texture(TEXTURE, UV);\n}\n`,
+  spatial: `shader_type spatial;\n\nvoid fragment() {\n    ALBEDO = vec3(1.0);\n}\n`,
+  particles: `shader_type particles;\n\nvoid process() {\n    \n}\n`,
+  sky: `shader_type sky;\n\nvoid sky() {\n    COLOR = vec3(0.0, 0.0, 0.05);\n}\n`,
+  fog: `shader_type fog;\n\nvoid fog() {\n    DENSITY = 0.1;\n}\n`,
+};
+
+shadersRouter.post("/new", async (req, res) => {
+  if (!config.godotProjectRoot) {
+    res.status(503).json({ error: "godotProjectRoot not configured" });
+    return;
+  }
+  const body = req.body as Partial<NewBody> | undefined;
+  if (!body || typeof body !== "object") {
+    res.status(400).json({ error: "JSON body required" });
+    return;
+  }
+  const targetDir = typeof body.targetDir === "string" ? body.targetDir : "";
+  let filename = typeof body.filename === "string" ? body.filename.trim() : "";
+  const shaderType = body.shaderType ?? "canvas_item";
+  if (!targetDir || !filename) {
+    res.status(400).json({ error: "targetDir and filename are required" });
+    return;
+  }
+  if (filename.includes("/") || filename.includes("\\") || filename.includes("..")) {
+    res.status(400).json({ error: "filename must be a basename (no slashes)" });
+    return;
+  }
+  if (!filename.endsWith(".gdshader")) filename = `${filename}.gdshader`;
+  if (!NEW_SHADER_TEMPLATES[shaderType]) {
+    res.status(400).json({ error: `unsupported shaderType: ${shaderType}` });
+    return;
+  }
+  const resolvedDir = path.resolve(config.godotProjectRoot, targetDir);
+  const relDir = path.relative(config.godotProjectRoot, resolvedDir);
+  if (relDir.startsWith("..") || path.isAbsolute(relDir)) {
+    res
+      .status(403)
+      .json({ error: "targetDir must be inside the Godot project root" });
+    return;
+  }
+  let stat;
+  try {
+    stat = await fs.stat(resolvedDir);
+  } catch {
+    res.status(404).json({ error: `targetDir does not exist: ${resolvedDir}` });
+    return;
+  }
+  if (!stat.isDirectory()) {
+    res.status(400).json({ error: `targetDir is not a directory` });
+    return;
+  }
+  const targetPath = path.join(resolvedDir, filename);
+  try {
+    await fs.access(targetPath);
+    res.status(409).json({
+      error: `file already exists: ${targetPath}`,
+      existingPath: targetPath,
+    });
+    return;
+  } catch {
+    // ENOENT — good, proceed.
+  }
+
+  const template = NEW_SHADER_TEMPLATES[shaderType];
+  const tmpPath = `${targetPath}.tmp.${process.pid}.${Date.now()}`;
+  try {
+    await fs.writeFile(tmpPath, template, "utf8");
+    await fs.rename(tmpPath, targetPath);
+  } catch (err) {
+    try {
+      await fs.unlink(tmpPath);
+    } catch {
+      // ignore
+    }
+    res
+      .status(500)
+      .json({ error: `write failed: ${(err as Error).message}` });
+    return;
+  }
+
+  const asset = await summarizeShader(targetPath, config.godotProjectRoot);
+  console.log(`[shaders/new] created ${targetPath} (${shaderType})`);
+  res.json({ ok: true, path: targetPath, asset, source: template });
+});
+
+shadersRouter.delete("/file", async (req, res) => {
+  if (!config.godotProjectRoot) {
+    res.status(503).json({ error: "godotProjectRoot not configured" });
+    return;
+  }
+  const requested = String(req.query.path ?? "");
+  if (!requested) {
+    res.status(400).json({ error: "path query param required" });
+    return;
+  }
+  const resolved = path.resolve(requested);
+  const rel = path.relative(config.godotProjectRoot, resolved);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    res
+      .status(403)
+      .json({ error: "path must be inside the Godot project root" });
+    return;
+  }
+  if (!resolved.endsWith(".gdshader")) {
+    res.status(400).json({ error: "path must be a .gdshader file" });
+    return;
+  }
+  const removed: string[] = [];
+  try {
+    await fs.unlink(resolved);
+    removed.push(resolved);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      res.status(404).json({ error: `file does not exist: ${resolved}` });
+      return;
+    }
+    res
+      .status(500)
+      .json({ error: `delete failed: ${(err as Error).message}` });
+    return;
+  }
+  // Best-effort sidecar removal. `.gdshader` → `.gdshader.uid`. If the
+  // sidecar isn't there (shader was just created by Bleepforge before
+  // Godot processed it), that's fine — we don't error.
+  const sidecarPath = `${resolved}.uid`;
+  try {
+    await fs.unlink(sidecarPath);
+    removed.push(sidecarPath);
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") {
+      console.warn(
+        `[shaders/delete] sidecar removal failed for ${sidecarPath}: ${(err as Error).message}`,
+      );
+    }
+  }
+  console.log(`[shaders/delete] removed ${removed.length} files: ${removed.join(", ")}`);
+  res.json({ ok: true, removed });
+});
+
+// Re-export so the bootstrap (server/src/app.ts) can warm the cache
+// before the watcher starts — same shape as rebuildAssetCache.
+export { rebuildShaderCache };

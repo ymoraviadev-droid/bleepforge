@@ -1,14 +1,21 @@
-// Watches GODOT_PROJECT_ROOT for .tres AND image-asset changes via
-// chokidar. Two routes off one stream:
+// Watches GODOT_PROJECT_ROOT for .tres, image-asset, and .gdshader
+// changes via chokidar. Three routes off one stream:
 //   - .tres → reimport into JSON cache, publish a SyncEvent for game-data
 //     listeners (toasts, list refreshes).
 //   - images (.png / .svg / …) → upsert the asset cache, publish an
 //     AssetEvent for the gallery to refresh in place.
+//   - .gdshader → upsert the shader cache, publish a ShaderEvent for
+//     the shader gallery + edit page to react.
 // Anything else (the .godot cache, .import sidecars, .uid files, scripts)
 // is filtered at the chokidar level so we don't pay event cost for them.
 //
 // Self-write suppression (via writer.ts's recentSelfWrites map) prevents
-// our own .tres save flow from triggering a useless re-import loop.
+// our own .tres save flow from triggering a useless re-import loop. The
+// shader path deliberately does NOT suppress self-writes: cache + SSE
+// fire on every write, so a save in window A shows up in window B's
+// shader list. The saving window's edit page handles "don't show an
+// external-change banner against my own save" via a dirty check in
+// useShaderRefresh's callback.
 
 import chokidar, { type FSWatcher } from "chokidar";
 import type { Stats } from "node:fs";
@@ -18,6 +25,8 @@ import { removeImage, upsertImage } from "../../lib/assets/cache.js";
 import { isImagePath } from "../../lib/assets/discover.js";
 import { publishAssetEvent } from "../../lib/assets/eventBus.js";
 import { recordSave } from "../../lib/saves/buffer.js";
+import { removeShader, upsertShader } from "../../lib/shaders/cache.js";
+import { publishShaderEvent } from "../../lib/shaders/eventBus.js";
 import { publishSyncEvent } from "../../lib/sync/eventBus.js";
 import { detectDomain, deleteJsonFor, reimportOne } from "./reimportOne.js";
 import { isRecentSelfWrite } from "./writer.js";
@@ -88,11 +97,13 @@ export function startTresWatcher(): void {
     ignored: (p: string, stats?: Stats): boolean => {
       if (p.includes("/.godot/") || p.endsWith("/.godot")) return true;
       if (stats?.isFile()) {
-        // Pass through .tres + image files. Filter everything else
-        // (sidecars, scripts, .uid files, scenes — the watcher feeds
-        // two cache pipelines and only those file types matter).
+        // Pass through .tres + image files + .gdshader. Filter everything
+        // else (sidecars incl. .gdshader.uid, scripts, scenes — the
+        // watcher feeds three cache pipelines and only those file types
+        // matter).
         if (p.endsWith(".tres")) return false;
         if (isImagePath(p)) return false;
+        if (p.endsWith(".gdshader")) return false;
         return true;
       }
       return false;
@@ -123,17 +134,19 @@ export function startTresWatcher(): void {
     const watched = watcher?.getWatched();
     let tresCount = 0;
     let imageCount = 0;
+    let shaderCount = 0;
     if (watched) {
       for (const dir of Object.keys(watched)) {
         for (const f of watched[dir]!) {
           if (f.endsWith(".tres")) tresCount++;
+          else if (f.endsWith(".gdshader")) shaderCount++;
           else if (isImagePath(f)) imageCount++;
         }
       }
     }
     watchedFileCount = tresCount;
     console.log(
-      `[tres-watcher] active on ${root} — watching ${tresCount} .tres + ${imageCount} image files`,
+      `[tres-watcher] active on ${root} — watching ${tresCount} .tres + ${imageCount} images + ${shaderCount} shaders`,
     );
   });
 }
@@ -159,6 +172,29 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
     const updated = await upsertImage(absPath);
     if (updated) {
       publishAssetEvent({
+        kind: kind === "add" ? "added" : "changed",
+        path: absPath,
+      });
+    }
+    return;
+  }
+
+  // Shader files: same shape as image route. No self-write suppression
+  // here — even when Bleepforge initiated the write, we want the cache
+  // to update + the SSE event to fire so other windows refresh. The
+  // saving window's own edit page handles "don't show an external-change
+  // banner against my own save" via a dirty check in useShaderRefresh's
+  // callback, not by hiding the event.
+  if (absPath.endsWith(".gdshader")) {
+    if (kind === "unlink") {
+      if (removeShader(absPath)) {
+        publishShaderEvent({ kind: "removed", path: absPath });
+      }
+      return;
+    }
+    const updated = await upsertShader(absPath);
+    if (updated) {
+      publishShaderEvent({
         kind: kind === "add" ? "added" : "changed",
         path: absPath,
       });

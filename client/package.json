@@ -11,8 +11,13 @@
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",
+    "@codemirror/commands": "^6.10.3",
+    "@codemirror/language": "^6.12.3",
+    "@codemirror/state": "^6.6.0",
+    "@codemirror/view": "^6.42.1",
     "@dagrejs/dagre": "^3.0.0",
     "@imgly/background-removal": "^1.7.0",
+    "@lezer/highlight": "^1.2.3",
     "@xyflow/react": "^12.10.2",
     "fuse.js": "^7.1.0",
     "react": "^19.0.0",

@@ -8,6 +8,7 @@ import "./styles/GlobalTheme"; // reconciles legacy keys → server-backed prefe
 import "./styles/index.css";
 import { closeAssetStream, startAssetStream } from "./lib/assets/stream";
 import { closeSavesStream, startSavesStream } from "./lib/saves/stream";
+import { closeShaderStream, startShaderStream } from "./lib/shaders/stream";
 import { closeSyncStream, startSyncStream } from "./lib/sync/stream";
 import { closeGlobalThemeChannel } from "./styles/GlobalTheme";
 import { refreshCatalog } from "./lib/catalog-bus";
@@ -34,6 +35,9 @@ startSyncStream();
 startSavesStream();
 // Third channel — image-asset add/change/remove for the gallery.
 startAssetStream();
+// Fourth channel — .gdshader add/change/remove for the shader gallery
+// + edit page (external-edit banner).
+startShaderStream();
 
 // Refresh the autocomplete catalog on any external change so datalists
 // stay current with the data the user just saw flow in from Godot.
@@ -41,7 +45,7 @@ window.addEventListener("Bleepforge:sync", () => refreshCatalog());
 
 // Renderer teardown cleanup. Without this, Electron's force-close of the
 // renderer process leaves Chromium to forcibly cleanup our long-lived
-// globals — 3 EventSources, 3 SSE-relay BroadcastChannels, the theme-
+// globals — 4 EventSources, 4 SSE-relay BroadcastChannels, the theme-
 // sync BroadcastChannel — and that forced cleanup trips a CHECK on
 // Chromium 130 / Linux, producing a SIGTRAP coredump every time the
 // user closes a Bleepforge window. `pagehide` fires before Chromium
@@ -52,6 +56,7 @@ window.addEventListener("pagehide", () => {
   closeSyncStream();
   closeSavesStream();
   closeAssetStream();
+  closeShaderStream();
   closeGlobalThemeChannel();
 });
 

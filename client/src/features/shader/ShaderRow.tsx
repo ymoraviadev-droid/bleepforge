@@ -16,9 +16,10 @@ interface Props {
   asset: ShaderAsset;
   usageCount: number | null;
   onShowUsages: () => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
-export function ShaderRow({ asset, usageCount, onShowUsages }: Props) {
+export function ShaderRow({ asset, usageCount, onShowUsages, onContextMenu }: Props) {
   const navigate = useNavigate();
   const style = shaderTypeStyle(asset.shaderType);
   const href = buildShaderEditUrl(asset.path);
@@ -34,7 +35,8 @@ export function ShaderRow({ asset, usageCount, onShowUsages }: Props) {
           navigate(href);
         }
       }}
-      title={`${asset.basename} — click to view source`}
+      onContextMenu={onContextMenu}
+      title={`${asset.basename} — click to open · right-click for more`}
       className="group flex cursor-pointer items-center gap-3 border-2 border-neutral-800 bg-neutral-900 px-2 py-1.5 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
       <span
