@@ -66,3 +66,16 @@ function connect(): void {
     }
   };
 }
+
+// Explicit teardown — see closeSyncStream in sync/stream.ts.
+export function closeSavesStream(): void {
+  if (source) {
+    source.close();
+    source = null;
+  }
+  if (relay) {
+    relay.close();
+    relay = null;
+  }
+  started = false;
+}

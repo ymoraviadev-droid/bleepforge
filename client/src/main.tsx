@@ -6,9 +6,10 @@ import "./styles/Theme"; // applies saved theme on load (sets data-theme on <htm
 import "./styles/Font"; // applies saved font + UI scale + letter spacing
 import "./styles/GlobalTheme"; // reconciles legacy keys → server-backed preferences
 import "./styles/index.css";
-import { startSyncStream } from "./lib/sync/stream";
-import { startSavesStream } from "./lib/saves/stream";
-import { startAssetStream } from "./lib/assets/stream";
+import { closeAssetStream, startAssetStream } from "./lib/assets/stream";
+import { closeSavesStream, startSavesStream } from "./lib/saves/stream";
+import { closeSyncStream, startSyncStream } from "./lib/sync/stream";
+import { closeGlobalThemeChannel } from "./styles/GlobalTheme";
 import { refreshCatalog } from "./lib/catalog-bus";
 
 // Open the live-sync SSE channel once at startup. Components subscribe via
@@ -23,6 +24,22 @@ startAssetStream();
 // Refresh the autocomplete catalog on any external change so datalists
 // stay current with the data the user just saw flow in from Godot.
 window.addEventListener("Bleepforge:sync", () => refreshCatalog());
+
+// Renderer teardown cleanup. Without this, Electron's force-close of the
+// renderer process leaves Chromium to forcibly cleanup our long-lived
+// globals — 3 EventSources, 3 SSE-relay BroadcastChannels, the theme-
+// sync BroadcastChannel — and that forced cleanup trips a CHECK on
+// Chromium 130 / Linux, producing a SIGTRAP coredump every time the
+// user closes a Bleepforge window. `pagehide` fires before Chromium
+// kills the renderer, so we get a clean window to release everything
+// gracefully. (`pagehide` over `beforeunload` because the latter is for
+// "ask user to confirm" semantics; we just want to release resources.)
+window.addEventListener("pagehide", () => {
+  closeSyncStream();
+  closeSavesStream();
+  closeAssetStream();
+  closeGlobalThemeChannel();
+});
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

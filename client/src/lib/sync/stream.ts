@@ -83,3 +83,19 @@ function connect(): void {
     }
   };
 }
+
+// Explicit teardown — wired to `pagehide` from main.tsx so Chromium gets
+// clean state before the renderer is killed. Forced cleanup of long-lived
+// EventSource + BroadcastChannel during renderer teardown trips a CHECK
+// on Chromium 130 / Linux and produces a SIGTRAP coredump on window close.
+export function closeSyncStream(): void {
+  if (source) {
+    source.close();
+    source = null;
+  }
+  if (relay) {
+    relay.close();
+    relay = null;
+  }
+  started = false;
+}

@@ -162,6 +162,17 @@ function broadcastPreferences(prefs: Preferences) {
   getSyncChannel()?.postMessage(prefs);
 }
 
+// Explicit teardown — wired to `pagehide` from main.tsx. Forced cleanup
+// of long-lived BroadcastChannel during renderer teardown can trip a
+// CHECK on Chromium 130 / Linux (SIGTRAP coredump on window close).
+// Closing explicitly before the renderer is killed avoids it.
+export function closeGlobalThemeChannel(): void {
+  if (channel) {
+    channel.close();
+    channel = null;
+  }
+}
+
 function adopt(prefs: Preferences, applyDom: boolean) {
   themes = prefs.themes;
   godotProjectRoot = prefs.godotProjectRoot ?? "";
