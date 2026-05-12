@@ -47,6 +47,7 @@ import { CategoryView as HelpCategoryView } from "./features/help/CategoryView";
 import { EntryEdit as HelpEntryEdit } from "./features/help/EntryEdit";
 import { EntryView as HelpEntryView } from "./features/help/EntryView";
 import { HelpIcon } from "./features/help/HelpIcon";
+import { HelpLayout } from "./features/help/HelpLayout";
 import { List as HelpList } from "./features/help/List";
 
 const NAV_BASE = "border-2 px-3 py-1.5 text-sm font-medium transition-colors";
@@ -322,12 +323,20 @@ export function App() {
           <Route path="/reconcile" element={<Navigate to="/diagnostics/reconcile" replace />} />
           <Route path="/preferences" element={<PreferencesPage />} />
           <Route path="/import" element={<Navigate to="/preferences" replace />} />
-          <Route path="/help" element={<HelpList />} />
+          {/* View routes share HelpLayout — sidebar + allGroups state
+              stay mounted across in-help navigation so clicking between
+              entries doesn't unmount-and-remount the whole shell. Edit
+              routes stay flat: different layout shape (full-width form),
+              and they dispatch "Bleepforge:help-changed" after save so
+              the layout refreshes the sidebar on return. */}
+          <Route element={<HelpLayout />}>
+            <Route path="/help" element={<HelpList />} />
+            <Route path="/help/:category" element={<HelpCategoryView />} />
+            <Route path="/help/:category/:id" element={<HelpEntryView />} />
+          </Route>
           <Route path="/help/new" element={<HelpCategoryEdit />} />
-          <Route path="/help/:category" element={<HelpCategoryView />} />
           <Route path="/help/:category/_meta" element={<HelpCategoryEdit />} />
           <Route path="/help/:category/new" element={<HelpEntryEdit />} />
-          <Route path="/help/:category/:id" element={<HelpEntryView />} />
           <Route path="/help/:category/:id/edit" element={<HelpEntryEdit />} />
           {/* Easter egg — visit /boom to verify the ErrorBoundary by tripping
               a synchronous render-phase throw. Kept around as a manual-test

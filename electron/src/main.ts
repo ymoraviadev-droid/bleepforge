@@ -72,6 +72,21 @@ app.commandLine.appendSwitch("no-sandbox");
 const isDev = process.env.BLEEPFORGE_ELECTRON_DEV === "1";
 const devUrl = process.env.VITE_DEV_URL ?? "http://localhost:5173";
 
+// Window icon — shipped inside the asar via electron-builder.json's `files`
+// mapping (build-resources/icon.png → <asar>/build-resources/icon.png) so
+// the same relative path works in dev (electron/build-resources/) and in
+// packaged builds (<asar>/build-resources/). Linux taskbar / wmctrl pick
+// this up via BrowserWindow.setIcon for runtime; the AppImage thumbnail
+// is generated from the same source via linux.icon → build-resources/icons.
+const ICON_PATH = path.join(__dirname, "..", "build-resources", "icon.png");
+
+// Window title — version comes from package.json (app.getVersion() reads
+// the packaged electron/package.json field, which the dist build keeps
+// in sync with the workspace root via the version bump).
+function appTitle(): string {
+  return `Bleepforge — v${app.getVersion()}`;
+}
+
 // Set in startServerInProcess() once the Express server is listening. The
 // main window won't be created until this is non-null in prod mode.
 let prodServerUrl: string | null = null;
@@ -164,7 +179,8 @@ function createMainWindow(): BrowserWindow {
     resizable: false,
     maximizable: false,
     fullscreenable: false,
-    title: "Bleepforge",
+    title: appTitle(),
+    icon: ICON_PATH,
     backgroundColor: "#0a0a0a",
     autoHideMenuBar: true,
     webPreferences: makeWebPreferences(),
@@ -236,6 +252,7 @@ function openPopout(routePath: string): void {
     minWidth: 480,
     minHeight: 400,
     title: popoutTitle(routePath),
+    icon: ICON_PATH,
     backgroundColor: "#0a0a0a",
     autoHideMenuBar: true,
     webPreferences: makeWebPreferences(),

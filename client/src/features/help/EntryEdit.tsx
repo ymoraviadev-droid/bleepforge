@@ -8,6 +8,7 @@ import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { fieldLabel, textInput } from "../../styles/classes";
 import { paletteColorClasses } from "../../lib/paletteColor";
+import { dispatchHelpChanged } from "./HelpLayout";
 import { RenderHelpBody } from "./render";
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
@@ -90,6 +91,7 @@ export function EntryEdit() {
     setError(null);
     try {
       const saved = await helpApi.saveEntry(category, entry);
+      dispatchHelpChanged();
       if (isNew) {
         navigate(
           `/help/${encodeURIComponent(category)}/${encodeURIComponent(saved.Id)}`,
@@ -117,6 +119,7 @@ export function EntryEdit() {
     });
     if (!ok) return;
     await helpApi.removeEntry(category, id);
+    dispatchHelpChanged();
     navigate(`/help/${encodeURIComponent(category)}`);
   };
 

@@ -24,11 +24,17 @@
       "from": "../data/help",
       "to": "seed/help",
       "filter": ["**/*"]
+    },
+    {
+      "from": "build-resources",
+      "to": "build-resources",
+      "filter": ["icon.png", "icon.svg"]
     }
   ],
   "linux": {
     "target": ["AppImage"],
     "category": "Development",
-    "artifactName": "${productName}-${version}-${arch}.${ext}"
+    "artifactName": "${productName}-${version}-${arch}.${ext}",
+    "icon": "build-resources/icons"
   }
 }

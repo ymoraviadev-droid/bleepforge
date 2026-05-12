@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CreditLine } from "./Footer";
+import { AppIcon } from "./AppIcon";
 import { useBootProgress, type BootProgress } from "../lib/boot/progress";
 import { revealMainWindow } from "../lib/electron";
 
@@ -129,11 +130,13 @@ export function SplashScreen({ onDone }: Props) {
         role="dialog"
         aria-label="Loading Bleepforge"
       >
+        <AppIcon className="mb-4 size-20" />
         <div className="font-display text-3xl tracking-wider text-emerald-400">
           BLEEPFORGE
         </div>
         <div className="mt-2 font-mono text-xs text-neutral-500">
-          Flock of Bleeps · planning tool
+          Flock of Bleeps · planning tool ·{" "}
+          <span className="text-emerald-500">v{__APP_VERSION__}</span>
         </div>
 
         <div className="mt-10 w-full border-2 border-neutral-700 bg-neutral-900 p-1">

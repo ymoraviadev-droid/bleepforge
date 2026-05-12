@@ -1,17 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router";
 import {
   compareCategories,
   type HelpCategoryGroup,
   type HelpEntry,
 } from "@bleepforge/shared";
-import { helpApi } from "../../lib/api";
 import { useDevMode } from "../../lib/useDevMode";
 import { ButtonLink } from "../../components/Button";
 import { paletteColorClasses } from "../../lib/paletteColor";
 import { HelpHero } from "./HelpHero";
+import { useHelpLayout } from "./HelpLayout";
 import { HelpSearch } from "./HelpSearch";
-import { HelpSidebar } from "./HelpSidebar";
 
 // Top-level Help landing page. The persistent sidebar on the left lets
 // the user drill in by category; the main panel is a welcome screen
@@ -33,13 +32,8 @@ const STARTER_PICKS: { category: string; id: string }[] = [
 ];
 
 export function List() {
-  const [groups, setGroups] = useState<HelpCategoryGroup[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { allGroups: groups } = useHelpLayout();
   const devMode = useDevMode();
-
-  useEffect(() => {
-    helpApi.listAll().then(setGroups).catch((e) => setError(String(e)));
-  }, []);
 
   const sortedGroups = useMemo(() => {
     if (!groups) return null;
@@ -61,7 +55,6 @@ export function List() {
     return out;
   }, [groups]);
 
-  if (error) return <div className="text-red-400">Error: {error}</div>;
   if (groups === null || sortedGroups === null)
     return <div className="text-neutral-500">Loading…</div>;
 
@@ -98,11 +91,8 @@ export function List() {
   }
 
   return (
-    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 lg:grid-cols-[16rem_1fr]">
-      <HelpSidebar groups={groups} />
-
-      <div className="min-w-0 space-y-10">
-        <section className="flex flex-col gap-6 border-2 border-neutral-800 bg-neutral-950/40 p-6 sm:flex-row sm:items-center sm:gap-8">
+    <div className="space-y-10">
+      <section className="flex flex-col gap-6 border-2 border-neutral-800 bg-neutral-950/40 p-6 sm:flex-row sm:items-center sm:gap-8">
           <HelpHero className="size-40 shrink-0 self-center text-neutral-400 sm:size-48" />
           <div className="flex-1 space-y-3">
             <div className="flex items-baseline justify-between gap-4">
@@ -198,7 +188,6 @@ export function List() {
             })}
           </ul>
         </section>
-      </div>
     </div>
   );
 }

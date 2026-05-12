@@ -14,6 +14,30 @@ import { closeGlobalThemeChannel } from "./styles/GlobalTheme";
 import { refreshCatalog } from "./lib/catalog-bus";
 import { markBootCheckpoint } from "./lib/boot/progress";
 
+// Stamp the version into document.title so the OS window title bar shows
+// "Bleepforge — v0.2.0" once the page loads. Electron's BrowserWindow
+// `title` option is the *initial* title — index.html's <title> overrides
+// it the moment the document parses. We set this here (before React
+// renders) so the title is right from frame 1 and survives any future
+// re-render. Browser mode benefits too: the browser tab title now carries
+// the version.
+//
+// Popouts get a route-aware label so the OS title bar surfaces what the
+// window is for — e.g. "Bleepforge — Diagnostics · v0.2.0". Derived from
+// the first path segment; set-once-at-module-load (good enough for v1
+// since popouts mostly stay within their original route subtree).
+{
+  const isPopoutWindow =
+    new URLSearchParams(window.location.search).get("popout") === "1";
+  const firstSegment = window.location.pathname.split("/").filter(Boolean)[0];
+  const label = isPopoutWindow && firstSegment
+    ? firstSegment.charAt(0).toUpperCase() + firstSegment.slice(1)
+    : "";
+  document.title = label
+    ? `Bleepforge — ${label} · v${__APP_VERSION__}`
+    : `Bleepforge — v${__APP_VERSION__}`;
+}
+
 // First boot checkpoint: server is up. Fires the splash's progress bar
 // past the "Connecting to server…" phase. /api/health is a tiny cached
 // endpoint, so this is essentially free. Failure leaves the checkpoint

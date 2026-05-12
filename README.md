@@ -142,8 +142,8 @@ macOS / Windows targets are a config-only follow-up — add the relevant entries
                                       pushed back to .tres on every save)
 ```
 
-- `.tres` is canonical; `data/<domain>/<id>.json` is a **derived cache**, rebuilt on every server start and kept in sync afterward. The JSON files are committed as a redundant safety net but should never be hand-edited - drift gets reconciled away on the next boot.
-- Bleepforge-only state lives outside that cache: `data/concept.json`, `data/preferences.json`, per-folder `data/dialogs/<folder>/_layout.json`, the entire `data/codex/` tree, the entire `data/help/` tree.
+- `.tres` is canonical; `data/<domain>/<id>.json` is a **derived cache**, rebuilt on every server start and kept in sync afterward. The cache JSONs are `.gitignore`d (machine-local, regenerated on boot) — never hand-edited; drift gets reconciled away on the next boot.
+- Bleepforge-only **authored** state IS tracked in git: `data/concept.json`, per-folder `data/dialogs/<folder>/_layout.json`, the entire `data/codex/` tree, the entire `data/help/` tree. `data/preferences.json` (Godot project root path + theme picks) is gitignored as machine-specific.
 - Schemas live in `shared/src/`, validated at the server boundary on read and write.
 
 For the deep-dive reasoning behind every architectural choice, see [CLAUDE.md](CLAUDE.md). It's the project bible - schema definitions, design decisions, write-back internals, watcher behavior, theme system, the lot.

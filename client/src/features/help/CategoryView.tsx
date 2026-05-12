@@ -1,67 +1,45 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useParams } from "react-router";
-import {
-  groupEntriesBySection,
-  type HelpCategoryGroup,
-  type HelpCategoryMeta,
-  type HelpEntry,
-} from "@bleepforge/shared";
-import { helpApi } from "../../lib/api";
+import { groupEntriesBySection } from "@bleepforge/shared";
 import { useDevMode } from "../../lib/useDevMode";
 import { ButtonLink } from "../../components/Button";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { paletteColorClasses } from "../../lib/paletteColor";
+import { useHelpLayout } from "./HelpLayout";
 import { HelpSearch } from "./HelpSearch";
-import { HelpSidebar } from "./HelpSidebar";
 
 // Per-category landing page. Lists every entry in the active category
 // grouped by Section, with the in-page Help search scoped to this
 // category at the top. The full library is one click away via the
-// breadcrumb.
+// breadcrumb. Sidebar + wrapper come from HelpLayout; this component
+// renders only its content area into the outlet.
 
 export function CategoryView() {
   const { category } = useParams();
-  const [meta, setMeta] = useState<HelpCategoryMeta | null>(null);
-  const [entries, setEntries] = useState<HelpEntry[] | null>(null);
-  const [allGroups, setAllGroups] = useState<HelpCategoryGroup[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { allGroups } = useHelpLayout();
   const devMode = useDevMode();
 
-  useEffect(() => {
-    if (!category) return;
-    helpApi
-      .getMeta(category)
-      .then((m) => (m === null ? setError("not found") : setMeta(m)))
-      .catch((e) => setError(String(e)));
-    helpApi
-      .listInCategory(category)
-      .then(setEntries)
-      .catch((e) => setError(String(e)));
-    // Search scope is this category, but we still load the full corpus
-    // so HelpSearch can hand the user a result anywhere in the library
-    // if their query doesn't match the active scope.
-    helpApi.listAll().then(setAllGroups).catch(() => setAllGroups([]));
-  }, [category]);
+  const group = useMemo(() => {
+    if (!allGroups || !category) return null;
+    return allGroups.find((g) => g.category === category) ?? null;
+  }, [allGroups, category]);
 
   const sections = useMemo(() => {
-    if (!entries) return null;
-    return groupEntriesBySection(entries);
-  }, [entries]);
+    if (!group) return null;
+    return groupEntriesBySection(group.entries);
+  }, [group]);
 
-  if (error === "not found") return <NotFoundPage />;
-  if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (!meta || entries === null || sections === null || !category)
+  if (allGroups === null || !category)
     return <div className="text-neutral-500">Loading…</div>;
+  if (!group || !sections) return <NotFoundPage />;
 
+  const meta = group.meta;
+  const entries = group.entries;
   const colors = paletteColorClasses(meta.Color);
   const display = meta.DisplayName || category;
 
   return (
-    <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 lg:grid-cols-[16rem_1fr]">
-      {allGroups && (
-        <HelpSidebar groups={allGroups} activeCategory={category} />
-      )}
-      <div className="min-w-0 space-y-8">
+    <div className="space-y-8">
       <header className="space-y-3">
         <nav className="flex items-center gap-2 text-xs text-neutral-500">
           <Link to="/help" className="hover:text-neutral-300">
@@ -108,7 +86,7 @@ export function CategoryView() {
         )}
       </header>
 
-      {allGroups && <HelpSearch groups={allGroups} scopeCategory={category} />}
+      <HelpSearch groups={allGroups} scopeCategory={category} />
 
       {entries.length === 0 ? (
         <p className="text-sm italic text-neutral-600">
@@ -146,7 +124,6 @@ export function CategoryView() {
           ))}
         </div>
       )}
-      </div>
     </div>
   );
 }

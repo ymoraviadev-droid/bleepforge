@@ -1,4 +1,4 @@
-import { Link } from "react-router";
+import { Link, useParams } from "react-router";
 import {
   compareCategories,
   groupEntriesBySection,
@@ -13,25 +13,20 @@ import { paletteColorClasses } from "../../lib/paletteColor";
 // you can see "you are here" even when no entry is active (e.g. on the
 // List or CategoryView routes).
 //
-// Why persistent across all three routes: the navigation model becomes
-// one thing — always there, always the same. Compared to the previous
-// "EntryView has a siblings-only rail, the others have nothing" shape,
-// this trades a small amount of visual real estate for predictable
-// jumping anywhere from anywhere.
+// Active state is derived from the current URL via useParams() rather
+// than threaded as props. With HelpLayout owning a single instance of
+// this sidebar across all help routes, the alternative would require
+// the layout to readroute params and pass them down — and Outlet-
+// rendered children can't push back into a parent's props anyway.
 
 interface HelpSidebarProps {
   groups: HelpCategoryGroup[];
-  /** When set, the matching category header gets the active accent. */
-  activeCategory?: string;
-  /** When set, the matching entry row gets the active background. */
-  activeEntryId?: string;
 }
 
-export function HelpSidebar({
-  groups,
-  activeCategory,
-  activeEntryId,
-}: HelpSidebarProps) {
+export function HelpSidebar({ groups }: HelpSidebarProps) {
+  const params = useParams();
+  const activeCategory = params.category;
+  const activeEntryId = params.id;
   const sorted = [...groups].sort(compareCategories);
 
   return (

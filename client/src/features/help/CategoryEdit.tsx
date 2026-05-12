@@ -12,6 +12,7 @@ import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { fieldLabel, textInput } from "../../styles/classes";
 import { paletteColorClasses } from "../../lib/paletteColor";
+import { dispatchHelpChanged } from "./HelpLayout";
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
@@ -69,6 +70,7 @@ export function CategoryEdit() {
     setError(null);
     try {
       const saved = await helpApi.saveMeta(meta);
+      dispatchHelpChanged();
       if (isNew) {
         navigate(`/help/${encodeURIComponent(saved.Category)}`, { replace: true });
       }
@@ -90,6 +92,7 @@ export function CategoryEdit() {
     });
     if (!ok) return;
     await helpApi.removeCategory(category);
+    dispatchHelpChanged();
     navigate("/help");
   };
 

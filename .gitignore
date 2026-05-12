@@ -15,3 +15,33 @@ electron/release/
 # every typecheck so committing it creates endless noise diffs. Safe to
 # delete — tsc regenerates on next build.
 *.tsbuildinfo
+
+# Bleepforge data/ — derived caches + machine-specific user state.
+#
+# The seven game-domain folders below are a JSON cache rebuilt from the
+# Godot project's .tres files on every server boot, kept in sync by the
+# live watcher, and pushed back to .tres on every save. Tracking them in
+# git produced merge-conflict churn on every save without adding value
+# (the .tres files inside the Godot project are the source of truth).
+#
+# data/preferences.json carries the Godot project root path + theme
+# settings — machine + user specific, would fight across workstations.
+#
+# What STAYS tracked:
+#   data/concept.json          Bleepforge-only project pitch (authored)
+#   data/codex/                Game Codex categories + entries (authored)
+#   data/help/                 In-app help library (authored)
+#   data/dialogs/*/_layout.json  Per-folder graph node positions (authored)
+#
+# Negation rule keeps _layout.json visible alongside the ignored cache
+# JSONs inside data/dialogs/<folder>/. Pattern order matters — the
+# negation must come AFTER the broader ignore.
+data/dialogs/**/*.json
+!data/dialogs/**/_layout.json
+data/quests/
+data/items/
+data/karma/
+data/npcs/
+data/factions/
+data/balloons/
+data/preferences.json
