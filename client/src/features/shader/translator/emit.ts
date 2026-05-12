@@ -1,49 +1,61 @@
 // GDShader → GLSL ES 3.00 emitter. Consumes a ParseSuccess from
 // parser.ts and produces a self-contained GLSL fragment shader plus a
-// source map fragment-body line ↔ emitted line so the runtime can map
-// WebGL compile errors back to lines the user can find in their editor.
+// source map so the runtime can map WebGL compile errors back to lines
+// the user can find in their editor.
 //
-// The translation strategy is deliberately mechanical:
+// Translation strategy:
 //   1. Emit a fixed prelude (precision, varyings, our injected uniforms,
 //      math constants).
 //   2. Emit each user uniform stripped of its Godot-specific hint +
 //      default (GLSL has no place for those — they're UI metadata).
-//   3. Open `void main()`, declare every local-built-in
-//      (TIME / UV / COLOR / ...) as a `<type> name = <init>` line so
-//      the user's body sees them as plain variables.
-//   4. Splice the user's fragment() body verbatim, with two token
-//      substitutions: TEXTURE → u_texture, FRAGCOORD → gl_FragCoord.
-//   5. Close main() with `fragColor = COLOR;` so whatever the user
+//   3. Emit each user-defined helper function at module scope, with
+//      built-in references in the body rewritten via the
+//      HELPER_SUBSTITUTION_MAP so they resolve to underlying
+//      uniforms / varyings instead of main()'s locals (which aren't
+//      reachable from a helper).
+//   4. Open `void main()`, declare every local-built-in
+//      (TIME / UV / COLOR / ...) as `<type> name = <init>` so the
+//      user's fragment body sees them as plain variables. (Helpers
+//      can't see these — they got rewritten in step 3.)
+//   5. Splice the user's fragment() body verbatim with TEXTURE +
+//      FRAGCOORD substitutions (the existing SUBSTITUTION_BUILTINS
+//      set — narrow because fragment body already has locals for
+//      everything else).
+//   6. Close main() with `fragColor = COLOR;` so whatever the user
 //      assigned to COLOR flows out.
 //
-// What this CAN'T do: helper functions that reference local-built-ins
-// (since those are locals in main()). Helpers must take built-ins as
-// parameters, the same way idiomatic GLSL works. Documented in the
-// "live preview" Help entry that lands with the Phase 3 docs.
+// COLOR remains main-scope-only: helpers that need to mutate COLOR
+// must take it as an `inout vec4` parameter. This is the one residual
+// gotcha; documented in the Help library's "Helper functions" entry.
 
 import {
   CONSTANTS,
+  HELPER_SUBSTITUTION_MAP,
   LOCAL_BUILTINS,
   SUBSTITUTION_BUILTINS,
 } from "./subset";
-import type { ParseSuccess, UniformDecl } from "./parser";
+import type { HelperFunction, ParseSuccess, UniformDecl } from "./parser";
+
+/** Source-map range — emitted-GLSL line N maps to user-source line
+ *  N - (emittedStart - rawStart) when N is within
+ *  [emittedStart, emittedStart + length). One range per body the user
+ *  authored (each helper + the fragment body). */
+export interface SourceMapRange {
+  emittedStart: number;
+  rawStart: number;
+  length: number;
+}
 
 export interface EmitResult {
   /** Self-contained GLSL ES 3.00 fragment shader. */
   glsl: string;
-  /** GLSL line number of the FIRST line of the user's fragment() body,
-   *  so the runtime can subtract this from a WebGL error line to map
-   *  back to the user-source line. Zero when no fragment() body was
-   *  parsed (the emitted main() is just the boilerplate then). */
-  bodyEmittedLine: number;
-  /** Corresponding line in the user's raw source. Pairs with
-   *  bodyEmittedLine to produce the mapping
-   *    userLine = (emittedLine - bodyEmittedLine) + rawBodyStartLine. */
-  bodyRawStartLine: number;
+  /** Sorted by emittedStart. Walk to map WebGL error lines back. */
+  sourceMap: SourceMapRange[];
 }
 
 export function emitGlsl(parsed: ParseSuccess): EmitResult {
   const lines: string[] = [];
+  const sourceMap: SourceMapRange[] = [];
 
   // --- Prelude ---
   lines.push("#version 300 es");
@@ -68,23 +80,34 @@ export function emitGlsl(parsed: ParseSuccess): EmitResult {
   }
   if (parsed.uniforms.length > 0) lines.push("");
 
+  // --- Helper functions ---
+  // Each helper's body lines get a source-map range so WebGL compile
+  // errors inside helpers point at the right user line. Built-in refs
+  // in helper bodies get the broader HELPER_SUBSTITUTION_MAP
+  // (TIME → u_time, UV → v_uv, etc.) since helpers can't see main's
+  // local-built-ins.
+  for (const fn of parsed.helpers) {
+    emitHelper(lines, sourceMap, fn);
+  }
+
   // --- main() ---
   lines.push("void main() {");
   for (const b of LOCAL_BUILTINS) {
     lines.push(`  ${b.type} ${b.name} = ${b.init};`);
   }
 
-  // Body — the line just AFTER the local-built-in block is where the
-  // user's source resumes. Track that line for the source map.
-  const bodyEmittedLine = lines.length + 1;
-
+  const fragmentBodyEmittedStart = lines.length + 1;
   if (parsed.fragmentBody) {
-    const rewritten = applySubstitutions(parsed.fragmentBody);
-    // Splice user lines preserving their original \n structure so the
-    // line map is 1:1 within the body. We deliberately do NOT re-indent.
-    for (const ln of rewritten.split("\n")) {
+    const rewritten = applyFragmentSubstitutions(parsed.fragmentBody);
+    const fragmentLines = rewritten.split("\n");
+    for (const ln of fragmentLines) {
       lines.push(ln);
     }
+    sourceMap.push({
+      emittedStart: fragmentBodyEmittedStart,
+      rawStart: parsed.fragmentBodyStartLine,
+      length: fragmentLines.length,
+    });
   }
 
   lines.push("  fragColor = COLOR;");
@@ -92,8 +115,7 @@ export function emitGlsl(parsed: ParseSuccess): EmitResult {
 
   return {
     glsl: lines.join("\n"),
-    bodyEmittedLine,
-    bodyRawStartLine: parsed.fragmentBodyStartLine,
+    sourceMap,
   };
 }
 
@@ -102,19 +124,58 @@ function emitUniform(u: UniformDecl): string {
   return `uniform ${u.type} ${u.name};`;
 }
 
-// Whole-word substitutions for built-ins that can't be locals.
-// Compiled once at module load.
-const SUBSTITUTION_RE = new RegExp(
+function emitHelper(
+  lines: string[],
+  sourceMap: SourceMapRange[],
+  fn: HelperFunction,
+): void {
+  lines.push(`${fn.signature} {`);
+  const bodyEmittedStart = lines.length + 1;
+  const rewritten = applyHelperSubstitutions(fn.body);
+  const bodyLines = rewritten.split("\n");
+  for (const ln of bodyLines) lines.push(ln);
+  lines.push("}");
+  lines.push("");
+  sourceMap.push({
+    emittedStart: bodyEmittedStart,
+    rawStart: fn.bodyStartLine,
+    length: bodyLines.length,
+  });
+}
+
+// Fragment-body substitutions — narrow because main()'s locals already
+// resolve TIME / UV / COLOR / etc. naturally. Only the things that
+// CAN'T be locals (sampler types, the FragCoord keyword) substitute.
+const FRAGMENT_SUBSTITUTION_RE = new RegExp(
   `\\b(${SUBSTITUTION_BUILTINS.map((b) => escapeRegExp(b.name)).join("|")})\\b`,
   "g",
 );
-
-const SUBSTITUTION_TABLE: Record<string, string> = Object.fromEntries(
+const FRAGMENT_SUBSTITUTION_TABLE: Record<string, string> = Object.fromEntries(
   SUBSTITUTION_BUILTINS.map((b) => [b.name, b.replacement]),
 );
 
-function applySubstitutions(source: string): string {
-  return source.replace(SUBSTITUTION_RE, (m) => SUBSTITUTION_TABLE[m] ?? m);
+function applyFragmentSubstitutions(source: string): string {
+  return source.replace(
+    FRAGMENT_SUBSTITUTION_RE,
+    (m) => FRAGMENT_SUBSTITUTION_TABLE[m] ?? m,
+  );
+}
+
+// Helper-body substitutions — broader. Helpers live at module scope so
+// they can't see main()'s locals; we substitute every local-built-in's
+// reference to its underlying uniform / varying expression. COLOR is
+// deliberately excluded (no module-scope read-write equivalent in
+// GLSL ES 3.00); helpers that need it must take it as `inout vec4`.
+const HELPER_SUBSTITUTION_RE = new RegExp(
+  `\\b(${[...HELPER_SUBSTITUTION_MAP.keys()].map(escapeRegExp).join("|")})\\b`,
+  "g",
+);
+
+function applyHelperSubstitutions(source: string): string {
+  return source.replace(
+    HELPER_SUBSTITUTION_RE,
+    (m) => HELPER_SUBSTITUTION_MAP.get(m) ?? m,
+  );
 }
 
 function escapeRegExp(s: string): string {
@@ -123,21 +184,23 @@ function escapeRegExp(s: string): string {
 
 /**
  * Maps an emitted-GLSL line number (as reported by WebGL's compile error
- * log) back to the user's source-line number. Useful when the runtime
- * surfaces compile errors in the editor.
+ * log) back to the user's source-line number. Walks the per-body
+ * source-map ranges to find the one containing the emitted line.
  *
- * Lines emitted before bodyEmittedLine come from our prelude or user
- * uniform block; we can't map those to a specific user-source line
- * meaningfully (the uniforms come from individual user lines but the
- * emitter doesn't track each one), so we return null there. Lines at or
- * after bodyEmittedLine map linearly to user-source lines.
+ * Returns null for lines outside every range — those came from our
+ * prelude or other emitter-injected code; surfacing them in the
+ * editor's gutter would point at the wrong line, so we leave them
+ * for the banner only.
  */
 export function mapEmittedLineToUser(
   emittedLine: number,
   emit: EmitResult,
 ): number | null {
-  if (emittedLine < emit.bodyEmittedLine || emit.bodyRawStartLine === 0) {
-    return null;
+  for (const range of emit.sourceMap) {
+    const end = range.emittedStart + range.length;
+    if (emittedLine >= range.emittedStart && emittedLine < end) {
+      return range.rawStart + (emittedLine - range.emittedStart);
+    }
   }
-  return emittedLine - emit.bodyEmittedLine + emit.bodyRawStartLine;
+  return null;
 }

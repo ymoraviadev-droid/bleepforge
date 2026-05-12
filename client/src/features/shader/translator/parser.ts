@@ -46,6 +46,21 @@ export interface UniformDecl {
   defaultValue: string | null;
 }
 
+export interface HelperFunction {
+  name: string;
+  /** Verbatim header — return type, name, and parameter list (no
+   *  trailing brace). Re-emitted as-is. */
+  signature: string;
+  /** Body between the opening and closing braces (exclusive). Goes
+   *  through the helper-scope substitution table on emit. */
+  body: string;
+  /** 1-indexed line in raw source where the body's first character
+   *  sits (the character right after the opening `{`). Powers the
+   *  per-helper source-map range so WebGL compile errors in helper
+   *  bodies map back to the right line. */
+  bodyStartLine: number;
+}
+
 export interface ParseSuccess {
   ok: true;
   /** Original source with comments stripped — what the emitter consumes. */
@@ -56,6 +71,14 @@ export interface ParseSuccess {
   /** Detected shader_type. Always one of SUPPORTED_SHADER_TYPES. */
   shaderType: string;
   uniforms: UniformDecl[];
+  /** Top-level user-defined functions other than `fragment()`. Emitted
+   *  at module scope, with built-in references rewritten via the
+   *  HELPER_SUBSTITUTION_MAP so they resolve to the underlying
+   *  uniforms / varyings (not main()'s locals — those aren't reachable
+   *  from a helper). `vertex()` and `light()` are recognized but
+   *  dropped — they belong to other shader-stage pipelines we don't
+   *  preview. */
+  helpers: HelperFunction[];
   /** The body of `void fragment() { ... }` (between the braces, exclusive).
    *  Null when no fragment function is present — the shader is well-formed
    *  but won't produce useful output. */
@@ -184,15 +207,110 @@ export function parseGdshader(rawSource: string): ParseResult {
     fragmentBodyStartLine = lineOf(source, bodyStart);
   }
 
+  // Top-level user helper functions. Extracted AFTER fragment() so the
+  // helper scanner can use the fragment-body range to skip itself.
+  const fragmentRange: [number, number] | undefined = fragMatch
+    ? [fragMatch.index, findMatchingBrace(source, fragMatch.index + fragMatch[0].length - 1) + 1]
+    : undefined;
+  const helpers = extractHelpers(source, fragmentRange);
+
   return {
     ok: true,
     source,
     rawSource,
     shaderType,
     uniforms,
+    helpers,
     fragmentBody,
     fragmentBodyStartLine,
   };
+}
+
+// Scans the comment-stripped source for top-level function definitions
+// other than fragment(). Two passes:
+//
+//   1. Find every `<id> <id>(...) {` shape via regex.
+//   2. For each match, verify it sits at top-level (brace depth was 0
+//      before it) and isn't inside the already-extracted fragment()
+//      range. Find the matching `}` to close the body.
+//
+// We deliberately skip `fragment`, `vertex`, and `light` entry-point
+// names — fragment is handled by the caller; vertex/light belong to
+// pipelines the live preview doesn't run, so leaving their bodies in
+// the emit would produce undefined-variable errors from references to
+// the wrong stage's built-ins. The user can still author them in the
+// editor; they just won't ride into the GLSL the runtime compiles.
+const HELPER_HEADER_RE =
+  /([a-zA-Z_][a-zA-Z0-9_]*)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)\s*\{/g;
+
+const ENTRY_POINT_NAMES = new Set(["fragment", "vertex", "light"]);
+
+function extractHelpers(
+  source: string,
+  fragmentRange: [number, number] | undefined,
+): HelperFunction[] {
+  const out: HelperFunction[] = [];
+  HELPER_HEADER_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = HELPER_HEADER_RE.exec(source)) !== null) {
+    const headerStart = m.index;
+    // Skip if inside the fragment range — we've already extracted
+    // fragment()'s body separately. Without this we'd mis-extract
+    // nested `if (...) { ... }` blocks that match the header shape
+    // when they begin with a type-cast-looking identifier (`vec2 a = ...; if (...) {`).
+    if (
+      fragmentRange &&
+      headerStart >= fragmentRange[0] &&
+      headerStart < fragmentRange[1]
+    ) {
+      continue;
+    }
+    // Verify we're at brace depth 0 before this header — anything else
+    // (`if`, `for`, nested block) doesn't qualify as a top-level fn.
+    if (braceDepthAt(source, headerStart) !== 0) continue;
+
+    const fnName = m[2]!;
+    const openBracePos = headerStart + m[0].length - 1;
+    const closeBracePos = findMatchingBrace(source, openBracePos);
+    if (closeBracePos < 0) {
+      // Unclosed body — let the WebGL compiler complain on the user's
+      // behalf; skipping silently here keeps the rest of the file
+      // parseable.
+      HELPER_HEADER_RE.lastIndex = headerStart + m[0].length;
+      continue;
+    }
+
+    // Skip entry-point names. We still advance past the function so
+    // the next iteration starts after its body — vertex / light still
+    // exist in the user's source, they just don't ride into the GLSL.
+    if (!ENTRY_POINT_NAMES.has(fnName)) {
+      const bodyStart = openBracePos + 1;
+      const body = source.slice(bodyStart, closeBracePos);
+      // Re-emit the verbatim signature (`<ret> <name>(<params>)`), strip
+      // any trailing whitespace. Captured groups carry the parts we need.
+      const signature = `${m[1]} ${m[2]}(${m[3]})`;
+      out.push({
+        name: fnName,
+        signature,
+        body,
+        bodyStartLine: lineOf(source, bodyStart),
+      });
+    }
+    HELPER_HEADER_RE.lastIndex = closeBracePos + 1;
+  }
+  return out;
+}
+
+// Brace depth at character `idx` — counts `{` minus `}` in `s[0..idx)`.
+// O(N) per call; we accept the cost since helper-header matches are
+// rare and the source is small.
+function braceDepthAt(s: string, idx: number): number {
+  let depth = 0;
+  for (let i = 0; i < idx; i++) {
+    if (s[i] === "{") depth++;
+    else if (s[i] === "}") depth--;
+  }
+  return depth;
 }
 
 // Strips // line comments and /* block comments */ from source. Replaces

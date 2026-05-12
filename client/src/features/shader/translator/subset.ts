@@ -159,6 +159,41 @@ export const CONSTANT_NAMES: ReadonlySet<string> = new Set(
   CONSTANTS.map((c) => c.name),
 );
 
+// Substitutions emitter applies to **helper function bodies** (user-
+// defined functions other than fragment()). Helpers live at module
+// scope, so they can't see main()'s local-built-ins — but they CAN
+// see the underlying uniforms / varyings that those locals are
+// initialized from. Substituting `UV → v_uv`, `TIME → u_time`, etc.
+// in helper bodies makes the natural-looking user code "Just Work"
+// without forcing every helper to take a long parameter list.
+//
+// COLOR is the lone exception: it's read-write per-fragment and there's
+// no module-scope equivalent in GLSL ES 3.00. Helpers that need to
+// write COLOR must take it as an `inout vec4` parameter. Helpers that
+// only read a final color can return one and let main() assign.
+//
+// Each replacement is wrapped in parens when it's a compound
+// expression (anything that isn't a bare identifier) so that user
+// arithmetic like `1.0 / SCREEN_PIXEL_SIZE` substitutes safely without
+// operator-precedence surprises.
+const HELPER_BODY_SUBSTITUTIONS_ENTRIES: Array<[string, string]> = [
+  // Existing substitution-built-ins (also apply in helpers).
+  ...SUBSTITUTION_BUILTINS.map((b) => [b.name, b.replacement] as [string, string]),
+  // Local-built-ins from main() get rewired to their underlying source.
+  // COLOR is omitted on purpose — see comment above.
+  ...LOCAL_BUILTINS.filter((b) => b.name !== "COLOR").map(
+    (b) => [b.name, wrapIfCompound(b.init)] as [string, string],
+  ),
+];
+
+export const HELPER_SUBSTITUTION_MAP: ReadonlyMap<string, string> = new Map(
+  HELPER_BODY_SUBSTITUTIONS_ENTRIES,
+);
+
+function wrapIfCompound(s: string): string {
+  return /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(s) ? s : `(${s})`;
+}
+
 /** Names the emitter injects into the GLSL prelude or top-level scope.
  *  User uniforms can't reuse these names — the emitted source would
  *  carry two `uniform sampler2D u_texture;` declarations or shadow a
