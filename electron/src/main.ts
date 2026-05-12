@@ -319,6 +319,15 @@ ipcMain.handle("popout:open", (_event, routePath: unknown) => {
   openPopout(routePath);
 });
 
+// Restart the whole app. Used by the header's restart icon — needed when
+// the user changes a config that's captured once at server boot (Godot
+// project root today, future per-domain folder overrides). Equivalent to
+// quitting and relaunching the AppImage by hand.
+ipcMain.handle("app:restart", () => {
+  app.relaunch();
+  app.exit(0);
+});
+
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });

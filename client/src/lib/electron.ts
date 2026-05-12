@@ -13,6 +13,7 @@ import type { MouseEvent } from "react";
 
 export type BleepforgeBridge = {
   popout: (routePath: string) => Promise<void>;
+  restart: () => Promise<void>;
 };
 
 declare global {
@@ -47,4 +48,13 @@ export function popoutOrNavigate(
     e.preventDefault();
     bf.popout(routePath);
   }
+}
+
+// Restart the Electron app. No-op in browser mode (returns false so the
+// caller can fall back to "tell the user to restart manually").
+export async function restartApp(): Promise<boolean> {
+  const bf = typeof window !== "undefined" ? window.bleepforge : undefined;
+  if (!bf) return false;
+  await bf.restart();
+  return true;
 }

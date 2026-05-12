@@ -5,12 +5,13 @@ import { CatalogDatalists } from "./components/CatalogDatalists";
 import { ContextMenuHost } from "./components/ContextMenu";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Footer } from "./components/Footer";
-import { ModalHost } from "./components/Modal";
+import { ModalHost, showConfirm } from "./components/Modal";
 import { NotFoundPage } from "./components/NotFoundPage";
+import { RestartIcon } from "./components/RestartIcon";
 import { SplashScreen } from "./components/SplashScreen";
 import { ToastHost } from "./components/Toast";
 import { ImageEditorHost } from "./features/asset/imageEditorHost";
-import { isPopout, popoutOrNavigate } from "./lib/electron";
+import { isElectron, isPopout, popoutOrNavigate, restartApp } from "./lib/electron";
 import { useSyncToasts } from "./lib/sync/syncToasts";
 import { ConceptView } from "./features/concept/View";
 import { ConceptEdit } from "./features/concept/Edit";
@@ -66,6 +67,26 @@ const prefsNavClass = ({ isActive }: { isActive: boolean }) =>
       ? "border-emerald-600 bg-emerald-950/40 text-emerald-300"
       : "border-transparent text-neutral-400 hover:border-neutral-700 hover:bg-neutral-900 hover:text-neutral-200"
   }`;
+
+// Header restart icon → confirm modal → Electron relaunch. The Godot
+// project root is captured once at server boot (and any future per-domain
+// folder overrides will be too), so changing it via Preferences requires
+// a fresh server. The action lives in the header instead of buried in
+// Preferences so post-config nudges are one click away from anywhere in
+// the app. Browser mode hides the button — there's no useful "restart"
+// there since the server is launched independently.
+async function handleRestart(): Promise<void> {
+  const ok = await showConfirm({
+    title: "Restart Bleepforge?",
+    message:
+      "Any unsaved edits in open forms will be lost. Use this after changing the Godot project root in Preferences, or to pick up other boot-captured config.",
+    confirmLabel: "Restart",
+    cancelLabel: "Cancel",
+    danger: true,
+  });
+  if (!ok) return;
+  await restartApp();
+}
 
 function diagnosticsTitle(
   severity: "loading" | "clean" | "warning" | "error",
@@ -229,6 +250,17 @@ export function App() {
         >
           <HelpIcon size={20} />
         </NavLink>
+        {isElectron() && (
+          <button
+            type="button"
+            onClick={handleRestart}
+            className={prefsNavClass({ isActive: false })}
+            title="Restart Bleepforge"
+            aria-label="Restart Bleepforge"
+          >
+            <RestartIcon size={20} />
+          </button>
+        )}
       </header>
       )}
       <CatalogDatalists />
