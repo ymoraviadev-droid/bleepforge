@@ -2,7 +2,7 @@
 
 > **Looking for a project overview?** See [README.md](README.md) — public-facing intro, quick start, architecture sketch, roadmap. **This file** is the internal project bible: design rationale for every surface, schema definitions, the *why* behind every decision. Read CLAUDE.md when you want to understand the codebase deeply; read the README to install and run.
 
-**A schema-driven content authoring studio for Godot projects.** Currently bootstrapped against Yehonatan's game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name); the long-term direction is to be generic for any Godot project's content (see "Genericize for any Godot project" under Editor scope / next steps). Authors **dialogues** (graph view + multi-folder), **quests**, **items**, **karma impacts**, **NPCs**, **factions**, and **balloons** (the small "Hi there!" lines NPCs say when the player walks up), plus a **Game Codex** (Bleepforge-only notebook for project-specific concepts that don't fit a hardcoded domain — Hazards, Locations, etc., with user-defined property schemas), an **assets gallery + image editor** (crop, tint, bg removal, Magic crop) for the project's images, and an **in-app Help library** (Bleepforge-only documentation surface, dev-mode-gated authoring). Also serves as the project bible — see [data/concept.json](data/concept.json) for the canonical pitch, acts structure, and faction roles.
+**A schema-driven content authoring studio for Godot projects.** Currently bootstrapped against Yehonatan's game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name); the long-term direction is to be generic for any Godot project's content (see "Genericize for any Godot project" under Editor scope / next steps). Authors **dialogues** (graph view + multi-folder), **quests**, **items**, **karma impacts**, **NPCs**, **factions**, and **balloons** (the small "Hi there!" lines NPCs say when the player walks up), plus a **Game Codex** (Bleepforge-only notebook for project-specific concepts that don't fit a hardcoded domain — Hazards, Locations, etc., with user-defined property schemas), an **assets gallery + image editor** (crop, tint, bg removal, Magic crop) for the project's images, a **shaders surface** (browse `.gdshader` files with cross-system usage tracking; Phase 1 read-only — in-app authoring + live WebGL preview deferred to Phases 2+3), and an **in-app Help library** (Bleepforge-only documentation surface, dev-mode-gated authoring). Also serves as the project bible — see [data/concept.json](data/concept.json) for the canonical pitch, acts structure, and faction roles.
 
 **`.tres` is canonical, JSON in `data/` is a derived cache** (for the seven hardcoded game-domain surfaces). The Godot `.tres` files are what the game runtime loads, so they're the source of truth: anything that ships is what's in `astro-man/`. Bleepforge's JSON in `dialoguer/data/{dialogs,quests,items,karma,npcs,factions,balloons}/` is a cache rebuilt from `.tres` on every server start, kept in sync afterward by the live watcher, and pushed back to `.tres` on every save. We still commit the JSONs to git as a redundant safety net (so historical states are queryable from either side), but they should never be edited by hand — any drift gets reconciled away on the next boot. Bleepforge-only files are **not** part of the cache and are authoritative state: `data/concept.json`, `data/preferences.json`, per-folder `data/dialogs/<folder>/_layout.json` (graph node positions and edge styles), the entire **`data/codex/`** tree (Game Codex categories + entries — Bleepforge-only, never round-tripped to Godot), and the entire **`data/help/`** tree (in-app Help library categories + entries — same Bleepforge-only model).
 
@@ -30,6 +30,8 @@
 Plus **Game concept** — a single Bleepforge-only doc (`data/concept.json`) used as the app homepage, *not* exported to Godot. Holds title, tagline, description, logo/icon/splash images, genre, setting, status, inspirations, notes. Covered in the "Architecture decisions" section below.
 
 Plus **Assets gallery + image editor** — Bleepforge's ninth surface, architecturally distinct from the seven Godot-mirrored data domains AND from Codex: there's no `.tres` source of truth and no authored schema, because the assets ARE the files on disk. Browses every image in the Godot project, surfaces "used by N" scene + resource references on first paint, ships an in-app editor (crop, bg removal, tint, flip, auto-trim, Magic crop) that writes PNG bytes back to the project, and is reused inside the AssetPicker so every image-field in the rest of the app gets the same Edit / Duplicate / Delete + Import + create-folder affordances. Covered in the "Assets gallery + image editor" section below.
+
+Plus **Shaders surface** — Bleepforge's tenth surface, file-based like Assets: the `.gdshader` text files in the Godot project ARE the source of truth, no JSON cache, no `.tres` round-trip. Phase 1 (shipped) is read-only — browse, view source, see cross-system usages (scans `.tres` + `.tscn` for `ext_resource type="Shader"`). Phase 2 adds in-app save / new / duplicate / delete + watcher integration; Phase 3 adds a GDShader → GLSL ES subset translator and a live WebGL2 preview canvas you can point at any project image. Covered in the "Shaders surface" section below.
 
 **Graph view interactions:**
 
@@ -530,6 +532,66 @@ Bleepforge ships its own documentation surface at `/help`. Bleepforge-only (no `
 
 **No saves-feed integration, no `.tres` round-trip, no watcher hook** — Help is intentionally outside all the Godot-mirrored infra, exactly like Codex and Concept. PUT /api/help/* writes JSON directly; errors surface via the Logs tab (`console.error` capture). The PUT response wraps the entity in `{ entity, tresWrite: { attempted: false } }` for shape-parity with the other domains so the client's `unwrapSavedResponse` adapter doesn't need a special case.
 
+## Shaders surface
+
+The tenth surface, file-based like Assets. The `.gdshader` files in the Godot project ARE the source of truth — no JSON cache, no `.tres` round-trip (shaders aren't `.tres`), no zod schema. Routed at `/shaders` (list) + `/shaders/edit?path=...` (view). Shipped in three phases; Phase 1 (read-only browse + usages) is in; Phases 2 (authoring) and 3 (translator + WebGL preview) are next.
+
+### What's in Phase 1
+
+- **Browse + view + usages**. The list page surfaces every discovered `.gdshader` as a card or row, with filters (text, shader_type, folder), group-by (folder / shader_type / none), and per-shader "used by N" pills computed eagerly via a single inverted-pass scan. Clicking a card opens the view page: monospace source block with a line-number gutter + a sidebar showing the metadata strip (shader_type, uniform count, line count, file size, UID) and an inline usages panel listing every `.tres` + `.tscn` reference with a clickable link back to the relevant Bleepforge edit page (for `.tres`) or scene path (for `.tscn`, non-clickable since we don't author scenes).
+- **No authoring**. No save, no new, no duplicate, no delete, no context menu. Phase 2 adds those plus watcher / SSE integration. Phase 1 deliberately validates the storage model + the cross-system reference search first.
+- **No live preview**. The view page shows source text only. Phase 3 adds the WebGL canvas with the GDShader → GLSL ES translator described in the original plan.
+
+### Server surface
+
+Routes at `/api/shaders/*` in [server/src/lib/shaders/router.ts](server/src/lib/shaders/router.ts):
+
+- `GET /` — list every discovered `.gdshader` (descriptor only — path, basename, parentRel, UID from `.gdshader.uid` sidecar, parsed shader_type, uniform count, size, mtime).
+- `GET /file?path=...` — full source text + descriptor for one shader. Path-traversal protected (refuses paths outside the Godot project root) and extension-locked (refuses non-`.gdshader` paths).
+- `GET /usages?path=...` — reverse-lookup references for one shader. Walks `.tres` + `.tscn` and matches by `res://` path or `uid://`. Falls back to a synthetic descriptor if the file is gone so the request still completes (UID matches fail; only path matches fire).
+- `GET /usage-counts` — `Record<absPath, number>` for every shader in the project, computed via a single inverted-pass walk (N+M instead of N×M). Powers the eager "used by N" pills on first paint.
+
+No SSE endpoint yet — Phase 2 adds `/events` (or folds shader deltas into the existing `/api/assets/events` channel; decision pending). No in-memory cache yet either — Phase 1 re-walks on every list call, which is fine for the current corpus (single-digit shaders, well under 10ms per walk). The cache module lands when SSE / watcher integration arrives in Phase 2.
+
+### Discovery + parser
+
+[server/src/lib/shaders/discover.ts](server/src/lib/shaders/discover.ts) walks the project for `.gdshader` files (skipping dot-dirs to avoid the `.godot` import cache) and reads each one's `.gdshader.uid` sidecar for the UID. **The sidecar shape is different from the `.png.import` sidecars** assets use: it's a single-line file containing just the UID literal (`uid://cm1y1ugdhsajf\n`), not the keyed `uid="uid://..."` form. We try both formats so a future Godot version that switches to keyed form keeps working.
+
+`.gdshaderinc` include files are deliberately skipped: they're support files, not standalone authored shaders, and the translator's `#include` support is out of v1 scope. Surfacing them as cards with no `shader_type` would just confuse the user.
+
+[server/src/lib/shaders/parseHeader.ts](server/src/lib/shaders/parseHeader.ts) is a minimal regex header sniff — extracts the first `shader_type X;` line and counts `uniform` declarations. That's all the descriptor needs. The full GDShader parser (the one driving the Phase 3 translator) will live client-side in `client/src/features/shader/translator/`, since translation only runs in the browser.
+
+### Usage scanning
+
+[server/src/lib/shaders/usages.ts](server/src/lib/shaders/usages.ts) mirrors the assets usage scan but only scans `.tres` + `.tscn` (no Bleepforge JSON files reference shaders — concept.json has image fields, not shader fields). References in this corpus look like:
+
+```text
+[ext_resource type="Shader" uid="uid://cm1y1ugdhsajf" path="res://shared/shaders/scanlines.gdshader" id="2_1g8jr"]
+```
+
+Most live in `.tscn` (a node's `ShaderMaterial` wraps the shader at scene scope); some in `.tres` (when a `ShaderMaterial` itself is an authored resource). Both formats share the same reference shape, so we scan them together.
+
+### Shared `refScan/` module
+
+The asset-usages scan and the shader-usages scan share five helpers: `walkGodotRefs`, `safeRead`, `pickLine`, `absoluteToResPath`, and the substantive `detectTresDomainAndKey` (40 lines mapping a `.tres` file's `script_class` + id to a Bleepforge edit-page route). Duplicating `detectTresDomainAndKey` would mean two places to fix every time a new authored domain lands. Factored to [server/src/lib/refScan/detectDomain.ts](server/src/lib/refScan/detectDomain.ts) so both consumers share the same source of truth. `assets/usages.ts` and `shaders/usages.ts` now both import from there; the file's `UsageDomain` and `UsageRef` types are also exported from refScan and re-exported by `assets/usages.ts` for back-compat with anything that imports the type from the old location.
+
+### Client surface
+
+- **List page** ([client/src/features/shader/List.tsx](client/src/features/shader/List.tsx)) follows the same shape as the assets gallery — cards/list toggle (per-domain `useViewMode("shader")` localStorage), text + folder + shader_type filters, group-by selector. Empty state uses the existing `WorkshopEmpty` illustration.
+- **View page** ([client/src/features/shader/Edit.tsx](client/src/features/shader/Edit.tsx)) — split layout (`lg:grid-cols-[1fr_22rem]`): source block on the left with a sticky line-number gutter, sidebar on the right with the `ShaderUsagesPanel`. The page is named `Edit.tsx` rather than `View.tsx` because Phase 2 makes it editable in place — the filename mirrors the future state to avoid a churn rename. Note at the bottom of the page reminds the user (and future-Archie) that Phases 2 + 3 are coming.
+- **Cards + rows** ([ShaderCard.tsx](client/src/features/shader/ShaderCard.tsx) + [ShaderRow.tsx](client/src/features/shader/ShaderRow.tsx)) — no image to preview, so the card's top area is a tinted backdrop with a scanline overlay and the shader_type label centered. Tint comes from the per-shader_type palette in [format.ts](client/src/features/shader/format.ts) (canvas_item → lime, spatial → cyan, particles → orange, sky → blue, fog → slate). Click navigates to the view page; right-click does nothing for Phase 1 (Phase 2 adds the Edit / Duplicate / Delete context menu).
+- **Pixel scanline overlay** comes from a `repeating-linear-gradient(to bottom, rgba(132, 204, 22, 0.08) 0 1px, transparent 1px 3px)` — same recipe the dialog graph's Terminal nodes use, but resolved through a fixed lime tint since shader cards don't theme-retint per node.
+- **No drawer for the "used by N" pill** — clicking it on the list page navigates to the view page where the full usages list is rendered inline. The drawer pattern earns its keep when the user wants to scan many items quickly; with a single-digit corpus the navigation round-trip is fine, and the view page is the destination anyway.
+
+### AppSearch integration
+
+Shaders are indexed by basename-without-extension (`scanlines` finds `scanlines.gdshader`) with the `parentRel` as side context. Catalog integration in [useCatalog.ts](client/src/lib/useCatalog.ts) — the boot fetch parallel includes `shadersApi.list()` with a catch-fallback so a missing endpoint or empty project doesn't take down the rest of the catalog. New kind `"shader"` in [search/buildIndex.ts](client/src/lib/search/buildIndex.ts), lime kind badge in [AppSearch.tsx](client/src/components/AppSearch.tsx) (`border-lime-700/60 text-lime-300`). The lime mirrors the `canvas_item` tint on the gallery cards, so the search-row badge feels like the same surface even before the user opens it.
+
+### What's next (Phases 2 + 3)
+
+- **Phase 2 (authoring)**: PUT `/api/shaders/file` (save), POST `/api/shaders/new`, DELETE `/api/shaders/file`. CodeMirror 6 editor with custom GDShader syntax highlighting + error markers. Watcher integration (chokidar already widened to image extensions for Assets — `.gdshader` joins the pass-through). SSE channel for live refresh. Right-click context menu on cards (Edit · Duplicate · Delete · View).
+- **Phase 3 (live preview)**: GDShader → GLSL ES translator in `client/src/features/shader/translator/` (parser.ts + emit.ts + runtime.ts + builtins.ts). Supports `shader_type canvas_item` only; built-ins `TIME`, `UV`, `SCREEN_UV`, `COLOR`, `TEXTURE`, `TEXTURE_PIXEL_SIZE`, `MODULATE`, `POINT_COORD`, `FRAGCOORD`, `PI`, `TAU`, `E`. WebGL2 canvas rendered alongside the editor with auto-generated uniform controls (sliders for `hint_range`, color pickers for `source_color`, plain inputs otherwise). Image picker reuses `AssetPicker`; default test pattern is a bundled UV-grid / checkerboard PNG so the preview works the instant a shader opens.
+
 ## Cross-cutting concerns
 
 ### Resource references → string IDs
@@ -647,6 +709,9 @@ UI subscribers: every list/edit page wires `useSyncRefresh` for its domain (item
 - **Image editor extensions** — deferred until needed: integer-multiple resize / scale (pixel-art upscaling), recolor (palette-swap one color → another), 1-pixel outline. All fit the existing destructive-op pipeline + Undo stack.
 - **Audio support (Phase 2)** — deferred. Corpus has zero audio files today. When the first lands: extend assets discovery to `.ogg` / `.wav` / `.mp3`, add a tab to `/assets`, build an audio player on `PixelSlider` for the seek bar. Asset router already supports HTTP Range requests via Express's `sendFile`.
 - ~~**Game Codex (Domain 8)**~~ — done. Bleepforge-only multi-category authoring surface for project-specific concepts that don't fit a hardcoded domain. User defines categories with custom property schemas (text / number / boolean / image / FK ref / tags); entries are pure JSON, never round-tripped to Godot. Per-category color, dynamic edit form driven by `_meta.json`, two-layer validation (structural + FK existence), full app-search + integrity integration. See "Domain 8 — Game Codex" above.
+- ~~**Shaders surface (Phase 1 — browse + view + usages)**~~ — done. Tenth surface, see the dedicated section above. File-based like Assets — `.gdshader` IS the source of truth, no `.tres` round-trip. List page with cards/rows + per-shader_type tinted cards, view page with monospace source + inline cross-system usages panel, lime kind in AppSearch, `detectTresDomainAndKey` factored to `lib/refScan/` so assets + shaders share the domain-routing logic.
+- **Shaders Phase 2 (authoring)** — deferred. PUT `/api/shaders/file` (save), POST `/api/shaders/new`, DELETE; CodeMirror 6 editor with custom GDShader syntax + error markers; watcher + SSE; right-click context menu (Edit / Duplicate / Delete).
+- **Shaders Phase 3 (live preview)** — deferred. GDShader → GLSL ES subset translator (`canvas_item` only, ~20 built-ins) in `client/src/features/shader/translator/`; WebGL2 canvas alongside the editor; auto-generated uniform controls (sliders for `hint_range`, color pickers for `source_color`); bundled UV-grid default test image, user-selectable via AssetPicker.
 - ~~**Wrap with Electron (Phase 1 — dev window)**~~ — done. `pnpm dev:desktop` runs server + client + electron in parallel, the desktop window loads `http://localhost:5173`, HMR + SSE + TS strict mode all preserved.
 - ~~**Wrap with Electron (Phase 2 — Linux AppImage)**~~ — done. `pnpm dist` produces a single self-contained `Bleepforge-<v>-x86_64.AppImage` (~115MB) that runs without sudo on Fedora 44 / KDE / Wayland. Server bundle (esbuild, ~211KB) + client bundle (Vite) + Help library seed all ride inside `app.asar`; user state lives outside in `~/.config/Bleepforge/data/`. macOS (.dmg) / Windows (NSIS) targets are a config-only follow-up — the build pipeline is platform-generic. Auto-update + code signing are deferred until distribution is something other than "the user runs the AppImage from disk." See "Electron desktop wrap" below for the packaging architecture and the five Linux-specific landmines we hit (workspace dep resolution, sandbox flag conflict, /dev/shm, asar fs.cpSync, asar+send).
 - **Genericize for any Godot project** (post-1.0, future direction) — Bleepforge currently ships hardcoded against Flock of Bleeps' seven domain schemas + per-domain edit forms + per-domain `.tres` mappers. The bones are project-agnostic: `.tres` parser / emitter / writer / watcher, JSON CRUD machinery, asset surface, diagnostics shell, UI primitives, theming, the three SSE infrastructure channels — none of those know anything about this specific game. The schema layer is the only project-specific code (seven zod schemas in `shared/src/`, the per-domain mappers under `server/src/internal/tres/domains/`, the hand-coded edit forms in `client/src/features/<domain>/`, plus the dialog-specific graph view). Genericization path: make the schema layer runtime-configurable, ideally by reading the user's project's `[GlobalClass]` resource types directly to auto-generate forms / integrity checks / a configurable graph view that recognizes any "next"-style reference. Coupling is by configuration, not by architecture — that's why the lift is reasonable.
@@ -673,11 +738,15 @@ client/src/
                   lib/integrity/ computeIssues pure function
   features/     user-facing pages, one folder per domain — asset, balloon,
                 concept, dialog, diagnostics, faction, item, karma, npc,
-                preferences, quest. Each holds Edit.tsx + List.tsx + (where
-                relevant) Card.tsx / Row.tsx / domain-specific helpers.
-                features/asset/ also ships the image editor itself
+                preferences, quest, shader. Each holds Edit.tsx + List.tsx
+                + (where relevant) Card.tsx / Row.tsx / domain-specific
+                helpers. features/asset/ also ships the image editor itself
                 (ImageEditor + CropCanvas + CropControls + FolderPicker +
                 imageOps + cropMath + UsagesDrawer + useAssetMenu).
+                features/shader/ Phase 1 ships List + Edit (view-only) +
+                ShaderCard + ShaderRow + UsagesPanel + format.ts; Phases
+                2 + 3 add a translator/ subfolder + CodeEditor wrapper +
+                PreviewCanvas + UniformControls.
   App.tsx       entry component — header nav, routes, mounts the singleton
                 hosts (ModalHost, ToastHost, ContextMenuHost,
                 ImageEditorHost, CatalogDatalists)
@@ -721,7 +790,20 @@ server/src/
                  lib/pickup/        collectible-scene catalog (read-only)
                  lib/process/       server identity / uptime / config
                  lib/reconcile/     status router + bootReconcile.ts
+                 lib/refScan/       cross-system reference helpers shared
+                                    by lib/assets/ + lib/shaders/ —
+                                    detectTresDomainAndKey + walk +
+                                    safeRead + pickLine + UsageRef types
                  lib/saves/         buffer + bus + SSE router
+                 lib/shaders/       .gdshader gallery surface
+                                    (/api/shaders/*) — discover.ts walks
+                                    for .gdshader files + .gdshader.uid
+                                    sidecars, parseHeader.ts sniffs
+                                    shader_type + uniform count,
+                                    usages.ts mirrors the assets ref
+                                    scan over .tres + .tscn. Phase 1
+                                    read-only; Phase 2 adds a cache.ts +
+                                    eventBus.ts + write endpoints
                  lib/sync/          watcher event bus + SSE router
                  lib/util/          jsonCrud generic CRUD helpers
   internal/    substantial libraries that aren't HTTP features:

@@ -22,8 +22,10 @@ import {
   npcsApi,
   pickupsApi,
   questsApi,
+  shadersApi,
   type BalloonFolderGroup,
   type DialogFolderGroup,
+  type ShaderAsset,
 } from "./api";
 import { markBootCheckpoint } from "./boot/progress";
 import { catalogTick, subscribeCatalog } from "./catalog-bus";
@@ -50,6 +52,11 @@ export interface Catalog {
   codexCategories: CodexCategoryGroup[];
   /** Flat per-entry list, useful for app search and integrity checks. */
   codexEntries: { category: string; meta: CodexCategoryMeta; entry: CodexEntry }[];
+  /** Every discovered .gdshader file in the Godot project. Loaded once at
+   *  catalog boot so the global Ctrl+K search can jump to a shader by
+   *  basename. The shader gallery has its own (more detailed) fetch with
+   *  usage counts; this list carries just the descriptors. */
+  shaders: ShaderAsset[];
   flags: string[];
 }
 
@@ -93,8 +100,12 @@ export function useCatalog(): Catalog | null {
       dialogsApi.listAll(),
       balloonsApi.listAll(),
       codexApi.listAll(),
+      // Shaders are a Godot-project file scan rather than a JSON CRUD list;
+      // catch failures so a missing endpoint (or a project root without
+      // shaders) doesn't take the whole catalog down.
+      shadersApi.list().catch(() => ({ shaders: [] as ShaderAsset[] })),
     ])
-      .then(([npcs, items, quests, karma, factions, pickups, dialogs, balloons, codexCategories]) => {
+      .then(([npcs, items, quests, karma, factions, pickups, dialogs, balloons, codexCategories, shadersResponse]) => {
         if (cancelled) return;
         const sequences = dialogs.flatMap((g) => g.sequences);
         const balloonRefs = balloons.flatMap((g) =>
@@ -125,6 +136,7 @@ export function useCatalog(): Catalog | null {
           balloonRefs,
           codexCategories,
           codexEntries,
+          shaders: shadersResponse.shaders,
           flags,
         });
         // Splash checkpoint #3: catalog loaded. Idempotent — subsequent

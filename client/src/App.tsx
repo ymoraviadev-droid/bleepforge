@@ -19,6 +19,8 @@ import { DialogList } from "./features/dialog/List";
 import { DialogEdit } from "./features/dialog/Edit";
 import { DialogGraph } from "./features/dialog/Graph";
 import { AssetList } from "./features/asset/List";
+import { ShaderEdit } from "./features/shader/Edit";
+import { ShaderList } from "./features/shader/List";
 import { BalloonList } from "./features/balloon/List";
 import { BalloonEdit } from "./features/balloon/Edit";
 import { CategoryEdit as CodexCategoryEdit } from "./features/codex/CategoryEdit";
@@ -205,6 +207,9 @@ export function App() {
           <NavLink to="/codex" className={navLinkClass}>
             Game codex
           </NavLink>
+          <NavLink to="/shaders" className={navLinkClass}>
+            Shaders
+          </NavLink>
           <NavLink to="/assets" className={navLinkClass}>
             Assets
           </NavLink>
@@ -302,6 +307,8 @@ export function App() {
           <Route path="/codex/:category/_meta" element={<CodexCategoryEdit />} />
           <Route path="/codex/:category/new" element={<CodexEntryEdit />} />
           <Route path="/codex/:category/:id" element={<CodexEntryEdit />} />
+          <Route path="/shaders" element={<ShaderList />} />
+          <Route path="/shaders/edit" element={<ShaderEdit />} />
           <Route path="/assets" element={<AssetList />} />
           <Route path="/diagnostics/*" element={<DiagnosticsPage />} />
           <Route path="/health" element={<Navigate to="/diagnostics" replace />} />

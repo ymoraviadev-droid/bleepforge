@@ -848,3 +848,91 @@ export const assetsApi = {
     return r.json();
   },
 };
+
+// Shader descriptor mirroring server/src/lib/shaders/types.ts. The
+// shader list page fetches /api/shaders and renders a card per entry.
+// Phase 1 is read-only (browse + view + usages); Phase 2 adds save +
+// import + delete; Phase 3 adds the GDShader → GLSL ES translator + a
+// WebGL2 preview canvas.
+export type ShaderType =
+  | "canvas_item"
+  | "spatial"
+  | "particles"
+  | "sky"
+  | "fog";
+
+export interface ShaderAsset {
+  path: string;
+  basename: string;
+  parentDir: string;
+  parentRel: string;
+  uid: string | null;
+  shaderType: ShaderType | null;
+  uniformCount: number;
+  sizeBytes: number;
+  mtimeMs: number;
+}
+
+export interface ShadersResponse {
+  shaders: ShaderAsset[];
+}
+
+export interface ShaderFileResponse {
+  asset: ShaderAsset | null;
+  source: string;
+}
+
+// Same reference shape the assets surface uses — both look up "where is
+// this thing used?" by scanning .tres + .tscn and mapping each matching
+// .tres back to its Bleepforge edit page. Kept as a separate type alias
+// here so api.ts stays decoupled from the server-side type module.
+export type ShaderUsageDomain =
+  | "item"
+  | "karma"
+  | "quest"
+  | "dialog"
+  | "npc"
+  | "faction"
+  | "balloon"
+  | "concept";
+
+export interface ShaderUsage {
+  kind: "tres" | "tscn" | "json";
+  domain: ShaderUsageDomain | null;
+  key: string | null;
+  file: string;
+  snippet: string;
+}
+
+export interface ShaderUsagesResponse {
+  asset: ShaderAsset | null;
+  usages: ShaderUsage[];
+}
+
+export const shadersApi = {
+  list: async (): Promise<ShadersResponse> => {
+    const r = await fetch("/api/shaders");
+    if (!r.ok) throw new Error(`list shaders failed: ${r.status}`);
+    return r.json();
+  },
+  getFile: async (path: string): Promise<ShaderFileResponse> => {
+    const r = await fetch(
+      `/api/shaders/file?path=${encodeURIComponent(path)}`,
+    );
+    if (!r.ok) throw new Error(`get shader file failed: ${r.status}`);
+    return r.json();
+  },
+  usages: async (path: string): Promise<ShaderUsagesResponse> => {
+    const r = await fetch(
+      `/api/shaders/usages?path=${encodeURIComponent(path)}`,
+    );
+    if (!r.ok) throw new Error(`get shader usages failed: ${r.status}`);
+    return r.json();
+  },
+  usageCounts: async (): Promise<Record<string, number>> => {
+    const r = await fetch("/api/shaders/usage-counts");
+    if (!r.ok) throw new Error(`get shader usage-counts failed: ${r.status}`);
+    const body = await r.json();
+    return body.counts;
+  },
+};

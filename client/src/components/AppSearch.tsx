@@ -20,6 +20,7 @@ const KIND_LABEL: Record<SearchKind, string> = {
   dialog: "Dialog",
   balloon: "Balloon",
   codex: "Codex",
+  shader: "Shader",
   page: "Page",
 };
 
@@ -41,6 +42,10 @@ const KIND_STYLE: Record<SearchKind, string> = {
   // list page section header, not on the search row. Keeps per-kind color
   // stable across all categories so the user learns "slate = codex" once.
   codex: "border-slate-700/60 text-slate-300",
+  // Lime reads "electric / CRT" and matches the shader gallery cards'
+  // canvas_item tint, so the search-row badge feels like the same surface
+  // even before the user opens it.
+  shader: "border-lime-700/60 text-lime-300",
   page: "border-neutral-700/60 text-neutral-400",
 };
 

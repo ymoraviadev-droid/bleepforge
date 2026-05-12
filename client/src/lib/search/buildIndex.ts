@@ -10,6 +10,7 @@ export type SearchKind =
   | "dialog"
   | "balloon"
   | "codex"
+  | "shader"
   | "page";
 
 export interface SearchItem {
@@ -44,6 +45,7 @@ const FUSE_OPTIONS: IFuseOptions<SearchItem> = {
 
 const STATIC_PAGES: SearchItem[] = [
   { kind: "page", key: "page:concept", label: "Game concept", href: "/concept" },
+  { kind: "page", key: "page:shaders", label: "Shaders", href: "/shaders" },
   { kind: "page", key: "page:assets", label: "Assets", href: "/assets" },
   { kind: "page", key: "page:diagnostics", label: "Diagnostics", href: "/diagnostics" },
   { kind: "page", key: "page:preferences", label: "Preferences", href: "/preferences" },
@@ -146,6 +148,22 @@ export function buildSearchItems(catalog: Catalog): SearchItem[] {
       sublabel: display ? e.entry.Id : undefined,
       context: e.meta.DisplayName || e.category,
       href: `/codex/${e.category}/${e.entry.Id}`,
+    });
+  }
+
+  // Shaders — indexed by basename (no extension) so "scanlines" finds
+  // scanlines.gdshader without forcing the user to type the suffix. The
+  // parentRel is the side context (e.g. "shared/shaders") so the
+  // dropdown row reads "scanlines · shared/shaders".
+  for (const sh of catalog.shaders) {
+    const stem = sh.basename.replace(/\.gdshader$/, "");
+    items.push({
+      kind: "shader",
+      key: `shader:${sh.path}`,
+      label: stem,
+      sublabel: sh.basename,
+      context: sh.parentRel || undefined,
+      href: `/shaders/edit?path=${encodeURIComponent(sh.path)}`,
     });
   }
 

@@ -15,45 +15,23 @@
 // Bleepforge-only homepage doc with no .tres counterpart, so without it
 // we'd lie about images used on the project bible.
 
-import fs from "node:fs/promises";
 import path from "node:path";
 
 import { config } from "../../config.js";
+import {
+  absoluteToResPath,
+  detectTresDomainAndKey,
+  pickLine,
+  safeRead,
+  sceneFakeDomain,
+  walkGodotRefs,
+  type UsageDomain,
+  type UsageRef,
+} from "../refScan/detectDomain.js";
 import type { ImageAsset } from "./types.js";
 
-export type UsageDomain =
-  | "item"
-  | "karma"
-  | "quest"
-  | "dialog"
-  | "npc"
-  | "faction"
-  | "balloon"
-  | "concept";
-
-export interface UsageRef {
-  /** Where this reference appears:
-   *  - "tres": Godot resource file (Item / Quest / Faction / Npc / ...)
-   *  - "tscn": Godot scene file (level, character scene, etc.)
-   *  - "json": Bleepforge-only doc that has no .tres counterpart —
-   *            currently this is just data/concept.json. We do NOT
-   *            report references from the Bleepforge JSON cache
-   *            (data/npcs/, data/items/, etc.) because those 1:1
-   *            mirror their backing .tres and reporting them
-   *            double-counts every usage. */
-  kind: "tres" | "tscn" | "json";
-  /** Bleepforge-shaped domain so the client can build a link back.
-   *  Scene refs (.tscn) don't map to a Bleepforge edit page (we don't
-   *  author scenes here), so domain stays null and the file path is the
-   *  meaningful info. */
-  domain: UsageDomain | null;
-  /** Routing key — primary id, or "<folder>/<id>" for folder-aware domains. */
-  key: string | null;
-  /** Absolute file path of the .tres / .tscn / concept.json file. */
-  file: string;
-  /** Short context snippet for display. */
-  snippet: string;
-}
+// Re-export so existing callers of this module's types still work.
+export type { UsageDomain, UsageRef };
 
 export async function findUsages(asset: ImageAsset): Promise<UsageRef[]> {
   if (!config.godotProjectRoot) return [];
@@ -113,136 +91,6 @@ export async function findUsages(asset: ImageAsset): Promise<UsageRef[]> {
   }
 
   return refs;
-}
-
-function absoluteToResPath(absPath: string, godotRoot: string): string | null {
-  const rel = path.relative(godotRoot, absPath);
-  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
-  return `res://${rel.replaceAll(path.sep, "/")}`;
-}
-
-async function safeRead(p: string): Promise<string | null> {
-  try {
-    return await fs.readFile(p, "utf8");
-  } catch {
-    return null;
-  }
-}
-
-function pickLine(text: string, needle: string): string {
-  const idx = text.indexOf(needle);
-  if (idx < 0) return needle;
-  const lineStart = text.lastIndexOf("\n", idx) + 1;
-  const lineEnd = text.indexOf("\n", idx);
-  const line = text.slice(lineStart, lineEnd === -1 ? undefined : lineEnd).trim();
-  // Cap length so the UI doesn't get a 400-char dump on big lines.
-  return line.length > 160 ? line.slice(0, 157) + "…" : line;
-}
-
-async function walkGodotRefs(
-  dir: string,
-  onFile: (full: string) => Promise<void>,
-): Promise<void> {
-  let entries;
-  try {
-    entries = await fs.readdir(dir, { withFileTypes: true });
-  } catch {
-    return;
-  }
-  for (const e of entries) {
-    if (e.name.startsWith(".")) continue;
-    const full = path.join(dir, e.name);
-    if (e.isDirectory()) {
-      await walkGodotRefs(full, onFile);
-    } else if (
-      e.isFile() &&
-      (e.name.endsWith(".tres") || e.name.endsWith(".tscn"))
-    ) {
-      await onFile(full);
-    }
-  }
-}
-
-// Scenes don't map to a Bleepforge editor — we don't author .tscn here.
-// Return a useful key for the UI (file basename, no extension) so the
-// usages drawer still has something to display, with domain=null.
-function sceneFakeDomain(
-  scenePath: string,
-  godotRoot: string,
-): { domain: null; key: string } {
-  const rel = path.relative(godotRoot, scenePath);
-  return { domain: null, key: rel.replace(/\.tscn$/, "") };
-}
-
-// Domain detection from a .tres path. We don't need a perfect match for
-// every authored type — the existing import/discover.ts is the source of
-// truth, but for the gallery's "where is this used" link we just need
-// good enough heuristics to land on the right edit page. Reads the file
-// header to pick up Slug / Id; falls back to filename basename.
-async function detectTresDomainAndKey(
-  tresPath: string,
-  godotRoot: string,
-): Promise<{ domain: UsageDomain | null; key: string | null }> {
-  const text = await safeRead(tresPath);
-  if (!text) return { domain: null, key: null };
-  const scriptClass = /script_class="([^"]+)"/.exec(text)?.[1] ?? null;
-  const slug = /^\s*Slug\s*=\s*"([^"]+)"/m.exec(text)?.[1];
-  const idMatch = /^\s*Id\s*=\s*"([^"]+)"/m.exec(text)?.[1];
-  const npcId = /^\s*NpcId\s*=\s*"([^"]+)"/m.exec(text)?.[1];
-
-  switch (scriptClass) {
-    case "Quest":
-      return { domain: "quest", key: idMatch ?? basenameNoExt(tresPath) };
-    case "KarmaImpact":
-      return { domain: "karma", key: idMatch ?? basenameNoExt(tresPath) };
-    case "FactionData": {
-      const factionInt = /^\s*Faction\s*=\s*(\d+)/m.exec(text)?.[1];
-      const name = factionFromInt(factionInt);
-      return { domain: "faction", key: name };
-    }
-    case "NpcData":
-      return { domain: "npc", key: npcId ?? basenameNoExt(tresPath) };
-    case "DialogSequence": {
-      const folder = path.basename(path.dirname(tresPath));
-      return { domain: "dialog", key: `${folder}/${idMatch ?? basenameNoExt(tresPath)}` };
-    }
-    case "BalloonLine": {
-      // Convention: characters/npcs/<model>/balloons/<basename>.tres.
-      const parent = path.dirname(tresPath);
-      if (path.basename(parent) === "balloons") {
-        const folder = path.basename(path.dirname(parent));
-        return { domain: "balloon", key: `${folder}/${basenameNoExt(tresPath)}` };
-      }
-      return { domain: "balloon", key: null };
-    }
-    default:
-      if (slug) return { domain: "item", key: slug };
-      return { domain: null, key: null };
-  }
-}
-
-function basenameNoExt(p: string): string {
-  const base = path.basename(p);
-  const dot = base.lastIndexOf(".");
-  return dot === -1 ? base : base.slice(0, dot);
-}
-
-function factionFromInt(raw: string | undefined): string | null {
-  // Mirrors FACTION_BY_INDEX in the existing importer. Kept inline so the
-  // usages module doesn't reach into the importer's internals for a 4-row
-  // table.
-  switch (raw) {
-    case "0":
-      return "Scavengers";
-    case "1":
-      return "FreeRobots";
-    case "2":
-      return "RFF";
-    case "3":
-      return "Grove";
-    default:
-      return null;
-  }
 }
 
 /**

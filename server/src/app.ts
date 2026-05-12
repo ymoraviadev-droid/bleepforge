@@ -37,6 +37,7 @@ import { processRouter } from "./lib/process/router.js";
 import { runBootReconcile } from "./lib/reconcile/bootReconcile.js";
 import { reconcileRouter } from "./lib/reconcile/router.js";
 import { savesRouter } from "./lib/saves/router.js";
+import { shadersRouter } from "./lib/shaders/router.js";
 import { syncRouter } from "./lib/sync/router.js";
 import { makeCrudRouter, makeJsonStorage } from "./lib/util/jsonCrud.js";
 import { startTresWatcher } from "./internal/tres/watcher.js";
@@ -165,6 +166,7 @@ export async function startServer(): Promise<StartedServer> {
   // Non-domain endpoints — singletons, infrastructure, observability.
   app.use("/api/asset", assetRouter);
   app.use("/api/assets", assetsRouter);
+  app.use("/api/shaders", shadersRouter);
   app.use("/api/item-icon", itemIconRouter);
   app.use("/api/sync", syncRouter);
   app.use("/api/concept", conceptRouter);
