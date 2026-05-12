@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AssetPicker } from "../../components/AssetPicker";
 import { assetUrl } from "../../lib/api";
-import { PreviewCanvas } from "./PreviewCanvas";
+import { PreviewCanvas, type SamplerBinding } from "./PreviewCanvas";
 import { UniformControls, uniformDefault } from "./UniformControls";
 import type {
   CompileError,
@@ -133,6 +133,25 @@ export function PreviewPane({
     };
   }, [samplerPaths]);
 
+  // Combine samplerSources (image elements) with each uniform's
+  // declaration-time hints into the binding shape PreviewCanvas /
+  // ShaderRuntime expect. Memoized on (samplerSources, uniforms) so
+  // the runtime effect only re-fires when something actually changed.
+  // Includes screen-texture-aliased samplers even though they have no
+  // source — the runtime needs to see them present in the record so
+  // it can wire their uniform locations to texture unit 0.
+  const samplerBindings = useMemo<Record<string, SamplerBinding>>(() => {
+    const out: Record<string, SamplerBinding> = {};
+    for (const u of uniforms) {
+      if (u.type !== "sampler2D") continue;
+      out[u.name] = {
+        source: samplerSources[u.name] ?? null,
+        hints: u.samplerHints,
+      };
+    }
+    return out;
+  }, [samplerSources, uniforms]);
+
   const resetUniforms = () => setUniformValues(buildDefaultValues(uniforms));
 
   const errorBanner = useMemo(() => {
@@ -183,7 +202,7 @@ export function PreviewPane({
           emit={emit}
           uniformValues={uniformValues}
           mainTextureSource={textureSource}
-          samplerSources={samplerSources}
+          samplerSources={samplerBindings}
           onCompileResult={onCompileResult}
         />
 
@@ -191,7 +210,7 @@ export function PreviewPane({
 
         <div className="space-y-1">
           <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-500">
-            Test image (TEXTURE)
+            Test image (TEXTURE / SCREEN_TEXTURE)
           </span>
           <AssetPicker
             path={texturePath}

@@ -18,9 +18,10 @@
 import {
   BANNED_FEATURES,
   RESERVED_UNIFORM_NAMES,
-  SUPPORTED_HINTS,
+  SAMPLER_HINTS,
   SUPPORTED_SHADER_TYPES,
   SUPPORTED_UNIFORM_TYPES,
+  UI_HINTS,
 } from "./subset";
 
 export type UniformType =
@@ -41,7 +42,15 @@ export interface UniformHint {
 export interface UniformDecl {
   type: UniformType;
   name: string;
+  /** UI-driving hint (hint_range / source_color / hint_color). Picks
+   *  the auto-generated control. At most one per uniform. */
   hint: UniformHint | null;
+  /** Sampler-texturing hints (filter_*, repeat_*, hint_screen_texture).
+   *  Only populated for sampler2D uniforms; empty otherwise. Drives
+   *  runtime texParameteri calls + (for hint_screen_texture) aliases
+   *  the sampler to the main texture binding rather than allocating
+   *  its own unit. */
+  samplerHints: UniformHint[];
   /** Default value as written (right-hand side of `= ...`). Null when omitted. */
   defaultValue: string | null;
 }
@@ -165,25 +174,55 @@ export function parseGdshader(rawSource: string): ParseResult {
         line: lineOf(source, match.index),
       };
     }
-    const hint = rawHint ? parseHint(rawHint.trim()) : null;
-    if (rawHint && !hint) {
-      return {
-        ok: false,
-        reason: `Couldn't parse the hint annotation for uniform "${name}".`,
-        line: lineOf(source, match.index),
-      };
-    }
-    if (hint && !SUPPORTED_HINTS.includes(hint.name)) {
-      return {
-        ok: false,
-        reason: `Unsupported hint "${hint.name}" on uniform "${name}". The translator supports: ${SUPPORTED_HINTS.join(", ")}.`,
-        line: lineOf(source, match.index),
-      };
+    // Parse the optional hint annotation. Godot allows comma-separated
+    // hints (`: filter_linear, repeat_enable`), so we split first and
+    // validate each piece. The categorization splits the list into one
+    // UI-driving hint (hint_range / source_color / hint_color) and a
+    // list of sampler-texturing hints (filter_*, repeat_*, hint_screen_texture).
+    let hint: UniformHint | null = null;
+    let samplerHints: UniformHint[] = [];
+    if (rawHint) {
+      const parsed = parseHints(rawHint.trim());
+      if (!parsed) {
+        return {
+          ok: false,
+          reason: `Couldn't parse the hint annotation for uniform "${name}".`,
+          line: lineOf(source, match.index),
+        };
+      }
+      for (const h of parsed) {
+        if (UI_HINTS.includes(h.name)) {
+          if (hint !== null) {
+            return {
+              ok: false,
+              reason: `uniform "${name}" has multiple UI-driving hints ("${hint.name}" and "${h.name}"). Pick one — the UI can only render a single control per uniform.`,
+              line: lineOf(source, match.index),
+            };
+          }
+          hint = h;
+        } else if (SAMPLER_HINTS.includes(h.name)) {
+          if (rawType !== "sampler2D") {
+            return {
+              ok: false,
+              reason: `Hint "${h.name}" only applies to sampler2D uniforms; uniform "${name}" is ${rawType}.`,
+              line: lineOf(source, match.index),
+            };
+          }
+          samplerHints.push(h);
+        } else {
+          return {
+            ok: false,
+            reason: `Unsupported hint "${h.name}" on uniform "${name}". Supported UI hints: ${UI_HINTS.join(", ")}. Supported sampler hints: ${SAMPLER_HINTS.join(", ")}.`,
+            line: lineOf(source, match.index),
+          };
+        }
+      }
     }
     uniforms.push({
       type: rawType as UniformType,
       name,
       hint,
+      samplerHints,
       defaultValue: rawDefault ? rawDefault.trim() : null,
     });
   }
@@ -352,16 +391,43 @@ function stripComments(s: string): string {
   return out;
 }
 
-function parseHint(raw: string): UniformHint | null {
-  const m = /^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\((.*)\))?$/.exec(raw);
-  if (!m) return null;
-  const name = m[1]!;
-  const argsRaw = m[2] ?? "";
-  const args = argsRaw
-    .split(",")
-    .map((a) => a.trim())
-    .filter((a) => a.length > 0);
-  return { name, args };
+// Parse a hint annotation that may contain multiple comma-separated
+// hints (Godot syntax: `: filter_linear, repeat_enable, source_color`).
+// Returns null on any malformed entry — the caller surfaces a
+// "Couldn't parse" error rather than silently dropping a hint.
+//
+// Splitting on commas is non-trivial because hint args themselves
+// can contain commas (`hint_range(0.0, 1.0, 0.01)`). We walk the
+// string, tracking paren depth: a comma at depth 0 is a separator,
+// anywhere else is part of an arg list.
+function parseHints(raw: string): UniformHint[] | null {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < raw.length; i++) {
+    const ch = raw[i];
+    if (ch === "(") depth++;
+    else if (ch === ")") depth--;
+    else if (ch === "," && depth === 0) {
+      parts.push(raw.slice(start, i));
+      start = i + 1;
+    }
+  }
+  parts.push(raw.slice(start));
+  const out: UniformHint[] = [];
+  for (const p of parts) {
+    const piece = p.trim();
+    if (!piece) continue;
+    const m = /^([a-zA-Z_][a-zA-Z0-9_]*)\s*(?:\((.*)\))?$/.exec(piece);
+    if (!m) return null;
+    const argsRaw = m[2] ?? "";
+    const args = argsRaw
+      .split(",")
+      .map((a) => a.trim())
+      .filter((a) => a.length > 0);
+    out.push({ name: m[1]!, args });
+  }
+  return out;
 }
 
 // Finds whole-word occurrence of `needle` in `haystack` — protects

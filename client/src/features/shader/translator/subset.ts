@@ -85,27 +85,48 @@ export const SUPPORTED_UNIFORM_TYPES: readonly string[] = [
   "sampler2D",
 ];
 
-/** Hint annotations the translator recognizes inside uniform
- *  declarations. The annotations themselves are stripped from the
- *  emitted GLSL (they're a Godot-specific concept); we use them for
- *  UI control generation (slider ranges, color pickers).
+/** Hint annotations the translator recognizes — split by what they
+ *  drive in the UI vs. what they drive at the runtime level. A uniform
+ *  may carry at most ONE UI hint, and any number of sampler hints
+ *  (Godot's comma-separated `: filter_linear, repeat_enable` syntax).
  *
- *  filter_* and repeat_* hints are accepted but currently a NO-OP at
- *  the runtime level — the WebGL2 sampler uses fixed NEAREST + CLAMP
- *  parameters (pixel-art-friendly). Accepting the hints anyway means
- *  shaders copied from Godot tutorials don't need manual editing
- *  before the live preview accepts them. */
-export const SUPPORTED_HINTS: readonly string[] = [
+ *  UI_HINTS shape the auto-generated control (slider for hint_range,
+ *  color picker for source_color / hint_color). Only valid on
+ *  scalar / vector / float uniforms.
+ *
+ *  SAMPLER_HINTS only valid on sampler2D uniforms. filter_* and
+ *  repeat_* drive `texParameteri` calls when the runtime uploads the
+ *  texture. hint_screen_texture flags the sampler as "the rendered
+ *  scene behind the shader" — in Godot that's a framebuffer copy; in
+ *  the Bleepforge preview the runtime aliases it to texture unit 0
+ *  (the same image the main TEXTURE picker drives) so post-process
+ *  shaders can be authored against Godot's native syntax and
+ *  previewed against a representative screenshot. */
+export const UI_HINTS: readonly string[] = [
   "hint_range",
   "hint_color",
   "source_color",
+];
+
+export const SAMPLER_HINTS: readonly string[] = [
   "filter_nearest",
   "filter_linear",
   "filter_nearest_mipmap",
   "filter_linear_mipmap",
   "repeat_enable",
   "repeat_disable",
+  "hint_screen_texture",
 ];
+
+/** Combined set for the parser's existing validation pass — anything
+ *  that isn't in this union is rejected as unsupported. */
+export const SUPPORTED_HINTS: readonly string[] = [
+  ...UI_HINTS,
+  ...SAMPLER_HINTS,
+];
+
+/** Sentinel for sampler-hint inspection at the runtime layer. */
+export const HINT_SCREEN_TEXTURE = "hint_screen_texture";
 
 /** Features we refuse with a clear error message. Each entry pairs a
  *  source-text needle (matched against tokens — see parser.ts) with a
@@ -121,11 +142,6 @@ export const BANNED_FEATURES: readonly BannedFeature[] = [
     match: "varying",
     reason:
       "varying declarations are out of v1 scope — we only run the fragment stage on a full-screen quad. Move per-fragment values into uniforms or constants.",
-  },
-  {
-    match: "hint_screen_texture",
-    reason:
-      "hint_screen_texture needs a framebuffer copy of the scene behind the shader, which the preview canvas doesn't have. Sample u_texture / TEXTURE instead.",
   },
   {
     match: "hint_depth_texture",

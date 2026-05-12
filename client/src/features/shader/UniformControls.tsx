@@ -96,6 +96,24 @@ function UniformRow({
   const { type, name, hint } = uniform;
 
   if (type === "sampler2D") {
+    const isScreenTexture = uniform.samplerHints.some(
+      (h) => h.name === "hint_screen_texture",
+    );
+    if (isScreenTexture) {
+      // hint_screen_texture samplers don't get their own AssetPicker —
+      // the runtime aliases them to the same image the "Test image"
+      // picker above drives (texture unit 0). Render a read-only note
+      // explaining the wiring so the user doesn't go hunting for a
+      // missing picker.
+      return (
+        <div className="space-y-1">
+          <span className={fieldLabel}>{name}</span>
+          <div className="border border-neutral-800 bg-neutral-900 px-2 py-1.5 font-mono text-[10px] text-neutral-500">
+            screen texture · driven by the &quot;Test image&quot; picker above
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="space-y-1">
         <span className={fieldLabel}>{name}</span>

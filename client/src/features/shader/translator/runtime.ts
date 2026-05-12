@@ -11,6 +11,8 @@
 
 import type { EmitResult } from "./emit";
 import { mapEmittedLineToUser } from "./emit";
+import { HINT_SCREEN_TEXTURE } from "./subset";
+import type { UniformHint } from "./parser";
 
 /** Vertex shader stays fixed: emits a full-screen quad in NDC and a
  *  matching 0..1 UV. The fragment shader is what users author; we
@@ -83,14 +85,28 @@ export class ShaderRuntime {
   private readonly passthroughSamplerLoc: WebGLUniformLocation | null;
   private texture: WebGLTexture | null = null;
   private textureSize: [number, number] = [1, 1];
-  /** User-declared sampler2D uniforms beyond the built-in TEXTURE. Each
-   *  entry owns its own WebGLTexture + GL texture-unit slot starting at
-   *  unit 1 (unit 0 is reserved for u_texture). Reconciled via
-   *  setSamplerTextures(); freed on destroy. */
-  private samplerEntries = new Map<
-    string,
-    { unit: number; texture: WebGLTexture; size: [number, number] }
-  >();
+  /** User-declared sampler2D uniforms beyond the built-in TEXTURE.
+   *
+   *  Two kinds:
+   *  - "owned": user picked an image via the AssetPicker; we allocate
+   *    a dedicated texture unit (starting at 1) and own a WebGLTexture
+   *    initialized from that image. Filter/wrap from hints apply to
+   *    this texture directly.
+   *  - "screen": sampler was declared with `hint_screen_texture`. No
+   *    own texture — at draw time we point its uniform location at
+   *    unit 0 (the main TEXTURE). If its hints include filter_* or
+   *    repeat_*, they get applied to u_texture (so the screen-alias
+   *    sees what it asked for). Multiple screen-alias samplers with
+   *    conflicting hints: first-one-wins, captured at setSamplerTextures
+   *    time.
+   *  Reconciled via setSamplerTextures(); freed on destroy. */
+  private samplerEntries = new Map<string, SamplerEntry>();
+  /** Texture parameters applied to u_texture on every setMainTexture
+   *  upload. Default NEAREST+CLAMP; overridden when a screen-alias
+   *  sampler declares filter/wrap hints. Lets the user write
+   *  `uniform sampler2D SCREEN_TEXTURE : hint_screen_texture, filter_linear;`
+   *  and have warped UV sampling look smooth instead of jagged. */
+  private mainTextureParams: TextureParams = defaultTextureParams();
   /** User uniform values keyed by name. Re-bound every frame. */
   private uniformValues = new Map<string, UniformValue>();
   /** Uniform locations cached per program (re-resolved on compile). */
@@ -235,33 +251,95 @@ export class ShaderRuntime {
   }
 
   /** Reconcile the user-declared sampler2D uniforms (anything beyond
-   *  the built-in TEXTURE). Pass a record of `name → source-or-null`:
+   *  the built-in TEXTURE). Each entry carries an optional source
+   *  (HTMLImageElement etc.) AND optional hints (filter_* / repeat_* /
+   *  hint_screen_texture).
    *
-   *    - name appears with a source → upload (create or replace texture)
-   *    - name appears with null → release the existing entry, if any
-   *    - name absent from the record → release the existing entry
-   *
-   *  This is the only entry point for managing extra samplers — keeps
-   *  the runtime's view in lockstep with whatever uniforms the parsed
-   *  shader currently declares + whatever images the user has picked.
-   *  Each entry gets a stable texture unit starting at 1 (unit 0 stays
-   *  reserved for u_texture / TEXTURE). */
-  setSamplerTextures(samplers: Record<string, TexImageSource | null>): void {
-    // Release any current samplers not in the desired set.
+   *  Behavior:
+   *  - Entry with hint_screen_texture: tracked as a "screen alias" —
+   *    no own texture, no own unit. At draw time its uniform location
+   *    points to texture unit 0 (where u_texture lives). Filter/wrap
+   *    hints (if any) get folded into mainTextureParams so the next
+   *    setMainTexture upload applies them.
+   *  - Entry with a source and no hint_screen_texture: owned. Allocates
+   *    a fresh texture unit (1..N), uploads the image, applies the
+   *    hint-derived texParameteri values.
+   *  - Entry with null source and no hint_screen_texture: released.
+   *  - Name absent from the record: released too. */
+  setSamplerTextures(
+    samplers: Record<
+      string,
+      | { source: TexImageSource | null; hints?: UniformHint[] }
+      | TexImageSource
+      | null
+    >,
+  ): void {
+    // Release samplers not in the desired set.
     for (const name of [...this.samplerEntries.keys()]) {
       if (!(name in samplers)) this.releaseSamplerEntry(name);
     }
-    // Set / clear each desired entry.
-    for (const [name, source] of Object.entries(samplers)) {
-      if (source) this.upsertSamplerEntry(name, source);
-      else this.releaseSamplerEntry(name);
+
+    // First pass: scan for screen-alias hints so we can decide what
+    // texture params u_texture should get on its next upload. First
+    // hint set wins on conflict (rare in practice — most shaders have
+    // at most one hint_screen_texture sampler).
+    let nextMainParams: TextureParams | null = null;
+    for (const [, raw] of Object.entries(samplers)) {
+      const normalized = normalizeSamplerInput(raw);
+      if (!normalized) continue;
+      const { hints } = normalized;
+      if (hints.some((h) => h.name === HINT_SCREEN_TEXTURE)) {
+        nextMainParams = paramsFromHints(hints, this.gl);
+        break;
+      }
+    }
+    const desiredMainParams = nextMainParams ?? defaultTextureParams();
+    if (!texParamsEqual(desiredMainParams, this.mainTextureParams)) {
+      this.mainTextureParams = desiredMainParams;
+      if (this.texture) {
+        // Re-apply on the existing main texture so the change takes
+        // effect immediately, even if the user doesn't pick a new
+        // image right away.
+        this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+        applyTextureParams(this.gl, this.mainTextureParams);
+      }
+    }
+
+    // Second pass: set / clear each desired entry.
+    for (const [name, raw] of Object.entries(samplers)) {
+      const normalized = normalizeSamplerInput(raw);
+      if (!normalized) {
+        this.releaseSamplerEntry(name);
+        continue;
+      }
+      const { source, hints } = normalized;
+      if (hints.some((h) => h.name === HINT_SCREEN_TEXTURE)) {
+        // Screen alias — no source needed, no texture owned.
+        // Release any owned entry under the same name (user changed
+        // a uniform's hints between renders).
+        const existing = this.samplerEntries.get(name);
+        if (existing && existing.kind === "owned") {
+          this.gl.deleteTexture(existing.texture);
+        }
+        this.samplerEntries.set(name, { kind: "screen" });
+        continue;
+      }
+      if (source) {
+        this.upsertSamplerEntry(name, source, hints);
+      } else {
+        this.releaseSamplerEntry(name);
+      }
     }
   }
 
-  private upsertSamplerEntry(name: string, source: TexImageSource): void {
+  private upsertSamplerEntry(
+    name: string,
+    source: TexImageSource,
+    hints: UniformHint[],
+  ): void {
     const gl = this.gl;
     let entry = this.samplerEntries.get(name);
-    if (entry) {
+    if (entry && entry.kind === "owned") {
       // Replace texture data on the existing entry; keep the unit.
       gl.deleteTexture(entry.texture);
       const fresh = gl.createTexture();
@@ -272,6 +350,8 @@ export class ShaderRuntime {
       }
       entry.texture = fresh;
     } else {
+      // Either a new entry, or upgrading a "screen" entry to "owned"
+      // (user removed hint_screen_texture from the declaration).
       const unit = this.allocateTextureUnit();
       if (unit === null) {
         console.warn(
@@ -284,22 +364,19 @@ export class ShaderRuntime {
         console.warn(`[shader-runtime] couldn't allocate texture for "${name}"`);
         return;
       }
-      entry = { unit, texture: tex, size: [1, 1] };
+      entry = { kind: "owned", unit, texture: tex, size: [1, 1] };
       this.samplerEntries.set(name, entry);
     }
 
-    // Upload + pixel-art-friendly sampling parameters (matches what the
-    // main TEXTURE does — see setMainTexture). filter_* / repeat_* hints
-    // on the uniform declaration are accepted by the parser but ignored
-    // here in v1; the live preview always uses NEAREST + CLAMP.
+    // Upload + apply hint-derived filter/wrap. NEAREST+CLAMP defaults
+    // come from defaultTextureParams() so a sampler without explicit
+    // hints still gets pixel-art-friendly sampling.
+    const params = paramsFromHints(hints, gl);
     gl.activeTexture(gl.TEXTURE0 + entry.unit);
     gl.bindTexture(gl.TEXTURE_2D, entry.texture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    applyTextureParams(gl, params);
     const w = "width" in source ? (source as { width: number }).width : 1;
     const h = "height" in source ? (source as { height: number }).height : 1;
     entry.size = [w, h];
@@ -308,7 +385,7 @@ export class ShaderRuntime {
   private releaseSamplerEntry(name: string): void {
     const entry = this.samplerEntries.get(name);
     if (!entry) return;
-    this.gl.deleteTexture(entry.texture);
+    if (entry.kind === "owned") this.gl.deleteTexture(entry.texture);
     this.samplerEntries.delete(name);
   }
 
@@ -317,7 +394,9 @@ export class ShaderRuntime {
       this.gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
     ) as number;
     const used = new Set<number>([0]); // 0 reserved for u_texture
-    for (const e of this.samplerEntries.values()) used.add(e.unit);
+    for (const e of this.samplerEntries.values()) {
+      if (e.kind === "owned") used.add(e.unit);
+    }
     for (let i = 1; i < max; i++) {
       if (!used.has(i)) return i;
     }
@@ -326,7 +405,15 @@ export class ShaderRuntime {
 
   /** Replace the bound texture for the sampler2D `u_texture` (which is
    *  what GDShader's `TEXTURE` built-in resolves to). Accepts any
-   *  TexImageSource — HTMLImageElement is the typical caller. */
+   *  TexImageSource — HTMLImageElement is the typical caller.
+   *
+   *  Filter / wrap parameters come from `this.mainTextureParams`,
+   *  which defaults to NEAREST+CLAMP but gets overridden when a
+   *  screen-alias sampler declares filter_* / repeat_* hints (see
+   *  setSamplerTextures). That lets `uniform sampler2D SCREEN_TEXTURE
+   *  : hint_screen_texture, filter_linear;` produce smooth-warp
+   *  sampling on the preview without the user having to swap NEAREST
+   *  manually. */
   setMainTexture(source: TexImageSource): void {
     const gl = this.gl;
     if (this.texture) gl.deleteTexture(this.texture);
@@ -335,12 +422,7 @@ export class ShaderRuntime {
     gl.bindTexture(gl.TEXTURE_2D, tex);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
-    // Pixel-art-friendly sampling: nearest neighbor, clamp to edge so
-    // the user can see the texture extents on the preview quad.
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    applyTextureParams(gl, this.mainTextureParams);
     this.texture = tex;
     const w = "width" in source ? (source as { width: number }).width : DEFAULT_TEXTURE_SIZE;
     const h = "height" in source ? (source as { height: number }).height : DEFAULT_TEXTURE_SIZE;
@@ -376,7 +458,7 @@ export class ShaderRuntime {
     if (this.passthroughProgram) gl.deleteProgram(this.passthroughProgram);
     if (this.texture) gl.deleteTexture(this.texture);
     for (const entry of this.samplerEntries.values()) {
-      gl.deleteTexture(entry.texture);
+      if (entry.kind === "owned") gl.deleteTexture(entry.texture);
     }
     this.samplerEntries.clear();
     if (this.vao) gl.deleteVertexArray(this.vao);
@@ -448,17 +530,25 @@ export class ShaderRuntime {
       const samplerLoc = this.getLocation("u_texture");
       if (samplerLoc) gl.uniform1i(samplerLoc, 0);
 
-      // User sampler2D uniforms — each entry binds its texture to a
-      // dedicated unit + points the sampler uniform at that unit.
+      // User sampler2D uniforms — owned entries bind their texture to
+      // their dedicated unit; screen-alias entries point their uniform
+      // location at unit 0 (where u_texture lives, already bound above).
       // Entries whose user-source uniform was removed are already
       // cleaned up by setSamplerTextures' reconciliation, so iterating
       // entries here doesn't risk binding orphaned samplers.
       for (const [name, entry] of this.samplerEntries) {
         const loc = this.getLocation(name);
         if (!loc) continue;
-        gl.activeTexture(gl.TEXTURE0 + entry.unit);
-        gl.bindTexture(gl.TEXTURE_2D, entry.texture);
-        gl.uniform1i(loc, entry.unit);
+        if (entry.kind === "owned") {
+          gl.activeTexture(gl.TEXTURE0 + entry.unit);
+          gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+          gl.uniform1i(loc, entry.unit);
+        } else {
+          // Screen alias — share u_texture's unit. u_texture's texture
+          // params already reflect this sampler's filter/wrap hints
+          // (folded in via setSamplerTextures → setMainTexture pipeline).
+          gl.uniform1i(loc, 0);
+        }
       }
 
       // User numeric uniforms.
@@ -524,6 +614,118 @@ export class ShaderRuntime {
     this.uniformLocations.set(name, loc);
     return loc;
   }
+}
+
+// SamplerEntry — two flavors. "owned" carries its own WebGLTexture
+// on a dedicated unit (1..N). "screen" is a routing alias that points
+// at unit 0 (u_texture) at draw time; no texture / unit of its own.
+type SamplerEntry =
+  | { kind: "owned"; unit: number; texture: WebGLTexture; size: [number, number] }
+  | { kind: "screen" };
+
+interface TextureParams {
+  minFilter: GLenum;
+  magFilter: GLenum;
+  wrapS: GLenum;
+  wrapT: GLenum;
+  generateMipmaps: boolean;
+}
+
+function defaultTextureParams(): TextureParams {
+  // NEAREST + CLAMP for pixel-art-friendly sampling. WebGL2 enum
+  // values are constants so we can hard-code the numeric form:
+  // TEXTURE_MIN_FILTER NEAREST = 0x2600, etc. Using gl.* from a
+  // context would require passing one through — overkill since
+  // these never change.
+  return {
+    minFilter: 0x2600, // gl.NEAREST
+    magFilter: 0x2600, // gl.NEAREST
+    wrapS: 0x812f, // gl.CLAMP_TO_EDGE
+    wrapT: 0x812f,
+    generateMipmaps: false,
+  };
+}
+
+// Derives texture parameters from a uniform's hint list. Multiple
+// filter / wrap hints: last one wins (Godot accepts both orderings;
+// we don't try to deduplicate).
+function paramsFromHints(
+  hints: UniformHint[],
+  gl: WebGL2RenderingContext,
+): TextureParams {
+  const p = defaultTextureParams();
+  for (const h of hints) {
+    switch (h.name) {
+      case "filter_nearest":
+        p.minFilter = gl.NEAREST;
+        p.magFilter = gl.NEAREST;
+        p.generateMipmaps = false;
+        break;
+      case "filter_linear":
+        p.minFilter = gl.LINEAR;
+        p.magFilter = gl.LINEAR;
+        p.generateMipmaps = false;
+        break;
+      case "filter_nearest_mipmap":
+        p.minFilter = gl.NEAREST_MIPMAP_NEAREST;
+        p.magFilter = gl.NEAREST;
+        p.generateMipmaps = true;
+        break;
+      case "filter_linear_mipmap":
+        p.minFilter = gl.LINEAR_MIPMAP_LINEAR;
+        p.magFilter = gl.LINEAR;
+        p.generateMipmaps = true;
+        break;
+      case "repeat_enable":
+        p.wrapS = gl.REPEAT;
+        p.wrapT = gl.REPEAT;
+        break;
+      case "repeat_disable":
+        p.wrapS = gl.CLAMP_TO_EDGE;
+        p.wrapT = gl.CLAMP_TO_EDGE;
+        break;
+      // hint_screen_texture is handled at the routing level (see
+      // setSamplerTextures); doesn't affect texture params per se.
+    }
+  }
+  return p;
+}
+
+function applyTextureParams(
+  gl: WebGL2RenderingContext,
+  p: TextureParams,
+): void {
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, p.minFilter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, p.magFilter);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, p.wrapS);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, p.wrapT);
+  if (p.generateMipmaps) gl.generateMipmap(gl.TEXTURE_2D);
+}
+
+function texParamsEqual(a: TextureParams, b: TextureParams): boolean {
+  return (
+    a.minFilter === b.minFilter &&
+    a.magFilter === b.magFilter &&
+    a.wrapS === b.wrapS &&
+    a.wrapT === b.wrapT &&
+    a.generateMipmaps === b.generateMipmaps
+  );
+}
+
+// setSamplerTextures accepts either a bare TexImageSource (back-compat
+// with callers that don't care about hints), null (release), or an
+// object carrying both source and hints. Normalize to the object form.
+function normalizeSamplerInput(
+  raw:
+    | { source: TexImageSource | null; hints?: UniformHint[] }
+    | TexImageSource
+    | null,
+): { source: TexImageSource | null; hints: UniformHint[] } | null {
+  if (raw === null) return null;
+  if (typeof raw === "object" && "source" in raw) {
+    return { source: raw.source, hints: raw.hints ?? [] };
+  }
+  return { source: raw as TexImageSource, hints: [] };
 }
 
 // Compiles + links a known-good vert/frag pair, no error tolerance.

@@ -3,9 +3,19 @@ import { useEffect, useRef } from "react";
 import type {
   CompileResult,
   EmitResult,
+  UniformHint,
   UniformValue,
 } from "./translator";
 import { ShaderRuntime } from "./translator";
+
+/** Per-sampler binding passed to PreviewCanvas. Source is the loaded
+ *  image (or null = release the entry); hints carry the uniform's
+ *  declaration-time annotations (filter_*, repeat_*, hint_screen_texture)
+ *  so the runtime can apply them at upload time. */
+export interface SamplerBinding {
+  source: TexImageSource | null;
+  hints?: UniformHint[];
+}
 
 // React wrapper around the WebGL2 ShaderRuntime. Owns the canvas + the
 // runtime instance, recompiles when the emit prop changes, pushes
@@ -26,11 +36,11 @@ interface Props {
    *  user's AssetPicker pick). Null → runtime keeps its built-in UV-grid
    *  default. */
   mainTextureSource: TexImageSource | null;
-  /** Per-user-sampler texture sources (HTMLImageElement) keyed by the
-   *  uniform's source name. Null values release the sampler's GL
-   *  texture; entries absent from the dict release their bound entries
-   *  too (full reconciliation, not delta). */
-  samplerSources: Record<string, TexImageSource | null>;
+  /** Per-user-sampler bindings keyed by uniform name. Each entry
+   *  carries the loaded image source (or null = release) AND the
+   *  uniform's hints (filter_*, repeat_*, hint_screen_texture). Full
+   *  reconciliation — entries absent from the dict get released. */
+  samplerSources: Record<string, SamplerBinding>;
   /** Called with the result of every compile so the edit page can
    *  surface errors / clear the error banner on success. */
   onCompileResult?: (result: CompileResult) => void;
