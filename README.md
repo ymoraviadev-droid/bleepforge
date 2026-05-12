@@ -42,7 +42,7 @@ Twelve distinct surfaces, each tailored to one slice of the work:
 | **Game Codex** | Bleepforge-only multi-category notebook with user-defined property schemas (Hazards, Locations, etc.). Never round-tripped to Godot - staging ground for concepts that don't yet have a hardcoded domain. |
 | **Assets** | Browse every image in the project. "Used by N" reverse-lookup against `.tres` + `.tscn`. In-app editor: crop, tint, flip, auto-trim, ML / heuristic background removal, "Magic crop" subject detection. |
 | **Shaders** | Browse every `.gdshader` in the project. CodeMirror editor with GDShader syntax + gutter diagnostics (parser + WebGL errors line-anchored) + live WebGL2 preview canvas: re-translates GDShader → GLSL ES on every edit, auto-generated uniform controls (sliders for `hint_range`, color pickers for `source_color`, AssetPickers for each `sampler2D`), per-sampler texture-unit allocation, helper-function support with auto-substituted built-ins, `hint_screen_texture` aliasing for post-process shaders, ping-pong framebuffers + `hint_previous_frame` for trails / iterative effects. |
-| **Help** | Bleepforge-only documentation library (10 categories, 64 entries shipped). Dev-mode-gated authoring. |
+| **Help** | Bleepforge-only documentation library (10 categories, 65 entries shipped). Dev-mode-gated authoring. |
 
 ### Cross-cutting features
 
