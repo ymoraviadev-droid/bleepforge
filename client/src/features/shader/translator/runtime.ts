@@ -24,6 +24,23 @@ void main() {
 }
 `;
 
+/** Passthrough fragment shader for the base pass — samples the bound
+ *  texture, no transforms. Drawn FIRST every frame (opaque, no blend);
+ *  then the user shader runs on top with alpha blending. This is what
+ *  Godot does conceptually for canvas_item — the sprite gets drawn,
+ *  then the shader's fragment output composites over it. Without this
+ *  base pass, "dimming" shaders like scanlines (which write a low
+ *  alpha) just blend into the page background and look invisible. */
+const PASSTHROUGH_FRAG_GLSL = `#version 300 es
+precision mediump float;
+in vec2 v_uv;
+out vec4 fragColor;
+uniform sampler2D u_texture;
+void main() {
+  fragColor = texture(u_texture, v_uv);
+}
+`;
+
 /** Two triangles covering NDC -1..1. Indexed via gl.drawArrays(TRIANGLES). */
 const QUAD_VERTICES = new Float32Array([
   -1, -1,
@@ -60,6 +77,10 @@ export class ShaderRuntime {
   private program: WebGLProgram | null = null;
   private fragmentShader: WebGLShader | null = null;
   private vertexShader: WebGLShader | null = null;
+  /** Always-on passthrough program for the base texture pass. Compiled
+   *  once at construction, never swapped. */
+  private readonly passthroughProgram: WebGLProgram;
+  private readonly passthroughSamplerLoc: WebGLUniformLocation | null;
   private texture: WebGLTexture | null = null;
   private textureSize: [number, number] = [1, 1];
   /** User uniform values keyed by name. Re-bound every frame. */
@@ -74,7 +95,13 @@ export class ShaderRuntime {
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
+    // alpha: false → canvas presents to the page compositor as opaque,
+    // so whatever's behind the canvas DOM element (the dark wrapper
+    // bg) can't bleed through transparent fragments. Combined with the
+    // 2-pass render below, the user always sees something — the bound
+    // texture as base, the shader output composited over it.
     const gl = canvas.getContext("webgl2", {
+      alpha: false,
       premultipliedAlpha: false,
       preserveDrawingBuffer: false,
       antialias: false,
@@ -85,8 +112,8 @@ export class ShaderRuntime {
       );
     }
     this.gl = gl;
-    // Default texture so the canvas isn't black before the user picks
-    // an image. Generated programmatically; uploaded synchronously.
+    // Default texture so the canvas shows something before the user
+    // picks an image. Generated programmatically; uploaded synchronously.
     this.texture = createDefaultTexture(gl);
     this.textureSize = [DEFAULT_TEXTURE_SIZE, DEFAULT_TEXTURE_SIZE];
 
@@ -100,6 +127,20 @@ export class ShaderRuntime {
     const vao = gl.createVertexArray();
     if (!vao) throw new Error("WebGL2: couldn't allocate vertex array");
     this.vao = vao;
+    // Set up the attribute pointer on the VAO once — both programs
+    // bind a_pos to location 0 (the passthrough via bindAttribLocation
+    // below, the user shader via the same call in compile()). The VAO
+    // remembers the binding across program swaps.
+    gl.bindVertexArray(this.vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+    gl.bindVertexArray(null);
+
+    // Compile the passthrough base-pass program. Failure here would be
+    // a Bleepforge bug (the shader is fixed); propagate as a throw.
+    this.passthroughProgram = compileFixedProgram(gl, VERTEX_GLSL, PASSTHROUGH_FRAG_GLSL);
+    this.passthroughSamplerLoc = gl.getUniformLocation(this.passthroughProgram, "u_texture");
   }
 
   /**
@@ -171,14 +212,6 @@ export class ShaderRuntime {
     this.currentEmit = emit;
     this.uniformLocations.clear();
 
-    // Wire the vertex array's a_pos attribute now that the program is
-    // ready. attribute location 0 was bound above.
-    gl.bindVertexArray(this.vao);
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.quadBuffer);
-    gl.enableVertexAttribArray(0);
-    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
-    gl.bindVertexArray(null);
-
     return { ok: true, errors: [] };
   }
 
@@ -242,6 +275,7 @@ export class ShaderRuntime {
     if (this.program) gl.deleteProgram(this.program);
     if (this.fragmentShader) gl.deleteShader(this.fragmentShader);
     if (this.vertexShader) gl.deleteShader(this.vertexShader);
+    if (this.passthroughProgram) gl.deleteProgram(this.passthroughProgram);
     if (this.texture) gl.deleteTexture(this.texture);
     if (this.vao) gl.deleteVertexArray(this.vao);
     if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer);
@@ -250,11 +284,23 @@ export class ShaderRuntime {
     this.destroyed = true;
   }
 
-  /** Draw a single frame. Public so the React wrapper can force a
-   *  re-render when a uniform changes outside the RAF loop (e.g. user
-   *  drags a slider while paused). */
+  /** Draw a single frame. Two passes:
+   *
+   *  PASS 1 — passthrough: draws the bound texture (user-picked image or
+   *  the procedural UV grid) edge to edge, no blending. Establishes an
+   *  opaque base that's visible whatever the user shader does.
+   *
+   *  PASS 2 — user shader: runs the compiled user GLSL with standard
+   *  alpha blending. Shaders that write opaque fragColors fully replace
+   *  the base; shaders that write low-alpha (like scanlines) composite
+   *  over the base, dimming it instead of disappearing. blendFuncSeparate
+   *  preserves the framebuffer alpha at 1.0 (canvas stays opaque even
+   *  when the shader's a is 0) regardless of context-level alpha flag.
+   *
+   *  Public so the React wrapper can force a re-render when a uniform
+   *  changes outside the RAF loop (e.g. user drags a slider while paused). */
   drawFrame(): void {
-    if (this.destroyed || !this.program) return;
+    if (this.destroyed) return;
     const gl = this.gl;
 
     // Resize the drawing buffer to match the canvas's CSS size so the
@@ -265,28 +311,50 @@ export class ShaderRuntime {
     gl.clearColor(0, 0, 0, 1);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    gl.useProgram(this.program);
     gl.bindVertexArray(this.vao);
 
-    // Built-in uniforms.
-    this.bindFloat("u_time", (performance.now() - this.startTime) / 1000);
-    this.bindVec2("u_resolution", gl.drawingBufferWidth, gl.drawingBufferHeight);
-    this.bindVec2("u_texture_pixel_size", 1 / this.textureSize[0], 1 / this.textureSize[1]);
+    // Texture unit 0 is shared by both programs — bind once.
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.texture);
 
-    // Sampler binding for TEXTURE → u_texture, always to texture unit 0.
-    const samplerLoc = this.getLocation("u_texture");
-    if (samplerLoc) {
-      gl.activeTexture(gl.TEXTURE0);
-      gl.bindTexture(gl.TEXTURE_2D, this.texture);
-      gl.uniform1i(samplerLoc, 0);
-    }
-
-    // User uniforms.
-    for (const [name, value] of this.uniformValues) {
-      this.bindUniform(name, value);
-    }
-
+    // --- PASS 1: passthrough base ---
+    gl.disable(gl.BLEND);
+    gl.useProgram(this.passthroughProgram);
+    if (this.passthroughSamplerLoc) gl.uniform1i(this.passthroughSamplerLoc, 0);
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+
+    // --- PASS 2: user shader over the base ---
+    if (this.program) {
+      gl.enable(gl.BLEND);
+      // Standard alpha blending for RGB; preserve framebuffer alpha at
+      // 1.0 so the canvas stays opaque against the page bg even when
+      // the user shader writes alpha 0 everywhere.
+      gl.blendFuncSeparate(
+        gl.SRC_ALPHA,
+        gl.ONE_MINUS_SRC_ALPHA,
+        gl.ZERO,
+        gl.ONE,
+      );
+      gl.useProgram(this.program);
+
+      // Built-in uniforms.
+      this.bindFloat("u_time", (performance.now() - this.startTime) / 1000);
+      this.bindVec2("u_resolution", gl.drawingBufferWidth, gl.drawingBufferHeight);
+      this.bindVec2("u_texture_pixel_size", 1 / this.textureSize[0], 1 / this.textureSize[1]);
+
+      // Sampler binding for TEXTURE → u_texture, reuses TEXTURE0.
+      const samplerLoc = this.getLocation("u_texture");
+      if (samplerLoc) gl.uniform1i(samplerLoc, 0);
+
+      // User uniforms.
+      for (const [name, value] of this.uniformValues) {
+        this.bindUniform(name, value);
+      }
+
+      gl.drawArrays(gl.TRIANGLES, 0, 6);
+      gl.disable(gl.BLEND);
+    }
+
     gl.bindVertexArray(null);
   }
 
@@ -341,6 +409,50 @@ export class ShaderRuntime {
     this.uniformLocations.set(name, loc);
     return loc;
   }
+}
+
+// Compiles + links a known-good vert/frag pair, no error tolerance.
+// Used for the always-on passthrough program; a failure here is a
+// Bleepforge bug (the source is fixed) so we throw to fall back to the
+// PreviewCanvas's "WebGL unavailable" error path.
+function compileFixedProgram(
+  gl: WebGL2RenderingContext,
+  vertSource: string,
+  fragSource: string,
+): WebGLProgram {
+  const vert = gl.createShader(gl.VERTEX_SHADER);
+  const frag = gl.createShader(gl.FRAGMENT_SHADER);
+  const prog = gl.createProgram();
+  if (!vert || !frag || !prog) {
+    throw new Error("WebGL2: couldn't allocate passthrough program");
+  }
+  gl.shaderSource(vert, vertSource);
+  gl.compileShader(vert);
+  if (!gl.getShaderParameter(vert, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(vert) ?? "(no log)";
+    throw new Error(`passthrough vertex compile failed: ${log}`);
+  }
+  gl.shaderSource(frag, fragSource);
+  gl.compileShader(frag);
+  if (!gl.getShaderParameter(frag, gl.COMPILE_STATUS)) {
+    const log = gl.getShaderInfoLog(frag) ?? "(no log)";
+    throw new Error(`passthrough fragment compile failed: ${log}`);
+  }
+  gl.attachShader(prog, vert);
+  gl.attachShader(prog, frag);
+  gl.bindAttribLocation(prog, 0, "a_pos");
+  gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) {
+    const log = gl.getProgramInfoLog(prog) ?? "(no log)";
+    throw new Error(`passthrough link failed: ${log}`);
+  }
+  // Shaders attached + linked; safe to detach + delete the per-stage
+  // objects now (the program holds its own reference).
+  gl.detachShader(prog, vert);
+  gl.detachShader(prog, frag);
+  gl.deleteShader(vert);
+  gl.deleteShader(frag);
+  return prog;
 }
 
 // Default test texture — generated procedurally so we don't ship a
