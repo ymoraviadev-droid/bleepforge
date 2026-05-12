@@ -41,7 +41,10 @@ startShaderStream();
 
 // Refresh the autocomplete catalog on any external change so datalists
 // stay current with the data the user just saw flow in from Godot.
+// Shader events feed the same refresh — adding/renaming/removing a
+// shader externally needs to flow into the Ctrl+K AppSearch index too.
 window.addEventListener("Bleepforge:sync", () => refreshCatalog());
+window.addEventListener("Bleepforge:shader", () => refreshCatalog());
 
 // Renderer teardown cleanup. Without this, Electron's force-close of the
 // renderer process leaves Chromium to forcibly cleanup our long-lived

@@ -25,9 +25,11 @@ import path from "node:path";
 import { Router } from "express";
 
 import { config } from "../../config.js";
+import { recordSave } from "../saves/buffer.js";
 import { listShaders, rebuildShaderCache } from "./cache.js";
 import { discoverShaders, summarizeShader } from "./discover.js";
 import { subscribeShaderEvents } from "./eventBus.js";
+import { noteShaderSelfWrite, shaderSaveKey } from "./selfWrite.js";
 import { countAllShaderUsages, findShaderUsages } from "./usages.js";
 import type { ShaderAsset } from "./types.js";
 
@@ -238,6 +240,9 @@ shadersRouter.put("/file", async (req, res) => {
   }
 
   const tmpPath = `${resolved}.tmp.${process.pid}.${Date.now()}`;
+  // Mark self-write BEFORE the rename so the watcher's debounce window
+  // sees us first when the rename's change event fires.
+  noteShaderSelfWrite(resolved);
   try {
     await fs.writeFile(tmpPath, source, "utf8");
     await fs.rename(tmpPath, resolved);
@@ -247,6 +252,16 @@ shadersRouter.put("/file", async (req, res) => {
     } catch {
       // ignore — temp may not exist if rename failed before it landed
     }
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "shader",
+      key: shaderSaveKey(resolved),
+      action: "updated",
+      outcome: "error",
+      path: resolved,
+      error: (err as Error).message,
+    });
     res
       .status(500)
       .json({ error: `write failed: ${(err as Error).message}` });
@@ -254,6 +269,15 @@ shadersRouter.put("/file", async (req, res) => {
   }
 
   const asset = await summarizeShader(resolved, config.godotProjectRoot);
+  recordSave({
+    ts: new Date().toISOString(),
+    direction: "outgoing",
+    domain: "shader",
+    key: shaderSaveKey(resolved),
+    action: "updated",
+    outcome: "ok",
+    path: resolved,
+  });
   console.log(`[shaders/save] wrote ${source.length} bytes → ${resolved}`);
   res.json({ ok: true, asset });
 });
@@ -338,6 +362,7 @@ shadersRouter.post("/new", async (req, res) => {
 
   const template = NEW_SHADER_TEMPLATES[shaderType];
   const tmpPath = `${targetPath}.tmp.${process.pid}.${Date.now()}`;
+  noteShaderSelfWrite(targetPath);
   try {
     await fs.writeFile(tmpPath, template, "utf8");
     await fs.rename(tmpPath, targetPath);
@@ -347,6 +372,16 @@ shadersRouter.post("/new", async (req, res) => {
     } catch {
       // ignore
     }
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "shader",
+      key: shaderSaveKey(targetPath),
+      action: "updated",
+      outcome: "error",
+      path: targetPath,
+      error: (err as Error).message,
+    });
     res
       .status(500)
       .json({ error: `write failed: ${(err as Error).message}` });
@@ -354,6 +389,15 @@ shadersRouter.post("/new", async (req, res) => {
   }
 
   const asset = await summarizeShader(targetPath, config.godotProjectRoot);
+  recordSave({
+    ts: new Date().toISOString(),
+    direction: "outgoing",
+    domain: "shader",
+    key: shaderSaveKey(targetPath),
+    action: "updated",
+    outcome: "ok",
+    path: targetPath,
+  });
   console.log(`[shaders/new] created ${targetPath} (${shaderType})`);
   res.json({ ok: true, path: targetPath, asset, source: template });
 });
@@ -381,6 +425,7 @@ shadersRouter.delete("/file", async (req, res) => {
     return;
   }
   const removed: string[] = [];
+  noteShaderSelfWrite(resolved);
   try {
     await fs.unlink(resolved);
     removed.push(resolved);
@@ -390,6 +435,16 @@ shadersRouter.delete("/file", async (req, res) => {
       res.status(404).json({ error: `file does not exist: ${resolved}` });
       return;
     }
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "shader",
+      key: shaderSaveKey(resolved),
+      action: "deleted",
+      outcome: "error",
+      path: resolved,
+      error: (err as Error).message,
+    });
     res
       .status(500)
       .json({ error: `delete failed: ${(err as Error).message}` });
@@ -410,6 +465,15 @@ shadersRouter.delete("/file", async (req, res) => {
       );
     }
   }
+  recordSave({
+    ts: new Date().toISOString(),
+    direction: "outgoing",
+    domain: "shader",
+    key: shaderSaveKey(resolved),
+    action: "deleted",
+    outcome: "ok",
+    path: resolved,
+  });
   console.log(`[shaders/delete] removed ${removed.length} files: ${removed.join(", ")}`);
   res.json({ ok: true, removed });
 });

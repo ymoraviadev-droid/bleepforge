@@ -27,6 +27,10 @@ import { publishAssetEvent } from "../../lib/assets/eventBus.js";
 import { recordSave } from "../../lib/saves/buffer.js";
 import { removeShader, upsertShader } from "../../lib/shaders/cache.js";
 import { publishShaderEvent } from "../../lib/shaders/eventBus.js";
+import {
+  isRecentShaderSelfWrite,
+  shaderSaveKey,
+} from "../../lib/shaders/selfWrite.js";
 import { publishSyncEvent } from "../../lib/sync/eventBus.js";
 import { detectDomain, deleteJsonFor, reimportOne } from "./reimportOne.js";
 import { isRecentSelfWrite } from "./writer.js";
@@ -185,10 +189,29 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
   // saving window's own edit page handles "don't show an external-change
   // banner against my own save" via a dirty check in useShaderRefresh's
   // callback, not by hiding the event.
+  //
+  // The Saves activity feed IS gated on self-write though — without it,
+  // every Bleepforge save would show up twice (once as outgoing from the
+  // shader router, once as incoming from this branch). The cache/SSE
+  // still fire; only the recordSave call below is skipped.
   if (absPath.endsWith(".gdshader")) {
+    const ts = new Date().toISOString();
+    const key = shaderSaveKey(absPath);
     if (kind === "unlink") {
-      if (removeShader(absPath)) {
+      const removedFromCache = removeShader(absPath);
+      if (removedFromCache) {
         publishShaderEvent({ kind: "removed", path: absPath });
+      }
+      if (!isRecentShaderSelfWrite(absPath)) {
+        recordSave({
+          ts,
+          direction: "incoming",
+          domain: "shader",
+          key,
+          action: "deleted",
+          outcome: "ok",
+          path: absPath,
+        });
       }
       return;
     }
@@ -196,6 +219,17 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
     if (updated) {
       publishShaderEvent({
         kind: kind === "add" ? "added" : "changed",
+        path: absPath,
+      });
+    }
+    if (!isRecentShaderSelfWrite(absPath)) {
+      recordSave({
+        ts,
+        direction: "incoming",
+        domain: "shader",
+        key,
+        action: "updated",
+        outcome: "ok",
         path: absPath,
       });
     }

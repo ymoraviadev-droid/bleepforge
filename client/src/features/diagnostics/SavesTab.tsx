@@ -231,7 +231,7 @@ function Row({ entry }: { entry: SaveEntry }) {
       : entry.outcome === "warning"
         ? "bg-amber-950/10"
         : "";
-  const route = routeForSave(entry.domain, entry.key, entry.action);
+  const route = routeForSave(entry.domain, entry.key, entry.action, entry.path);
   const body = displayKey(entry.domain, entry.key);
   const action = entry.action === "deleted" ? "deleted" : "saved";
   // Only the row body links — avoids stealing scroll from the timestamp /

@@ -11,7 +11,12 @@ import type { SaveAction, SaveDomain } from "../api";
 
 interface DomainRoute {
   label: string;
-  updated: (key: string) => string;
+  // The optional `path` arg carries SaveEvent.path (absolute filesystem
+  // path). Most domains route by key alone, but shader edits live at
+  // /shaders/edit?path=<abs> so they need the real path — the relative
+  // key is human-readable but doesn't reconstruct without the project
+  // root, which the client doesn't know.
+  updated: (key: string, path?: string) => string;
   deleted: (key: string) => string;
 }
 
@@ -72,15 +77,26 @@ const DOMAIN: Record<SaveDomain, DomainRoute> = {
     },
     deleted: () => "/balloons",
   },
+  shader: {
+    label: "Shader",
+    // Use the absolute path from SaveEvent.path when present (the server
+    // populates it for every shader save). Fallback to the key landing
+    // on the list page is a defensive last resort — shouldn't happen in
+    // practice, but stays useful instead of a 404 if it does.
+    updated: (_key, path) =>
+      path ? `/shaders/edit?path=${encodeURIComponent(path)}` : "/shaders",
+    deleted: () => "/shaders",
+  },
 };
 
 export function routeForSave(
   domain: SaveDomain,
   key: string,
   action: SaveAction,
+  path?: string,
 ): string {
   const route = DOMAIN[domain];
-  return action === "updated" ? route.updated(key) : route.deleted(key);
+  return action === "updated" ? route.updated(key, path) : route.deleted(key);
 }
 
 export function labelForDomain(domain: SaveDomain): string {

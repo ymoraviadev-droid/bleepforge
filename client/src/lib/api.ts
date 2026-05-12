@@ -17,6 +17,7 @@ import type {
   Quest,
 } from "@bleepforge/shared";
 import { refreshCatalog } from "./catalog-bus";
+import { noteLocalShaderSave } from "./shaders/localSaves";
 
 // Returned by the server alongside the saved entity. Lets us surface
 // .tres write status to the user (or just log it if UI feedback isn't
@@ -289,7 +290,8 @@ export type SaveDomain =
   | "dialog"
   | "npc"
   | "faction"
-  | "balloon";
+  | "balloon"
+  | "shader";
 
 export interface SaveEntry {
   ts: string;
@@ -962,6 +964,9 @@ export const shadersApi = {
       const body = await r.text();
       throw new Error(`save shader failed: ${r.status} ${body}`);
     }
+    // Mark this path as locally-saved so the echoed SSE event doesn't
+    // toast in the same window the user just got Save-button feedback in.
+    noteLocalShaderSave(path);
     return r.json();
   },
   create: async (input: {
@@ -978,7 +983,9 @@ export const shadersApi = {
       const body = await r.text();
       throw new Error(`create shader failed: ${r.status} ${body}`);
     }
-    return r.json();
+    const result: ShaderCreateResult = await r.json();
+    noteLocalShaderSave(result.path);
+    return result;
   },
   deleteFile: async (path: string): Promise<ShaderDeleteResult> => {
     const r = await fetch(
@@ -989,6 +996,7 @@ export const shadersApi = {
       const body = await r.text();
       throw new Error(`delete shader failed: ${r.status} ${body}`);
     }
+    noteLocalShaderSave(path);
     return r.json();
   },
 };

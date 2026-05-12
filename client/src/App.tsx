@@ -12,6 +12,7 @@ import { SplashScreen } from "./components/SplashScreen";
 import { ToastHost } from "./components/Toast";
 import { ImageEditorHost } from "./features/asset/imageEditorHost";
 import { isElectron, isPopout, popoutOrNavigate, restartApp } from "./lib/electron";
+import { useShaderToasts } from "./lib/shaders/shaderToasts";
 import { useSyncToasts } from "./lib/sync/syncToasts";
 import { ConceptView } from "./features/concept/View";
 import { ConceptEdit } from "./features/concept/Edit";
@@ -162,8 +163,11 @@ export function App() {
   const diagnostics = useDiagnostics();
 
   // Bridge .tres-save SSE events into pixel toasts. Mounted at App root so
-  // every page gets the same notification surface.
+  // every page gets the same notification surface. Shader toasts run on a
+  // parallel hook against the .gdshader event channel, with echo-of-own-save
+  // suppression so the user's own Save click doesn't double-feedback.
   useSyncToasts();
+  useShaderToasts();
 
   if (showSplash) {
     return <SplashScreen onDone={() => setShowSplash(false)} />;

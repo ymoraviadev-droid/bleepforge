@@ -12,7 +12,8 @@ export type SyncDomain =
   | "dialog"
   | "npc"
   | "faction"
-  | "balloon";
+  | "balloon"
+  | "shader";
 
 export interface SyncEvent {
   domain: SyncDomain;
