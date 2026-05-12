@@ -48,7 +48,7 @@ Twelve distinct surfaces, each tailored to one slice of the work:
 
 - **Two-way `.tres` sync.** Save in Bleepforge → atomic write to the matching `.tres`. Save in Godot → live watcher reimports and refreshes any open editor. No "click reimport" button.
 - **Boot-time reconcile.** Every server start rebuilds the JSON cache from `.tres`. If you edit Godot while Bleepforge is off, the next launch picks it up. No drift.
-- **Live SSE.** Three event channels (sync / saves / assets) drive auto-refresh, toast notifications, and the live save-activity feed in real time.
+- **Live SSE.** Four event channels (sync / saves / assets / shaders) drive auto-refresh, toast notifications, and the live save-activity feed in real time. Shaders participate in the full sync surface — catalog refresh, Saves tab activity feed, and toasts on external add/change/remove (with per-window suppression so your own save doesn't double-feedback).
 - **Diagnostics page.** Six tabs - Integrity, Reconcile, Logs, Saves, Process, Watcher - with severity-aware unified header icon. The save activity feed is SSE-pushed and updates as you edit.
 - **App-wide search** at `Ctrl+K` - substring matching across every authored entity by id and display name. No fuzzy-typo-tolerance to keep results predictable.
 - **Theming.** Eight color themes (dark / light / red / amber / green / cyan / blue / magenta) plus tunable body font, UI scale, and letter spacing. Bundled into named "global themes" you can save and switch between.
@@ -218,7 +218,7 @@ Server-side dev tools (run via `pnpm --filter @bleepforge/server <name>`):
 - Theming + global theme bundles + cross-window theme sync
 - Assets gallery + image editor with ML / heuristic bg removal
 - Game Codex (user-defined category schemas)
-- Shaders surface with CodeMirror editor (+ GDShader syntax + gutter diagnostics) + WebGL2 live preview + GDShader → GLSL ES subset translator with multi-texture + helper-function support
+- Shaders surface with CodeMirror editor (+ GDShader syntax + gutter diagnostics) + WebGL2 live preview + GDShader → GLSL ES subset translator with multi-texture + helper-function support + sampler hints + `hint_screen_texture` + ping-pong framebuffers for `hint_previous_frame` (trails / iterative effects). Full sync parity with the `.tres` domains — catalog refresh, Saves tab integration, cross-window toasts.
 - In-app Help library
 - Electron desktop wrap (dev + Linux AppImage packaging via `pnpm dist`)
 
