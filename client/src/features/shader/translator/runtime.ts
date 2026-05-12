@@ -83,6 +83,14 @@ export class ShaderRuntime {
   private readonly passthroughSamplerLoc: WebGLUniformLocation | null;
   private texture: WebGLTexture | null = null;
   private textureSize: [number, number] = [1, 1];
+  /** User-declared sampler2D uniforms beyond the built-in TEXTURE. Each
+   *  entry owns its own WebGLTexture + GL texture-unit slot starting at
+   *  unit 1 (unit 0 is reserved for u_texture). Reconciled via
+   *  setSamplerTextures(); freed on destroy. */
+  private samplerEntries = new Map<
+    string,
+    { unit: number; texture: WebGLTexture; size: [number, number] }
+  >();
   /** User uniform values keyed by name. Re-bound every frame. */
   private uniformValues = new Map<string, UniformValue>();
   /** Uniform locations cached per program (re-resolved on compile). */
@@ -226,6 +234,96 @@ export class ShaderRuntime {
     this.startTime = performance.now();
   }
 
+  /** Reconcile the user-declared sampler2D uniforms (anything beyond
+   *  the built-in TEXTURE). Pass a record of `name → source-or-null`:
+   *
+   *    - name appears with a source → upload (create or replace texture)
+   *    - name appears with null → release the existing entry, if any
+   *    - name absent from the record → release the existing entry
+   *
+   *  This is the only entry point for managing extra samplers — keeps
+   *  the runtime's view in lockstep with whatever uniforms the parsed
+   *  shader currently declares + whatever images the user has picked.
+   *  Each entry gets a stable texture unit starting at 1 (unit 0 stays
+   *  reserved for u_texture / TEXTURE). */
+  setSamplerTextures(samplers: Record<string, TexImageSource | null>): void {
+    // Release any current samplers not in the desired set.
+    for (const name of [...this.samplerEntries.keys()]) {
+      if (!(name in samplers)) this.releaseSamplerEntry(name);
+    }
+    // Set / clear each desired entry.
+    for (const [name, source] of Object.entries(samplers)) {
+      if (source) this.upsertSamplerEntry(name, source);
+      else this.releaseSamplerEntry(name);
+    }
+  }
+
+  private upsertSamplerEntry(name: string, source: TexImageSource): void {
+    const gl = this.gl;
+    let entry = this.samplerEntries.get(name);
+    if (entry) {
+      // Replace texture data on the existing entry; keep the unit.
+      gl.deleteTexture(entry.texture);
+      const fresh = gl.createTexture();
+      if (!fresh) {
+        console.warn(`[shader-runtime] couldn't allocate texture for "${name}"`);
+        this.samplerEntries.delete(name);
+        return;
+      }
+      entry.texture = fresh;
+    } else {
+      const unit = this.allocateTextureUnit();
+      if (unit === null) {
+        console.warn(
+          `[shader-runtime] out of WebGL texture units; sampler "${name}" won't be bound`,
+        );
+        return;
+      }
+      const tex = gl.createTexture();
+      if (!tex) {
+        console.warn(`[shader-runtime] couldn't allocate texture for "${name}"`);
+        return;
+      }
+      entry = { unit, texture: tex, size: [1, 1] };
+      this.samplerEntries.set(name, entry);
+    }
+
+    // Upload + pixel-art-friendly sampling parameters (matches what the
+    // main TEXTURE does — see setMainTexture). filter_* / repeat_* hints
+    // on the uniform declaration are accepted by the parser but ignored
+    // here in v1; the live preview always uses NEAREST + CLAMP.
+    gl.activeTexture(gl.TEXTURE0 + entry.unit);
+    gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    const w = "width" in source ? (source as { width: number }).width : 1;
+    const h = "height" in source ? (source as { height: number }).height : 1;
+    entry.size = [w, h];
+  }
+
+  private releaseSamplerEntry(name: string): void {
+    const entry = this.samplerEntries.get(name);
+    if (!entry) return;
+    this.gl.deleteTexture(entry.texture);
+    this.samplerEntries.delete(name);
+  }
+
+  private allocateTextureUnit(): number | null {
+    const max = this.gl.getParameter(
+      this.gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
+    ) as number;
+    const used = new Set<number>([0]); // 0 reserved for u_texture
+    for (const e of this.samplerEntries.values()) used.add(e.unit);
+    for (let i = 1; i < max; i++) {
+      if (!used.has(i)) return i;
+    }
+    return null;
+  }
+
   /** Replace the bound texture for the sampler2D `u_texture` (which is
    *  what GDShader's `TEXTURE` built-in resolves to). Accepts any
    *  TexImageSource — HTMLImageElement is the typical caller. */
@@ -277,6 +375,10 @@ export class ShaderRuntime {
     if (this.vertexShader) gl.deleteShader(this.vertexShader);
     if (this.passthroughProgram) gl.deleteProgram(this.passthroughProgram);
     if (this.texture) gl.deleteTexture(this.texture);
+    for (const entry of this.samplerEntries.values()) {
+      gl.deleteTexture(entry.texture);
+    }
+    this.samplerEntries.clear();
     if (this.vao) gl.deleteVertexArray(this.vao);
     if (this.quadBuffer) gl.deleteBuffer(this.quadBuffer);
     this.program = null;
@@ -346,7 +448,20 @@ export class ShaderRuntime {
       const samplerLoc = this.getLocation("u_texture");
       if (samplerLoc) gl.uniform1i(samplerLoc, 0);
 
-      // User uniforms.
+      // User sampler2D uniforms — each entry binds its texture to a
+      // dedicated unit + points the sampler uniform at that unit.
+      // Entries whose user-source uniform was removed are already
+      // cleaned up by setSamplerTextures' reconciliation, so iterating
+      // entries here doesn't risk binding orphaned samplers.
+      for (const [name, entry] of this.samplerEntries) {
+        const loc = this.getLocation(name);
+        if (!loc) continue;
+        gl.activeTexture(gl.TEXTURE0 + entry.unit);
+        gl.bindTexture(gl.TEXTURE_2D, entry.texture);
+        gl.uniform1i(loc, entry.unit);
+      }
+
+      // User numeric uniforms.
       for (const [name, value] of this.uniformValues) {
         this.bindUniform(name, value);
       }

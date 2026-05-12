@@ -41,7 +41,7 @@ Twelve distinct surfaces, each tailored to one slice of the work:
 | **Balloons** | The "Hi there!" lines NPCs say when you walk up. Cards mimic in-game speech bubbles, type-speed animates on hover. |
 | **Game Codex** | Bleepforge-only multi-category notebook with user-defined property schemas (Hazards, Locations, etc.). Never round-tripped to Godot - staging ground for concepts that don't yet have a hardcoded domain. |
 | **Assets** | Browse every image in the project. "Used by N" reverse-lookup against `.tres` + `.tscn`. In-app editor: crop, tint, flip, auto-trim, ML / heuristic background removal, "Magic crop" subject detection. |
-| **Shaders** | Browse every `.gdshader` in the project. CodeMirror editor with GDShader syntax + live WebGL2 preview canvas: re-translates GDShader → GLSL ES on every edit, auto-generated uniform controls (sliders for `hint_range`, color pickers for `source_color`), AssetPicker swap for the bound texture. |
+| **Shaders** | Browse every `.gdshader` in the project. CodeMirror editor with GDShader syntax + live WebGL2 preview canvas: re-translates GDShader → GLSL ES on every edit, auto-generated uniform controls (sliders for `hint_range`, color pickers for `source_color`, AssetPickers for each `sampler2D`), per-sampler texture-unit allocation so user-declared samplers render alongside the built-in TEXTURE. |
 | **Help** | Bleepforge-only documentation library (10 categories, 64 entries shipped). Dev-mode-gated authoring. |
 
 ### Cross-cutting features

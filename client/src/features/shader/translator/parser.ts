@@ -17,6 +17,7 @@
 
 import {
   BANNED_FEATURES,
+  RESERVED_UNIFORM_NAMES,
   SUPPORTED_HINTS,
   SUPPORTED_SHADER_TYPES,
   SUPPORTED_UNIFORM_TYPES,
@@ -28,7 +29,8 @@ export type UniformType =
   | "float"
   | "vec2"
   | "vec3"
-  | "vec4";
+  | "vec4"
+  | "sampler2D";
 
 export interface UniformHint {
   name: string;
@@ -127,13 +129,16 @@ export function parseGdshader(rawSource: string): ParseResult {
     const [, rawType, name, rawHint, rawDefault] = match;
     if (!rawType || !name) continue;
     if (!SUPPORTED_UNIFORM_TYPES.includes(rawType)) {
-      const reason =
-        rawType === "sampler2D"
-          ? `Extra sampler2D uniforms ("${name}") aren't bound to anything in v1 — only the built-in TEXTURE has an image source the user can pick. Sample TEXTURE for now; multi-texture support is a translator follow-up.`
-          : `uniform "${name}" has unsupported type "${rawType}". The translator supports: ${SUPPORTED_UNIFORM_TYPES.join(", ")}.`;
       return {
         ok: false,
-        reason,
+        reason: `uniform "${name}" has unsupported type "${rawType}". The translator supports: ${SUPPORTED_UNIFORM_TYPES.join(", ")}.`,
+        line: lineOf(source, match.index),
+      };
+    }
+    if (RESERVED_UNIFORM_NAMES.has(name)) {
+      return {
+        ok: false,
+        reason: `uniform name "${name}" collides with a translator-injected symbol (built-in, varying, or prelude uniform). Rename the uniform to something Bleepforge doesn't already emit.`,
         line: lineOf(source, match.index),
       };
     }

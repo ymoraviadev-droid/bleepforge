@@ -26,6 +26,11 @@ interface Props {
    *  user's AssetPicker pick). Null → runtime keeps its built-in UV-grid
    *  default. */
   mainTextureSource: TexImageSource | null;
+  /** Per-user-sampler texture sources (HTMLImageElement) keyed by the
+   *  uniform's source name. Null values release the sampler's GL
+   *  texture; entries absent from the dict release their bound entries
+   *  too (full reconciliation, not delta). */
+  samplerSources: Record<string, TexImageSource | null>;
   /** Called with the result of every compile so the edit page can
    *  surface errors / clear the error banner on success. */
   onCompileResult?: (result: CompileResult) => void;
@@ -35,6 +40,7 @@ export function PreviewCanvas({
   emit,
   uniformValues,
   mainTextureSource,
+  samplerSources,
   onCompileResult,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -97,6 +103,20 @@ export function PreviewCanvas({
       console.warn("[shader-preview] setMainTexture failed:", err);
     }
   }, [mainTextureSource]);
+
+  // User-sampler textures. Full reconciliation on every change — the
+  // runtime releases entries no longer in the dict and uploads / replaces
+  // entries that are. Keeps the GL state authoritative against the React
+  // state without diff tracking on this side.
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime) return;
+    try {
+      runtime.setSamplerTextures(samplerSources);
+    } catch (err) {
+      console.warn("[shader-preview] setSamplerTextures failed:", err);
+    }
+  }, [samplerSources]);
 
   // Push uniform values. The runtime stores them in a Map and reads on
   // every drawFrame, so this effect is just "stash the latest values"

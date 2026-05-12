@@ -70,12 +70,11 @@ export const CONSTANTS: readonly { name: string; value: string }[] = [
 /** Uniform types the translator recognizes in `uniform <type> <name>;`
  *  declarations. Anything else is rejected with a clear message.
  *
- *  Note: sampler2D is NOT in this set in v1. The built-in `TEXTURE`
- *  built-in maps to a single sampler2D (u_texture) that the user picks
- *  via AssetPicker; additional sampler2D uniforms aren't bound to
- *  anything, so accepting them would compile but render with garbage
- *  data. Surfacing as an unsupported-type error keeps the failure mode
- *  honest. */
+ *  sampler2D is supported: each user sampler gets its own AssetPicker
+ *  in the uniform controls and binds to a dedicated WebGL2 texture
+ *  unit (unit 0 stays reserved for the built-in TEXTURE → u_texture).
+ *  Runtime caps at the GL's MAX_COMBINED_TEXTURE_IMAGE_UNITS (32+ in
+ *  practice) — far past anything a user would author. */
 export const SUPPORTED_UNIFORM_TYPES: readonly string[] = [
   "bool",
   "int",
@@ -83,16 +82,29 @@ export const SUPPORTED_UNIFORM_TYPES: readonly string[] = [
   "vec2",
   "vec3",
   "vec4",
+  "sampler2D",
 ];
 
 /** Hint annotations the translator recognizes inside uniform
  *  declarations. The annotations themselves are stripped from the
- *  emitted GLSL (they're a Godot-specific concept); we just use them
- *  for UI control generation (slider ranges, color pickers, etc.). */
+ *  emitted GLSL (they're a Godot-specific concept); we use them for
+ *  UI control generation (slider ranges, color pickers).
+ *
+ *  filter_* and repeat_* hints are accepted but currently a NO-OP at
+ *  the runtime level — the WebGL2 sampler uses fixed NEAREST + CLAMP
+ *  parameters (pixel-art-friendly). Accepting the hints anyway means
+ *  shaders copied from Godot tutorials don't need manual editing
+ *  before the live preview accepts them. */
 export const SUPPORTED_HINTS: readonly string[] = [
   "hint_range",
   "hint_color",
   "source_color",
+  "filter_nearest",
+  "filter_linear",
+  "filter_nearest_mipmap",
+  "filter_linear_mipmap",
+  "repeat_enable",
+  "repeat_disable",
 ];
 
 /** Features we refuse with a clear error message. Each entry pairs a
@@ -146,3 +158,28 @@ export const SUBSTITUTION_BUILTIN_MAP: ReadonlyMap<string, string> = new Map(
 export const CONSTANT_NAMES: ReadonlySet<string> = new Set(
   CONSTANTS.map((c) => c.name),
 );
+
+/** Names the emitter injects into the GLSL prelude or top-level scope.
+ *  User uniforms can't reuse these names — the emitted source would
+ *  carry two `uniform sampler2D u_texture;` declarations or shadow a
+ *  built-in local with a different type, and the WebGL compiler error
+ *  ("redeclaration of u_texture") wouldn't point the user at the right
+ *  fix. Better to reject at parse time with a specific message. */
+export const RESERVED_UNIFORM_NAMES: ReadonlySet<string> = new Set([
+  // Auto-injected uniforms (prelude)
+  "u_time",
+  "u_texture",
+  "u_texture_pixel_size",
+  "u_resolution",
+  // Varyings + output
+  "v_uv",
+  "fragColor",
+  // Local-built-in names (declared in main())
+  ...LOCAL_BUILTIN_NAMES,
+  // Substitution-built-in names (rewritten in user source)
+  ...SUBSTITUTION_BUILTIN_MAP.keys(),
+  // Math constants
+  ...CONSTANT_NAMES,
+  // The entry point
+  "main",
+]);

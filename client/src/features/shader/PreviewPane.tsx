@@ -18,11 +18,13 @@ import type {
 // gets a self-managed preview out.
 //
 // State that belongs here (not Edit.tsx):
-//   - uniformValues (per-uniform live values; defaults derived from
-//     the parsed declarations, preserved across edits when the uniform
-//     name + type don't change)
-//   - texturePath + loaded HTMLImageElement (picked via AssetPicker;
-//     reuses the same /api/asset endpoint the rest of the app uses)
+//   - uniformValues (per-uniform live values for numeric uniforms;
+//     defaults derived from the parsed declarations, preserved across
+//     edits when the uniform name + type don't change)
+//   - samplerPaths + samplerSources (per-uniform image bindings for
+//     user-declared sampler2D uniforms; same preservation rule)
+//   - texturePath + loaded HTMLImageElement (picked via AssetPicker
+//     for the built-in TEXTURE / u_texture)
 //   - compileErrors (returned by the runtime; surfaced in a banner)
 
 interface Props {
@@ -37,6 +39,12 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
   const [uniformValues, setUniformValues] = useState<Record<string, UniformValue>>(
     () => buildDefaultValues(uniforms),
   );
+  const [samplerPaths, setSamplerPaths] = useState<Record<string, string>>(() =>
+    buildSamplerPaths(uniforms),
+  );
+  const [samplerSources, setSamplerSources] = useState<
+    Record<string, HTMLImageElement | null>
+  >({});
   const [texturePath, setTexturePath] = useState<string>("");
   const [textureSource, setTextureSource] = useState<HTMLImageElement | null>(null);
   const [compileErrors, setCompileErrors] = useState<CompileError[]>([]);
@@ -44,9 +52,11 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
   // Preserve user-tweaked values across editor changes: when the parsed
   // uniform list changes shape, keep entries whose name + type still
   // match; reseed everything else from defaults. Effect runs whenever
-  // the declarations change (not the values themselves).
+  // the declarations change (not the values themselves). Sampler paths
+  // get the same treatment on a parallel channel.
   useEffect(() => {
     setUniformValues((prev) => mergeValues(prev, uniforms));
+    setSamplerPaths((prev) => mergeSamplerPaths(prev, uniforms));
     // Intentionally only depends on the declarations array reference —
     // the parent should pass a fresh array when the source changes,
     // stable otherwise.
@@ -73,6 +83,42 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
       img.onerror = null;
     };
   }, [texturePath]);
+
+  // Per-sampler image loading. One <img> request per active path; the
+  // sampler-sources dict updates as each finishes. Sampler entries
+  // disappear from samplerPaths when the user removes the uniform from
+  // source — this effect prunes the matching source too so the runtime
+  // releases the GL texture on the next setSamplerTextures call.
+  useEffect(() => {
+    const cancels: (() => void)[] = [];
+    // Drop sources whose path was cleared or whose uniform disappeared.
+    setSamplerSources((prev) => {
+      const next: Record<string, HTMLImageElement | null> = {};
+      for (const name of Object.keys(samplerPaths)) {
+        if (samplerPaths[name]) next[name] = prev[name] ?? null;
+        else next[name] = null;
+      }
+      return next;
+    });
+    // Kick off loads for any non-empty paths.
+    for (const [name, path] of Object.entries(samplerPaths)) {
+      if (!path) continue;
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () =>
+        setSamplerSources((prev) => ({ ...prev, [name]: img }));
+      img.onerror = () =>
+        setSamplerSources((prev) => ({ ...prev, [name]: null }));
+      img.src = assetUrl(path);
+      cancels.push(() => {
+        img.onload = null;
+        img.onerror = null;
+      });
+    }
+    return () => {
+      for (const c of cancels) c();
+    };
+  }, [samplerPaths]);
 
   const handleCompileResult = (result: CompileResult) => {
     setCompileErrors(result.ok ? [] : result.errors);
@@ -128,6 +174,7 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
           emit={emit}
           uniformValues={uniformValues}
           mainTextureSource={textureSource}
+          samplerSources={samplerSources}
           onCompileResult={handleCompileResult}
         />
 
@@ -135,7 +182,7 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
 
         <div className="space-y-1">
           <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-500">
-            Test image
+            Test image (TEXTURE)
           </span>
           <AssetPicker
             path={texturePath}
@@ -151,6 +198,10 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
             onChange={(name, value) =>
               setUniformValues((prev) => ({ ...prev, [name]: value }))
             }
+            samplerValues={samplerPaths}
+            onSamplerChange={(name, path) =>
+              setSamplerPaths((prev) => ({ ...prev, [name]: path }))
+            }
             onReset={uniforms.length > 0 ? resetUniforms : undefined}
           />
         </div>
@@ -159,9 +210,16 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
   );
 }
 
+// Sampler uniforms are tracked on a separate channel (samplerPaths /
+// samplerSources), so we exclude them from the numeric-values dict —
+// otherwise we'd be storing meaningless zero entries that bindUniform
+// would try (and fail) to push as floats to a sampler location.
 function buildDefaultValues(uniforms: UniformDecl[]): Record<string, UniformValue> {
   const out: Record<string, UniformValue> = {};
-  for (const u of uniforms) out[u.name] = uniformDefault(u);
+  for (const u of uniforms) {
+    if (u.type === "sampler2D") continue;
+    out[u.name] = uniformDefault(u);
+  }
   return out;
 }
 
@@ -175,6 +233,7 @@ function mergeValues(
 ): Record<string, UniformValue> {
   const out: Record<string, UniformValue> = {};
   for (const u of uniforms) {
+    if (u.type === "sampler2D") continue;
     const existing = prev[u.name];
     if (existing !== undefined && isValueCompatibleWithType(existing, u.type)) {
       out[u.name] = existing;
@@ -192,6 +251,30 @@ function isValueCompatibleWithType(value: UniformValue, type: UniformDecl["type"
   if (type === "vec3") return Array.isArray(value) && value.length === 3;
   if (type === "vec4") return Array.isArray(value) && value.length === 4;
   return false;
+}
+
+// Parallel-channel handling for sampler uniforms. Each entry is a path
+// the user has picked via AssetPicker; the empty string means "no
+// image yet — sampler stays unbound on the runtime side". Preserves
+// picks across edits same as mergeValues does for numeric uniforms.
+function buildSamplerPaths(uniforms: UniformDecl[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const u of uniforms) {
+    if (u.type === "sampler2D") out[u.name] = "";
+  }
+  return out;
+}
+
+function mergeSamplerPaths(
+  prev: Record<string, string>,
+  uniforms: UniformDecl[],
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const u of uniforms) {
+    if (u.type !== "sampler2D") continue;
+    out[u.name] = prev[u.name] ?? "";
+  }
+  return out;
 }
 
 interface ErrorBannerProps {

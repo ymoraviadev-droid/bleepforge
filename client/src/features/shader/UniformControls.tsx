@@ -1,3 +1,4 @@
+import { AssetPicker } from "../../components/AssetPicker";
 import { SliderField } from "../../components/SliderField";
 import { fieldLabel, textInput } from "../../styles/classes";
 import type { UniformDecl, UniformValue } from "./translator";
@@ -13,17 +14,27 @@ import type { UniformDecl, UniformValue } from "./translator";
 //                                            also exposes an alpha
 //                                            slider; alpha defaults to 1)
 //   vec2/vec3/vec4 | no hint               → grouped number inputs
+//   sampler2D                              → AssetPicker (per-uniform
+//                                            image binding; runtime
+//                                            allocates a texture unit)
 //
-// The parent owns the values dict (so a remount doesn't lose state
-// and we can persist between sessions later if we want). This
-// component is a controlled view + per-uniform onChange.
+// Numeric values flow through the `values` dict + `onChange` callback.
+// Sampler bindings are kept on a separate channel (`samplerValues` +
+// `onSamplerChange`) so the existing UniformValue union doesn't have
+// to grow a `string` case — paths aren't really uniform "values" in
+// the GLSL sense and the runtime needs them on a different path
+// (image loading, texture-unit allocation) anyway.
 
 interface Props {
   uniforms: UniformDecl[];
   values: Record<string, UniformValue>;
   onChange: (name: string, value: UniformValue) => void;
-  /** Optional "reset all to defaults" affordance. The parent provides
-   *  the defaults so we don't have to re-derive them here. */
+  samplerValues: Record<string, string>;
+  onSamplerChange: (name: string, path: string) => void;
+  /** Optional "reset all to defaults" affordance for the numeric
+   *  uniforms. Samplers are deliberately left untouched — the user's
+   *  carefully-picked image bindings shouldn't get wiped when they
+   *  scrub a slider too far and want it back to default. */
   onReset?: () => void;
 }
 
@@ -31,6 +42,8 @@ export function UniformControls({
   uniforms,
   values,
   onChange,
+  samplerValues,
+  onSamplerChange,
   onReset,
 }: Props) {
   if (uniforms.length === 0) {
@@ -48,6 +61,8 @@ export function UniformControls({
           uniform={u}
           value={values[u.name]}
           onChange={(v) => onChange(u.name, v)}
+          samplerValue={samplerValues[u.name] ?? ""}
+          onSamplerChange={(path) => onSamplerChange(u.name, path)}
         />
       ))}
       {onReset && (
@@ -67,10 +82,31 @@ interface RowProps {
   uniform: UniformDecl;
   value: UniformValue | undefined;
   onChange: (v: UniformValue) => void;
+  samplerValue: string;
+  onSamplerChange: (path: string) => void;
 }
 
-function UniformRow({ uniform, value, onChange }: RowProps) {
+function UniformRow({
+  uniform,
+  value,
+  onChange,
+  samplerValue,
+  onSamplerChange,
+}: RowProps) {
   const { type, name, hint } = uniform;
+
+  if (type === "sampler2D") {
+    return (
+      <div className="space-y-1">
+        <span className={fieldLabel}>{name}</span>
+        <AssetPicker
+          path={samplerValue}
+          onChange={onSamplerChange}
+          placeholder="(no image)"
+        />
+      </div>
+    );
+  }
 
   if (type === "bool") {
     const v = typeof value === "boolean" ? value : false;
