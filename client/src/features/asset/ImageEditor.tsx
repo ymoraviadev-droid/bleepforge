@@ -527,15 +527,20 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
 
   return (
     <>
+      {/* Z-stack: AssetPicker sits at z-50; the editor is reachable from
+          INSIDE the picker (Import / Edit / Duplicate buttons), so it
+          must layer above. Modal (confirm/prompt) and ContextMenu stay
+          at z-60 so a confirm dialog can still appear over the editor —
+          z-55 threads between them. */}
       <div
-        className="fixed inset-0 z-40 bg-black/70"
+        className="fixed inset-0 z-55 bg-black/70"
         onClick={() => !busy && onClose()}
         aria-hidden
       />
       <div
         role="dialog"
         aria-label={headerLabel}
-        className="fixed inset-4 z-50 mx-auto flex max-w-300 flex-col border-2 border-neutral-700 bg-neutral-950"
+        className="fixed inset-4 z-55 mx-auto flex max-w-300 flex-col border-2 border-neutral-700 bg-neutral-950"
       >
         <header className="flex shrink-0 items-center justify-between gap-4 border-b-2 border-neutral-800 bg-neutral-900 px-4 py-2">
           <h2 className="font-display text-xs uppercase tracking-wider text-emerald-400">
