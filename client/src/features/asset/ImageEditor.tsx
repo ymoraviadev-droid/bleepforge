@@ -807,7 +807,7 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
             role="dialog"
             aria-label="ML background removal"
             aria-busy="true"
-            className="fixed left-1/2 top-1/2 z-60 w-96 -translate-x-1/2 -translate-y-1/2 border-2 border-emerald-700 bg-neutral-950 p-5"
+            className="fixed left-1/2 top-1/2 z-60 w-96 -translate-x-1/2 -translate-y-1/2 bg-neutral-950 p-5"
           >
             <p className="font-display text-xs uppercase tracking-wider text-emerald-400">
               ML background removal

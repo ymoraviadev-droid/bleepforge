@@ -204,11 +204,11 @@ export function App() {
           <NavLink to="/items" className={navLinkClass}>
             Items
           </NavLink>
-          <NavLink to="/codex" className={navLinkClass}>
-            Game codex
-          </NavLink>
           <NavLink to="/shaders" className={navLinkClass}>
             Shaders
+          </NavLink>
+          <NavLink to="/codex" className={navLinkClass}>
+            Game codex
           </NavLink>
           <NavLink to="/assets" className={navLinkClass}>
             Assets

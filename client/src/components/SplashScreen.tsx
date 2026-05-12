@@ -117,22 +117,11 @@ export function SplashScreen({ onDone }: Props) {
   const buttonLabel = progress.ready ? "CONTINUE" : "CONTINUE ANYWAY";
 
   return (
-    // 2px inset (not inset-0) so the body's emerald outline — the same
-    // window-edge accent every other Bleepforge window uses (Preferences
-    // / Diagnostics / Help / main window post-splash) — stays visible
-    // around the splash. A flat inset-0 overlay would paint over it and
-    // hide the edge entirely during boot.
     <div
-      className={`fixed inset-[2px] z-50 flex items-center justify-center bg-neutral-950 transition-opacity duration-200 ${
+      className={`fixed inset-0 z-50 flex items-center justify-center bg-neutral-950 transition-opacity duration-200 ${
         dismissing ? "opacity-0" : "opacity-100"
       }`}
     >
-      {/* Centered content block — no border of its own. The window's
-          own emerald edge (body outline in index.css) frames the splash,
-          and since the OS window is now sized to match the splash, that
-          edge sits right where the card border used to be. Width still
-          capped so the progress bar (w-full) doesn't stretch edge-to-
-          edge. */}
       <div
         className={`flex w-[min(80vw,520px)] flex-col items-center px-10 py-12 transition-transform duration-200 ${
           dismissing ? "scale-95" : "scale-100"

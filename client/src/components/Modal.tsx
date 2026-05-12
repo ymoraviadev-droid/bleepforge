@@ -108,7 +108,7 @@ function Backdrop({
 function Card({ children }: { children: React.ReactNode }) {
   return (
     <div
-      className="w-110 border-2 border-emerald-700 bg-neutral-900 p-5"
+      className="w-110 bg-neutral-900 p-5"
       style={{ boxShadow: "4px 4px 0 0 rgba(0,0,0,0.6)" }}
     >
       {children}
