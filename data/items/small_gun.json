@@ -2,7 +2,7 @@
   "Slug": "small_gun",
   "DisplayName": "Small Gun",
   "Description": "a small working gun",
-  "Icon": "",
+  "Icon": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/small_gun/art/small_gun.png",
   "IsStackable": false,
   "MaxStack": 99,
   "Price": 0,

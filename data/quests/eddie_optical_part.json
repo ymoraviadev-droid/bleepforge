@@ -20,7 +20,7 @@
     {
       "_subId": "Resource_gb4li",
       "Type": "Item",
-      "Item": "facility_keycard",
+      "Item": "recycling_facility_keycard",
       "Quantity": 1,
       "FlagName": "",
       "CreditAmount": 0

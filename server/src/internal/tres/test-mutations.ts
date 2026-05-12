@@ -37,7 +37,7 @@ interface TestCase {
   expectAction?: Action;
 }
 
-const ITEM_REL_PATH = "shared/items/data/rff_keycard.tres";
+const ITEM_REL_PATH = "world/collectibles/keycards/data/rff_keycard.tres";
 
 const UPDATE = { added: 1, removed: 1 };
 const INSERT = { added: 1, removed: 0 };

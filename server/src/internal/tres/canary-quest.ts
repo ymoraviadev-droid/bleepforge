@@ -82,9 +82,9 @@ async function main(): Promise<void> {
   const itemSlugs = new Set<string>();
   for (const obj of json.Objectives) if (obj.TargetItem) itemSlugs.add(obj.TargetItem);
   for (const rwd of json.Rewards) if (rwd.Item) itemSlugs.add(rwd.Item);
-  const itemUidCache = new Map<string, string | null>();
+  const itemCache = new Map<string, { uid: string; resPath: string } | null>();
   for (const slug of itemSlugs) {
-    itemUidCache.set(slug, await readItemUid(astroRoot, slug));
+    itemCache.set(slug, await readItemUid(astroRoot, slug));
   }
   // Pre-resolve script UIDs as fallback for adding the first
   // objective/reward to a quest that lacks the corresponding script ref.
@@ -103,7 +103,7 @@ async function main(): Promise<void> {
     );
   }
   const ctx: QuestApplyContext = {
-    resolveItemUid: (slug) => itemUidCache.get(slug) ?? null,
+    resolveItem: (slug) => itemCache.get(slug) ?? null,
     resolveObjectiveScriptUid: () => objectiveScriptUid,
     resolveRewardScriptUid: () => rewardScriptUid,
   };

@@ -2,7 +2,7 @@
   "Slug": "medkit_small",
   "DisplayName": "Small Medkit",
   "Description": "A Small Medkit",
-  "Icon": "",
+  "Icon": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/medkit/art/medkit.png",
   "IsStackable": true,
   "MaxStack": 99,
   "Price": 10,

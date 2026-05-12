@@ -7,12 +7,49 @@
 import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
 
-// Reads `<root>/shared/items/data/<slug>.tres` and extracts the UID from
-// its `[gd_resource ... uid="uid://..."]` header. Returns null if the file
-// can't be read or has no UID.
-export async function readItemUid(godotRoot: string, slug: string): Promise<string | null> {
-  const path = join(godotRoot, "shared", "items", "data", `${slug}.tres`);
-  return readGdResourceUid(path);
+// Finds the ItemData .tres for a slug under `world/collectibles/<category>/data/`,
+// reads its UID, and returns both the UID and the `res://` path that the quest
+// writer needs when minting an ext_resource. Walks category subfolders matching
+// on `Slug = "<slug>"` (the category dir isn't derivable from the slug).
+// Returns null if no file matches or the file has no UID.
+export async function readItemUid(
+  godotRoot: string,
+  slug: string,
+): Promise<{ uid: string; resPath: string } | null> {
+  const collectiblesDir = join(godotRoot, "world", "collectibles");
+  let categoryDirs;
+  try {
+    categoryDirs = await readdir(collectiblesDir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  const slugLine = `Slug = "${slug}"`;
+  for (const c of categoryDirs) {
+    if (!c.isDirectory()) continue;
+    const dataDir = join(collectiblesDir, c.name, "data");
+    let entries;
+    try {
+      entries = await readdir(dataDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const f of entries) {
+      if (!f.isFile() || !f.name.endsWith(".tres")) continue;
+      const abs = join(dataDir, f.name);
+      let text: string;
+      try {
+        text = await readFile(abs, "utf8");
+      } catch {
+        continue;
+      }
+      if (!text.includes(slugLine)) continue;
+      const m = text.match(/^\[gd_resource[^\]]*\buid="([^"]+)"/m);
+      if (!m) return null;
+      const resPath = `res://world/collectibles/${c.name}/data/${f.name}`;
+      return { uid: m[1]!, resPath };
+    }
+  }
+  return null;
 }
 
 // Reads the BalloonLine .tres at `characters/npcs/<folder>/balloons/<basename>.tres`

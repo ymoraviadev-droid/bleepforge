@@ -2,7 +2,7 @@
   "Slug": "credits",
   "DisplayName": "Credits",
   "Description": "credits",
-  "Icon": "",
+  "Icon": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/credits/art/credits.png",
   "IsStackable": true,
   "MaxStack": 10000000000,
   "Price": 1,

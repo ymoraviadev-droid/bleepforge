@@ -38,14 +38,14 @@
     "Entries": [
       {
         "_subId": "Resource_blrjq",
-        "PickupScene": "res://world/collectibles/facility_keycard/facility_keycard.tscn",
+        "PickupScene": "res://world/collectibles/keycards/recycling_facility_keycard.tscn",
         "Chance": 1,
         "MinAmount": 1,
         "MaxAmount": 1
       },
       {
         "_subId": "Resource_eocre",
-        "PickupScene": "res://world/collectibles/blue_credits/blue_credits.tscn",
+        "PickupScene": "res://world/collectibles/credits/credits.tscn",
         "Chance": 0.5,
         "MinAmount": 1,
         "MaxAmount": 1

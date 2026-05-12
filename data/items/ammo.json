@@ -2,7 +2,7 @@
   "Slug": "ammo",
   "DisplayName": "Ammo",
   "Description": "Laser guns ammo",
-  "Icon": "",
+  "Icon": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/ammo/art/ammo.png",
   "IsStackable": true,
   "MaxStack": 99,
   "Price": 5,

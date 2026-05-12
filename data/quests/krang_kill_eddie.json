@@ -9,8 +9,8 @@
       "Id": "deliver_keycard",
       "Description": "Bring the facility keycard to Krang.",
       "Type": "CollectItem",
-      "TargetItem": "facility_keycard",
-      "TargetId": "facility_keycard",
+      "TargetItem": "recycling_facility_keycard",
+      "TargetId": "recycling_facility_keycard",
       "EnemyType": "",
       "RequiredCount": 1,
       "ConsumeOnTurnIn": false

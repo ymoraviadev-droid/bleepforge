@@ -357,9 +357,9 @@ export async function writeQuestTres(json: Quest): Promise<TresWriteResult> {
   const itemSlugs = new Set<string>();
   for (const o of json.Objectives) if (o.TargetItem) itemSlugs.add(o.TargetItem);
   for (const r of json.Rewards) if (r.Item) itemSlugs.add(r.Item);
-  const itemUidCache = new Map<string, string | null>();
+  const itemCache = new Map<string, { uid: string; resPath: string } | null>();
   for (const slug of itemSlugs) {
-    itemUidCache.set(slug, await readItemUid(root, slug));
+    itemCache.set(slug, await readItemUid(root, slug));
   }
   const objScriptUid =
     json.Objectives.length > 0
@@ -370,7 +370,7 @@ export async function writeQuestTres(json: Quest): Promise<TresWriteResult> {
       ? await findScriptUidInProject(root, "res://shared/components/quest/QuestReward.cs")
       : null;
   const ctx: QuestApplyContext = {
-    resolveItemUid: (s) => itemUidCache.get(s) ?? null,
+    resolveItem: (s) => itemCache.get(s) ?? null,
     resolveObjectiveScriptUid: () => objScriptUid,
     resolveRewardScriptUid: () => rwdScriptUid,
   };
@@ -505,8 +505,26 @@ async function findItemTres(
   godotRoot: string,
   slug: string,
 ): Promise<{ path: string } | null> {
-  const dir = join(godotRoot, "shared", "items", "data");
-  return findInDirByContent(dir, (text) => text.includes(`Slug = "${slug}"`));
+  // Items live at world/collectibles/<category>/data/<file>.tres. The
+  // category dir is not derivable from the slug (e.g. "rff_keycard" lives in
+  // "keycards/", "small_gun" in "small_gun/"), so we walk category subfolders
+  // and content-match on Slug — same shape as findNpcTres.
+  const dir = join(godotRoot, "world", "collectibles");
+  let categoryDirs;
+  try {
+    categoryDirs = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
+  for (const c of categoryDirs) {
+    if (!c.isDirectory()) continue;
+    const dataDir = join(dir, c.name, "data");
+    const found = await findInDirByContent(dataDir, (text) =>
+      text.includes(`Slug = "${slug}"`),
+    );
+    if (found) return found;
+  }
+  return null;
 }
 
 async function findKarmaTres(

@@ -17,7 +17,9 @@ import {
 // add, update, remove all work via stable identity matching.
 
 export interface QuestApplyContext {
-  resolveItemUid(slug: string): string | null;
+  // Items live at world/collectibles/<category>/data/<slug>.tres; both the UID
+  // and the actual res:// path are needed to mint a new ext_resource.
+  resolveItem(slug: string): { uid: string; resPath: string } | null;
   resolveObjectiveScriptUid(): string | null;
   resolveRewardScriptUid(): string | null;
 }
@@ -462,17 +464,22 @@ function ensureItemExtResource(
   contextLabel: string,
   warnings: string[],
 ): string | null {
-  const existing = findItemExtResourceBySlug(doc, slug);
+  const resolved = ctx ? ctx.resolveItem(slug) : null;
+  // The .tres filename basename isn't reliable identity (corpus has at least
+  // one item — facility_keycard — whose .tres is named recycling_facility_keycard.tres),
+  // so dedupe by Godot's actual identity: UID first, then exact resPath. Falls
+  // back to a suffix match if we couldn't resolve the slug at all, which is
+  // best-effort but at least keeps things working in degraded states.
+  const existing = resolved
+    ? findItemExtResourceByUidOrPath(doc, resolved.uid, resolved.resPath)
+    : findItemExtResourceBySlugBasename(doc, slug);
   if (existing) return existing;
-  if (ctx) {
-    const uid = ctx.resolveItemUid(slug);
-    if (uid) {
-      return addExtResource(doc, {
-        type: "Resource",
-        uid,
-        path: `res://shared/items/data/${slug}.tres`,
-      });
-    }
+  if (resolved) {
+    return addExtResource(doc, {
+      type: "Resource",
+      uid: resolved.uid,
+      path: resolved.resPath,
+    });
   }
   warnings.push(
     `${contextLabel}: item slug "${slug}" has no ext_resource and uid lookup failed — reference left unchanged`,
@@ -494,11 +501,32 @@ function ensureScriptExtResource(
   return { id, uid: uidFromCtx };
 }
 
-function findItemExtResourceBySlug(doc: Doc, slug: string): string | null {
-  const wantPath = `res://shared/items/data/${slug}.tres`;
+function findItemExtResourceByUidOrPath(
+  doc: Doc,
+  uid: string,
+  resPath: string,
+): string | null {
   for (const s of doc.sections) {
     if (s.kind !== "ext_resource") continue;
-    if (getAttrValue(s, "path") !== wantPath) continue;
+    if (getAttrValue(s, "type") !== "Resource") continue;
+    const id = getAttrValue(s, "id");
+    if (!id) continue;
+    if (getAttrValue(s, "uid") === uid) return id;
+    if (getAttrValue(s, "path") === resPath) return id;
+  }
+  return null;
+}
+
+// Fallback lookup when we couldn't resolve the slug to a real file — match by
+// the slug-equals-basename convention. Holds for most of the corpus but not
+// universally, which is why we prefer UID/path matching when available.
+function findItemExtResourceBySlugBasename(doc: Doc, slug: string): string | null {
+  const wantSuffix = `/data/${slug}.tres`;
+  for (const s of doc.sections) {
+    if (s.kind !== "ext_resource") continue;
+    if (getAttrValue(s, "type") !== "Resource") continue;
+    const path = getAttrValue(s, "path");
+    if (!path || !path.endsWith(wantSuffix)) continue;
     const id = getAttrValue(s, "id");
     if (id) return id;
   }

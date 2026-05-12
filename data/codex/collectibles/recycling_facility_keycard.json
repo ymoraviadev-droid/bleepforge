@@ -1,0 +1,13 @@
+{
+  "Id": "recycling_facility_keycard",
+  "DisplayName": "Recycling Facility Keycard",
+  "Image": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/keycards/art/facility_keycard.png",
+  "Description": "Tier-keyed access card for facility doors. Quest item \u2014 opens a specific door/zone the player needs to reach.",
+  "Path": "world/collectibles/keycards/",
+  "Properties": {
+    "tags": [
+      "quest",
+      "access"
+    ]
+  }
+}

@@ -27,7 +27,7 @@
     "Entries": [
       {
         "_subId": "Resource_unbhu",
-        "PickupScene": "res://world/collectibles/blue_credits/blue_credits.tscn",
+        "PickupScene": "res://world/collectibles/credits/credits.tscn",
         "Chance": 1,
         "MinAmount": 1,
         "MaxAmount": 1

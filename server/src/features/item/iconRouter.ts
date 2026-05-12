@@ -34,19 +34,35 @@ itemIconRouter.get("/:slug", async (req, res) => {
     return;
   }
   const slug = String(req.params.slug);
-  const itemsDir = path.join(config.godotProjectRoot, "shared", "items", "data");
-
-  let entries;
+  // Items live at world/collectibles/<category>/data/<slug>.tres. The
+  // category dir isn't derivable from the slug, so walk category subfolders
+  // matching on Slug content — same shape as findItemTres in writer.ts.
+  const collectiblesDir = path.join(config.godotProjectRoot, "world", "collectibles");
+  let categoryDirs;
   try {
-    entries = await readdir(itemsDir, { withFileTypes: true });
-  } catch (err) {
-    res.status(404).json({ error: `items directory not found: ${itemsDir}` });
+    categoryDirs = await readdir(collectiblesDir, { withFileTypes: true });
+  } catch {
+    res.status(404).json({ error: `collectibles directory not found: ${collectiblesDir}` });
     return;
   }
 
-  for (const e of entries) {
-    if (!e.isFile() || !e.name.endsWith(".tres")) continue;
-    const abs = path.join(itemsDir, e.name);
+  const candidates: string[] = [];
+  for (const c of categoryDirs) {
+    if (!c.isDirectory()) continue;
+    const dataDir = path.join(collectiblesDir, c.name, "data");
+    let entries;
+    try {
+      entries = await readdir(dataDir, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+    for (const e of entries) {
+      if (!e.isFile() || !e.name.endsWith(".tres")) continue;
+      candidates.push(path.join(dataDir, e.name));
+    }
+  }
+
+  for (const abs of candidates) {
     let text: string;
     try {
       text = await readFile(abs, "utf8");

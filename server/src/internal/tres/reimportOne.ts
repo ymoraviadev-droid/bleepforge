@@ -38,8 +38,10 @@ export function detectDomain(absPath: string): {
   domain: SyncDomain;
   key: string;
 } | null {
-  // Items: shared/items/data/<slug>.tres
-  const itemMatch = absPath.match(/[/\\]shared[/\\]items[/\\]data[/\\]([^/\\]+)\.tres$/);
+  // Items: world/collectibles/<category>/data/<slug>.tres
+  const itemMatch = absPath.match(
+    /[/\\]world[/\\]collectibles[/\\][^/\\]+[/\\]data[/\\]([^/\\]+)\.tres$/,
+  );
   if (itemMatch) return { domain: "item", key: itemMatch[1]! };
 
   // Karma: shared/components/karma/impacts/<id>.tres
@@ -157,8 +159,10 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
         resolveItemSlugByExtRef: (p, id) => {
           const ext = p.extResources.get(id);
           if (!ext) return null;
-          // res://shared/items/data/<slug>.tres -> <slug>
-          const m = ext.path.match(/[/\\]shared[/\\]items[/\\]data[/\\]([^/\\]+)\.tres$/);
+          // res://world/collectibles/<category>/data/<slug>.tres -> <slug>
+          const m = ext.path.match(
+            /[/\\]world[/\\]collectibles[/\\][^/\\]+[/\\]data[/\\]([^/\\]+)\.tres$/,
+          );
           return m ? m[1]! : null;
         },
       });

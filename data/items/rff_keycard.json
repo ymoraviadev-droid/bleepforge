@@ -2,7 +2,7 @@
   "Slug": "rff_keycard",
   "DisplayName": "R.F.F Keycard",
   "Description": "A Keycard for the R.F.F Head Quarters",
-  "Icon": "",
+  "Icon": "/home/ymoravia/Data/Projects/Godot/astro-man/world/collectibles/keycards/art/rff_keycard.png",
   "IsStackable": false,
   "MaxStack": 99,
   "Price": 500,
