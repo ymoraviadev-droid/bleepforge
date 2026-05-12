@@ -17,7 +17,8 @@ import {
 import { PreviewPane } from "./PreviewPane";
 import { ShaderUsagesPanel } from "./UsagesPanel";
 import { emitGlsl, parseGdshader } from "./translator";
-import type { EmitResult, UniformDecl } from "./translator";
+import type { CompileError, CompileResult, EmitResult, UniformDecl } from "./translator";
+import type { ShaderDiagnostic } from "./diagnostics";
 
 // Shader edit page. Phases 2 + 3 ship full authoring + live preview:
 // CodeMirror editor with GDShader syntax highlighting, dirty indicator,
@@ -258,6 +259,10 @@ export function ShaderEdit() {
     reason: string;
     line: number | null;
   } | null>(null);
+  /** Latest WebGL compile errors from PreviewPane. Lifted here so the
+   *  same data drives both the preview's red banner AND the CodeMirror
+   *  gutter markers below. */
+  const [compileErrors, setCompileErrors] = useState<CompileError[]>([]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -276,6 +281,37 @@ export function ShaderEdit() {
     }, 150);
     return () => clearTimeout(timer);
   }, [editing]);
+
+  const handleCompileResult = useCallback((result: CompileResult) => {
+    setCompileErrors(result.ok ? [] : result.errors);
+  }, []);
+
+  // Aggregate parser + WebGL diagnostics for the editor's gutter. Both
+  // surfaces already use 1-indexed user-source lines, so the mapping
+  // is direct. Compile errors that couldn't be line-mapped (userLine
+  // null — typically prelude-level issues we'd never expect a user to
+  // see) get omitted from the gutter; they still appear in the banner.
+  const diagnostics = useMemo<ShaderDiagnostic[]>(() => {
+    const out: ShaderDiagnostic[] = [];
+    if (parseError && parseError.line !== null) {
+      out.push({
+        line: parseError.line,
+        severity: "error",
+        message: parseError.reason,
+        source: "translator",
+      });
+    }
+    for (const err of compileErrors) {
+      if (err.userLine === null) continue;
+      out.push({
+        line: err.userLine,
+        severity: "error",
+        message: err.message,
+        source: "webgl",
+      });
+    }
+    return out;
+  }, [parseError, compileErrors]);
 
   if (notFound) return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
@@ -388,11 +424,18 @@ export function ShaderEdit() {
               onChange={setEditing}
               onSave={handleSave}
               readOnly={externalChange?.kind === "removed"}
+              diagnostics={diagnostics}
             />
           </div>
         </section>
         <div className="space-y-4">
-          <PreviewPane emit={emit} uniforms={uniforms} parseError={parseError} />
+          <PreviewPane
+            emit={emit}
+            uniforms={uniforms}
+            parseError={parseError}
+            compileErrors={compileErrors}
+            onCompileResult={handleCompileResult}
+          />
           <ShaderUsagesPanel usages={usages} error={usagesError} />
         </div>
       </div>

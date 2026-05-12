@@ -2,6 +2,11 @@ import { useEffect, useRef } from "react";
 
 import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import { bracketMatching, indentUnit } from "@codemirror/language";
+import {
+  type Diagnostic,
+  lintGutter,
+  setDiagnostics,
+} from "@codemirror/lint";
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
   EditorView,
@@ -11,6 +16,7 @@ import {
   highlightActiveLineGutter,
 } from "@codemirror/view";
 
+import type { ShaderDiagnostic } from "./diagnostics";
 import { gdshaderExtension } from "./gdshaderLang";
 
 // CodeMirror 6 wrapper for GDShader editing. Stays uncontrolled in the
@@ -38,9 +44,21 @@ interface Props {
   onChange: (value: string) => void;
   onSave?: () => void;
   readOnly?: boolean;
+  /** Translator + WebGL diagnostics to surface in the gutter. Pushed
+   *  imperatively via setDiagnostics on every change — we don't
+   *  register a linter() source since the diagnostics are produced
+   *  externally (parse + compile happen in the edit page's pipeline,
+   *  not from doc text alone). */
+  diagnostics?: ShaderDiagnostic[];
 }
 
-export function CodeEditor({ value, onChange, onSave, readOnly }: Props) {
+export function CodeEditor({
+  value,
+  onChange,
+  onSave,
+  readOnly,
+  diagnostics,
+}: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const onChangeRef = useRef(onChange);
@@ -85,6 +103,11 @@ export function CodeEditor({ value, onChange, onSave, readOnly }: Props) {
       ]),
       EditorView.lineWrapping,
       EditorView.theme(THEME, { dark: true }),
+      // Gutter icons for translator + WebGL diagnostics. lintGutter()
+      // alone (without a linter() source) gives us the gutter UI; we
+      // push the actual diagnostic state imperatively via setDiagnostics
+      // in the effect below.
+      lintGutter(),
       readOnlyCompartmentRef.current.of(EditorState.readOnly.of(!!readOnly)),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged) return;
@@ -129,6 +152,17 @@ export function CodeEditor({ value, onChange, onSave, readOnly }: Props) {
       ),
     });
   }, [readOnly]);
+
+  // Push diagnostics into the gutter on every change. We clamp out-of-
+  // range lines defensively — the parser can report a line past the
+  // current doc if the user just deleted text below the error site,
+  // and CodeMirror's line() throws on invalid line numbers.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const cm6Diags = toCm6Diagnostics(view, diagnostics ?? []);
+    view.dispatch(setDiagnostics(view.state, cm6Diags));
+  }, [diagnostics]);
 
   return (
     <div
@@ -191,3 +225,29 @@ const THEME = {
     color: "var(--color-emerald-300)",
   },
 } as const;
+
+// Convert our ShaderDiagnostic shape into CodeMirror 6's Diagnostic
+// shape. The shader records carry 1-indexed user-source lines; CM6
+// wants from/to character offsets, so we look up the line range from
+// the view's current doc. Out-of-range lines (parser claims line 50
+// after the user deleted text and the doc only has 30 lines) get
+// filtered — CM6's doc.line() throws on invalid input.
+function toCm6Diagnostics(
+  view: EditorView,
+  diags: ShaderDiagnostic[],
+): Diagnostic[] {
+  const doc = view.state.doc;
+  const out: Diagnostic[] = [];
+  for (const d of diags) {
+    if (d.line < 1 || d.line > doc.lines) continue;
+    const lineInfo = doc.line(d.line);
+    out.push({
+      from: lineInfo.from,
+      to: lineInfo.to,
+      severity: d.severity,
+      message: d.message,
+      source: d.source,
+    });
+  }
+  return out;
+}

@@ -33,9 +33,23 @@ interface Props {
   /** Parser-level reason that emit is null. Lets us show a single
    *  unified error pane instead of a blank panel. */
   parseError: { reason: string; line: number | null } | null;
+  /** Latest WebGL compile errors (or empty when clean). Lifted to the
+   *  edit page so the same list drives both this pane's red banner
+   *  AND the CodeMirror gutter markers — single source of truth. */
+  compileErrors: CompileError[];
+  /** Called when the PreviewCanvas finishes a compile, success or
+   *  failure. The edit page uses this to update its compileErrors
+   *  state. */
+  onCompileResult: (result: CompileResult) => void;
 }
 
-export function PreviewPane({ emit, uniforms, parseError }: Props) {
+export function PreviewPane({
+  emit,
+  uniforms,
+  parseError,
+  compileErrors,
+  onCompileResult,
+}: Props) {
   const [uniformValues, setUniformValues] = useState<Record<string, UniformValue>>(
     () => buildDefaultValues(uniforms),
   );
@@ -47,7 +61,6 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
   >({});
   const [texturePath, setTexturePath] = useState<string>("");
   const [textureSource, setTextureSource] = useState<HTMLImageElement | null>(null);
-  const [compileErrors, setCompileErrors] = useState<CompileError[]>([]);
 
   // Preserve user-tweaked values across editor changes: when the parsed
   // uniform list changes shape, keep entries whose name + type still
@@ -120,10 +133,6 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
     };
   }, [samplerPaths]);
 
-  const handleCompileResult = (result: CompileResult) => {
-    setCompileErrors(result.ok ? [] : result.errors);
-  };
-
   const resetUniforms = () => setUniformValues(buildDefaultValues(uniforms));
 
   const errorBanner = useMemo(() => {
@@ -175,7 +184,7 @@ export function PreviewPane({ emit, uniforms, parseError }: Props) {
           uniformValues={uniformValues}
           mainTextureSource={textureSource}
           samplerSources={samplerSources}
-          onCompileResult={handleCompileResult}
+          onCompileResult={onCompileResult}
         />
 
         {errorBanner}
