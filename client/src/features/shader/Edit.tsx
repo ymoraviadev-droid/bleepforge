@@ -14,16 +14,19 @@ import {
   shaderTypeLabel,
   shaderTypeStyle,
 } from "./format";
+import { PreviewPane } from "./PreviewPane";
 import { ShaderUsagesPanel } from "./UsagesPanel";
+import { emitGlsl, parseGdshader } from "./translator";
+import type { EmitResult, UniformDecl } from "./translator";
 
-// Shader edit page. Phase 2 ships full authoring: CodeMirror editor with
-// GDShader syntax highlighting, dirty indicator, save (button + Ctrl+S),
-// delete, duplicate, and external-edit banner when the watcher detects
-// disk changes during in-flight edits.
+// Shader edit page. Phases 2 + 3 ship full authoring + live preview:
+// CodeMirror editor with GDShader syntax highlighting, dirty indicator,
+// save (button + Ctrl+S), delete, duplicate, external-edit banner —
+// PLUS a WebGL2 preview canvas that re-translates GDShader → GLSL ES on
+// every edit, with auto-generated uniform controls.
 //
 // Path comes via ?path= so the URL stays valid for any shader regardless
-// of folder depth. Same shape as the Phase 1 view page; we just gained
-// edit affordances around the existing structure.
+// of folder depth.
 
 type SaveState =
   | { kind: "idle" }
@@ -245,6 +248,35 @@ export function ShaderEdit() {
     [editing],
   );
 
+  // Translate GDShader → GLSL ES whenever the editor content changes,
+  // debounced so a burst of keystrokes doesn't trigger N WebGL
+  // recompiles. 150ms is fast enough that the preview feels live but
+  // slow enough that scrolling-through-text-fixes batches naturally.
+  const [emit, setEmit] = useState<EmitResult | null>(null);
+  const [uniforms, setUniforms] = useState<UniformDecl[]>([]);
+  const [parseError, setParseError] = useState<{
+    reason: string;
+    line: number | null;
+  } | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const result = parseGdshader(editing);
+      if (!result.ok) {
+        setParseError({ reason: result.reason, line: result.line });
+        setEmit(null);
+        // Leave uniforms in their last-good state — keeps the live
+        // controls visible while the user is mid-typo. They get
+        // re-derived when the parse next succeeds.
+        return;
+      }
+      setParseError(null);
+      setUniforms(result.uniforms);
+      setEmit(emitGlsl(result));
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [editing]);
+
   if (notFound) return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (!asset) return <div className="text-neutral-500">Loading…</div>;
@@ -340,7 +372,7 @@ export function ShaderEdit() {
         />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_22rem]">
+      <div className="grid gap-4 lg:grid-cols-[1fr_24rem]">
         <section className="overflow-hidden border-2 border-neutral-800 bg-neutral-950">
           <header className="flex items-center justify-between border-b-2 border-neutral-800 px-3 py-2">
             <h2 className="font-display text-xs uppercase tracking-wider text-neutral-300">
@@ -359,13 +391,10 @@ export function ShaderEdit() {
             />
           </div>
         </section>
-        <ShaderUsagesPanel usages={usages} error={usagesError} />
-      </div>
-
-      <div className="border-t-2 border-neutral-800/60 pt-3 font-mono text-[10px] text-neutral-600">
-        Phase 2 of the shader work — in-app authoring (save / new / duplicate /
-        delete). Phase 3 will add the GDShader → GLSL ES translator and a
-        live WebGL preview canvas next to the editor.
+        <div className="space-y-4">
+          <PreviewPane emit={emit} uniforms={uniforms} parseError={parseError} />
+          <ShaderUsagesPanel usages={usages} error={usagesError} />
+        </div>
       </div>
     </div>
   );
