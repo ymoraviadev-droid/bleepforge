@@ -159,7 +159,7 @@ export function Sidebar() {
           Same four icons + same severity-aware tinting the old top bar
           had, just stacked above search + nav instead of beside them. */}
       <div className="shrink-0 border-y-2 border-neutral-800 px-3 py-2">
-        <div className="flex items-center justify-center gap-1.5">
+        <div className="flex items-center justify-evenly">
           <NavLink
             to="/diagnostics"
             onClick={(e) => popoutOrNavigate(e, "/diagnostics")}
