@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { processApi, type ProcessInfo } from "../../lib/api";
+import { formatLongDateTime } from "../../lib/date";
 
 // Read-only "what is the running server" view. Useful when you suspect the
 // process you're talking to isn't the one you expect — common after editing
@@ -44,7 +45,7 @@ export function ProcessTab() {
         <Row label="Port" value={String(info.port)} mono />
         <Row
           label="Started"
-          value={`${new Date(info.startedAt).toLocaleString()} (uptime ${formatUptime(info.uptimeMs)})`}
+          value={`${formatLongDateTime(info.startedAt)} (uptime ${formatUptime(info.uptimeMs)})`}
         />
         <Row label="Data root" value={info.dataRoot} mono />
         <Row label="Asset root" value={info.assetRoot} mono />

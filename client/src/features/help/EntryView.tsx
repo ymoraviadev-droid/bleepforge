@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { compareEntries } from "@bleepforge/shared";
+import { formatLongDate } from "../../lib/date";
 import { useDevMode } from "../../lib/useDevMode";
 import { ButtonLink } from "../../components/Button";
 import { NotFoundPage } from "../../components/NotFoundPage";
@@ -97,7 +98,7 @@ export function EntryView() {
           )}
           {entry.UpdatedAt && (
             <span>
-              updated {new Date(entry.UpdatedAt).toLocaleDateString()}
+              updated {formatLongDate(entry.UpdatedAt)}
             </span>
           )}
         </div>

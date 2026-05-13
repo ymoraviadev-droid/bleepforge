@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { reconcileApi, type ReconcileStatus } from "../../lib/api";
+import { formatLongDateTime } from "../../lib/date";
 
 // Boot-reconcile diagnostic tab. Same content as the previous /reconcile page
 // minus the page chrome (header lives in HealthPage). Read-only — rebuilding
@@ -50,7 +51,7 @@ export function ReconcileTab() {
     (n, c) => n + c.imported,
     0,
   );
-  const ranAt = new Date(s.ranAt).toLocaleString();
+  const ranAt = formatLongDateTime(s.ranAt);
 
   return (
     <div className="space-y-4">

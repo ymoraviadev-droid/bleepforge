@@ -1,0 +1,8 @@
+{
+  "Category": "release-notes",
+  "DisplayName": "Release notes",
+  "Color": "amber",
+  "Description": "What changed in each version of Bleepforge. Newest first. v0.1.0 covers everything that landed up to the first Linux AppImage release; subsequent entries cover the gaps.",
+  "Order": 100,
+  "CreatedAt": "2026-05-13T00:15:40.000Z"
+}
