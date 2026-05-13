@@ -98,6 +98,37 @@ const diagClass = (
     return prefsClass({ isActive });
   };
 
+// Renders the build version subline under BLEEPFORGE. Detects any
+// semver pre-release suffix (-dev / -rc / -beta / etc.) on the
+// version string and switches color + tooltip to make the dev state
+// legible at a glance. Stable builds (no suffix) read neutral; dev
+// builds read amber with a "last stable was X" tooltip. The last-
+// stable version is sourced from electron/package.json's `lastStable`
+// custom field via Vite's __LAST_STABLE_VERSION__ define.
+function VersionLabel() {
+  const version = __APP_VERSION__;
+  const isPreRelease = version.includes("-");
+  if (!isPreRelease) {
+    return (
+      <div className="mt-0.5 font-mono text-[10px] text-neutral-500">
+        v{version}
+      </div>
+    );
+  }
+  const lastStable = __LAST_STABLE_VERSION__;
+  const tooltip = lastStable
+    ? `Development build — last stable: v${lastStable}`
+    : "Development build";
+  return (
+    <div
+      className="mt-0.5 font-mono text-[10px] text-amber-400 cursor-help"
+      title={tooltip}
+    >
+      v{version}
+    </div>
+  );
+}
+
 async function handleRestart(): Promise<void> {
   const ok = await showConfirm({
     title: "Restart Bleepforge?",
@@ -152,9 +183,7 @@ export function Sidebar() {
         >
           BLEEPFORGE
         </div>
-        <div className="mt-0.5 font-mono text-[10px] text-neutral-500">
-          v{__APP_VERSION__}
-        </div>
+        <VersionLabel />
       </div>
 
       {/* Meta-action icons — single horizontal row inside the sidebar.

@@ -142,7 +142,20 @@ export function SplashScreen({ onDone }: Props) {
         </div>
         <div className="mt-2 font-mono text-xs text-neutral-500">
           Flock of Bleeps · planning tool ·{" "}
-          <span className="text-emerald-500">v{__APP_VERSION__}</span>
+          <span
+            className={
+              __APP_VERSION__.includes("-")
+                ? "text-amber-400"
+                : "text-emerald-500"
+            }
+            title={
+              __APP_VERSION__.includes("-") && __LAST_STABLE_VERSION__
+                ? `Development build — last stable: v${__LAST_STABLE_VERSION__}`
+                : undefined
+            }
+          >
+            v{__APP_VERSION__}
+          </span>
         </div>
 
         <div className="mt-10 w-full border-2 border-neutral-700 bg-neutral-900 p-1">
