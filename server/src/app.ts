@@ -58,32 +58,79 @@ export interface StartedServer {
   close: () => Promise<void>;
 }
 
-// Seed the Help library from the binary's bundled seed dir if the user's
-// help dir is missing or empty. Bleepforge ships its built-in help
-// content (the 56 entries authored alongside the app itself) inside
-// app.asar at <BLEEPFORGE_SEED_ROOT>/help; on a fresh install with a
-// blank userData dir, this copies it into <dataRoot>/help so the user
-// has documentation out of the box. The Codex and Concept doc are
-// intentionally NOT seeded — those are user-authored content for their
-// project, not built-in.
+// Seed the Help library from the binary's bundled seed dir into the user's
+// help dir. Bleepforge ships its built-in help content (the entries authored
+// alongside the app itself) inside app.asar at <BLEEPFORGE_SEED_ROOT>/help.
 //
-// Idempotent: runs only when the destination is absent or empty, so
-// subsequent launches don't overwrite the user's edits to help entries.
+// Two paths:
+//
+//   1. Fresh install (userData/help missing or empty) — copy the whole seed
+//      tree so the user has the full library out of the box.
+//   2. Upgrade install (userData/help already has content) — walk the seed
+//      tree and copy only files that DON'T already exist in userData. New
+//      entries shipped in a newer build (e.g. the v0.3.0 release notes
+//      entry) flow into userData automatically on first boot of the
+//      upgraded AppImage; existing entries the user may have edited are
+//      never overwritten. Deletions from the seed are intentionally NOT
+//      propagated — if a help entry is removed from the bundled seed in
+//      a future version, the user's stale copy lingers harmlessly.
+//
+// What this DOESN'T do: re-sync content updates to existing entries.
+// If v0.3.0 ships a typo fix on a file the user already has, the user
+// keeps the old version. Doing that properly requires a "last-seeded
+// hashes" manifest so we can tell "user-edited" from "untouched, safe
+// to overwrite" — deferred until it becomes a real problem.
+//
+// The Codex and Concept docs are intentionally NOT seeded — those are
+// user-authored content for their project, not built-in.
 function seedHelpLibrary(): void {
   const seedRoot = process.env.BLEEPFORGE_SEED_ROOT;
   if (!seedRoot) return;
   const seedHelp = path.join(seedRoot, "help");
   if (!fs.existsSync(seedHelp)) return;
   const destHelp = folderAbs.help;
-  const alreadyHas =
-    fs.existsSync(destHelp) && fs.readdirSync(destHelp).length > 0;
-  if (alreadyHas) return;
-  // Manual recursive copy: fs.cpSync uses opendirSync internally which
-  // doesn't work inside Electron's asar virtual filesystem (ENOTDIR).
-  // readdirSync + copyFileSync are both supported by Electron's asar
-  // polyfill, so we walk the tree ourselves.
-  copyDirRecursive(seedHelp, destHelp);
-  console.log(`[bleepforge/server] seeded help library: ${seedHelp} → ${destHelp}`);
+  const isFreshInstall =
+    !fs.existsSync(destHelp) || fs.readdirSync(destHelp).length === 0;
+
+  if (isFreshInstall) {
+    // Manual recursive copy: fs.cpSync uses opendirSync internally which
+    // doesn't work inside Electron's asar virtual filesystem (ENOTDIR).
+    // readdirSync + copyFileSync are both supported by Electron's asar
+    // polyfill, so we walk the tree ourselves.
+    copyDirRecursive(seedHelp, destHelp);
+    console.log(`[bleepforge/server] seeded help library: ${seedHelp} → ${destHelp}`);
+    return;
+  }
+
+  const newCount = mergeMissingFilesRecursive(seedHelp, destHelp);
+  if (newCount > 0) {
+    console.log(
+      `[bleepforge/server] help library merge: copied ${newCount} new file(s) from seed → ${destHelp}`,
+    );
+  }
+}
+
+// Walk `src` and copy any file whose corresponding `dest` path doesn't yet
+// exist. Never overwrites existing files. Returns the count of new files
+// copied. Used by the help-library upgrade path so new entries shipped in
+// a newer build flow into the user's existing userData without clobbering
+// any of their edits.
+function mergeMissingFilesRecursive(src: string, dest: string): number {
+  let added = 0;
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, entry.name);
+    const d = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      added += mergeMissingFilesRecursive(s, d);
+    } else if (entry.isFile()) {
+      if (!fs.existsSync(d)) {
+        fs.copyFileSync(s, d);
+        added++;
+      }
+    }
+  }
+  return added;
 }
 
 function copyDirRecursive(src: string, dest: string): void {

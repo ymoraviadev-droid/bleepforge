@@ -122,7 +122,7 @@ Same dev servers + an Electron window. Maximized, no menu bar, hot reload preser
 pnpm dist
 ```
 
-Produces `electron/release/Bleepforge-<version>-x86_64.AppImage` (~115MB, single file, no install). Double-click to run; user state persists at `~/.config/Bleepforge/data/`. The Help library ships inside the AppImage and seeds into userData on first launch when missing. Concept, Codex, and the `.tres`-derived domain JSONs are user-authored and start empty — point Bleepforge at your Godot project via Preferences, then restart, and the cache rebuilds from `.tres`.
+Produces `electron/release/Bleepforge-<version>-x86_64.AppImage` (~115MB, single file, no install). Double-click to run; user state persists at `~/.config/Bleepforge/data/`. The Help library ships inside the AppImage and seeds into userData on first launch when missing; on subsequent upgrades, only *new* help entries from the bundled seed are merged in — your edits to existing entries are never overwritten. Concept, Codex, and the `.tres`-derived domain JSONs are user-authored and start empty — point Bleepforge at your Godot project via Preferences, then restart, and the cache rebuilds from `.tres`.
 
 The `pnpm dist` pipeline runs in four steps: client build (Vite) → server bundle (esbuild — workspace deps inlined, npm deps external) → electron main (tsc) → electron-builder (asar packaging + AppImage assembly). The build output lives in `electron/release/` and is gitignored (~400MB per build).
 
