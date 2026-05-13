@@ -23,7 +23,7 @@ export function FactionCard({ faction, className = "" }: Props) {
   return (
     <Link
       to={`/factions/${encodeURIComponent(faction.Faction)}`}
-      className={`${className} ${FACTION_ACCENT[faction.Faction] ?? "border-neutral-800 bg-neutral-900"} flex flex-col gap-2 rounded border p-3 transition-colors hover:border-emerald-700 hover:bg-neutral-800/40`}
+      className={`${className} ${FACTION_ACCENT[faction.Faction] ?? "border-neutral-800 bg-neutral-900"} card-lift flex flex-col gap-2 rounded border p-3 hover:border-emerald-700 hover:bg-neutral-800/40`}
     >
       <div className="flex items-start gap-3">
         {faction.Icon ? (

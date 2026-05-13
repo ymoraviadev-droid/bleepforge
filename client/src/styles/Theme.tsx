@@ -37,8 +37,31 @@ function applyToDOM(id: ThemeId) {
 // Apply early at module load (before React mounts) so there's no flash.
 applyToDOM(currentTheme);
 
+// 220ms theme cross-fade. While the `theme-transitioning` class is on
+// <html>, color-bearing properties (background, color, border) carry
+// a brief 200ms transition — see `.theme-transitioning *` in index.css.
+// The class is removed after the transition completes so normal hover/
+// state changes elsewhere stay snappy. Tracked via a single timer that
+// resets if setTheme is called again mid-transition (rapid switches
+// keep fading instead of snapping).
+const THEME_TRANSITION_MS = 220;
+let themeTransitionTimer: number | undefined;
+function markThemeTransition() {
+  if (typeof document === "undefined") return;
+  const root = document.documentElement;
+  root.classList.add("theme-transitioning");
+  if (themeTransitionTimer !== undefined) {
+    window.clearTimeout(themeTransitionTimer);
+  }
+  themeTransitionTimer = window.setTimeout(() => {
+    root.classList.remove("theme-transitioning");
+    themeTransitionTimer = undefined;
+  }, THEME_TRANSITION_MS);
+}
+
 export function setTheme(id: ThemeId) {
   if (id === currentTheme) return;
+  markThemeTransition();
   currentTheme = id;
   applyToDOM(id);
   try {

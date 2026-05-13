@@ -694,3 +694,73 @@ html {
   0%, 100% { opacity: 0.22; }
   50% { opacity: 0.55; }
 }
+
+/* Toast bounce-in entry animation. GPU-compositor-only (transform +
+   opacity) so it never repaints the layout — toasts can stack and
+   reorder without flicker. The keyframes briefly overshoot past
+   their resting position (50%: scale(1.03)) before settling, which
+   reads as a tiny pixel-y "pop" rather than a smooth slide. 220ms
+   total — fast enough to feel responsive on a notification, slow
+   enough that the overshoot registers visually. */
+.toast-bounce-in {
+  animation: toast-bounce-in 220ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transform-origin: 100% 50%;
+  will-change: transform, opacity;
+}
+@keyframes toast-bounce-in {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.94);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-1px) scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Theme swap cross-fade. The `theme-transitioning` class is added to
+   <html> for 220ms whenever setTheme() flips data-theme; the rule
+   below routes a brief 200ms transition through the color-bearing
+   properties so the swap fades instead of snaps. Scoped to the
+   transition window only — under normal usage no `transition` is
+   applied to these properties, keeping hovers and other state
+   changes instantaneous. `will-change` is not set (universal rule
+   would cost too much memory); the 200ms duration is short enough
+   that browsers handle the repaint without it. */
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease,
+    fill 200ms ease,
+    stroke 200ms ease !important;
+}
+
+/* Card hover lift. Applied to every list-page card's outer wrapper
+   (NpcCard, ItemCard, QuestCard, KarmaCard, FactionCard, BalloonCard,
+   ShaderCard, AssetCard). Subtle 2px upward translate on hover —
+   reads as "this is interactive" without being twee. transform is
+   a compositor-only property (GPU), so the lift doesn't repaint the
+   card or trigger layout reflow. The transition list also includes
+   border-color + background-color so the card's existing
+   `hover:border-emerald-700 hover:bg-neutral-800/40` Tailwind hover
+   utilities animate too — declared here as longhand transition-*
+   properties so this class supersedes Tailwind's `transition-colors`
+   (which only sets transition-property to color-bearing fields)
+   regardless of class order in the JSX. */
+.card-lift {
+  transition-property: transform, border-color, background-color, color;
+  transition-duration: 160ms;
+  transition-timing-function: ease-out;
+  will-change: transform;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+}

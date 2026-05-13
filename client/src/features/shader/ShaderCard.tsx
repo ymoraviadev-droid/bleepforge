@@ -49,7 +49,7 @@ export function ShaderCard({ asset, usageCount, onShowUsages, onContextMenu }: P
       }}
       onContextMenu={onContextMenu}
       title={`${asset.basename} — click to open · right-click for more`}
-      className="group flex cursor-pointer flex-col border-2 border-neutral-800 bg-neutral-900 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
+      className="card-lift group flex cursor-pointer flex-col border-2 border-neutral-800 bg-neutral-900 hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
       <div
         className={`relative flex h-24 items-center justify-center overflow-hidden border-b border-neutral-800 ${style.bg} ${style.text}`}

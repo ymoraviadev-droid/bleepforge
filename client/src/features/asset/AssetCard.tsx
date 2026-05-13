@@ -44,7 +44,7 @@ export function AssetCard({
       }}
       onContextMenu={onContextMenu}
       title="Click to preview · Right-click for Edit / Duplicate / Delete"
-      className="group flex cursor-pointer flex-col border-2 border-neutral-800 bg-neutral-900 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
+      className="card-lift group flex cursor-pointer flex-col border-2 border-neutral-800 bg-neutral-900 hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
       <div
         className="relative flex h-32 items-center justify-center overflow-hidden"

@@ -62,7 +62,7 @@ export function BalloonCard({ balloon, folder, npcs }: BalloonCardProps) {
   return (
     <Link
       to={`/balloons/${encodeURIComponent(folder)}/${encodeURIComponent(balloon.Id)}`}
-      className="group block"
+      className="card-lift group block"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

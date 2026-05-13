@@ -217,7 +217,7 @@ function ToastItem({ toast }: { toast: Toast }) {
     </>
   );
 
-  const shellClass = `pointer-events-auto block w-80 cursor-pointer overflow-hidden border-2 ${accent.border} bg-neutral-900 text-left transition-colors hover:bg-neutral-800/60 focus:outline-none focus:ring-2 focus:ring-emerald-500`;
+  const shellClass = `toast-bounce-in pointer-events-auto block w-80 cursor-pointer overflow-hidden border-2 ${accent.border} bg-neutral-900 text-left transition-colors hover:bg-neutral-800/60 focus:outline-none focus:ring-2 focus:ring-emerald-500`;
   const shellStyle = { boxShadow: "4px 4px 0 0 rgba(0,0,0,0.6)" };
   const handlers = {
     onMouseEnter: () => setHover(true),

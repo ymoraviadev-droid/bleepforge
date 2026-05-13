@@ -24,7 +24,7 @@ export function ItemCard({ item, className = "" }: Props) {
   return (
     <Link
       to={`/items/${encodeURIComponent(item.Slug)}`}
-      className={`${className} flex flex-col gap-2 rounded border border-neutral-800 bg-neutral-900 p-3 transition-colors hover:border-emerald-700 hover:bg-neutral-800/40`}
+      className={`${className} card-lift flex flex-col gap-2 rounded border border-neutral-800 bg-neutral-900 p-3 hover:border-emerald-700 hover:bg-neutral-800/40`}
     >
       <div className="flex items-start gap-3">
         <ItemIcon slug={item.Slug} size="md" />
