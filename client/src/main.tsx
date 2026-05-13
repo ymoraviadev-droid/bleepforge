@@ -1,7 +1,37 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter } from "react-router";
-import { App } from "./App";
+import { Navigate, RouterProvider, createBrowserRouter } from "react-router";
+import { App, Boom } from "./App";
+import { NotFoundPage } from "./components/NotFoundPage";
+import { ConceptView } from "./features/concept/View";
+import { ConceptEdit } from "./features/concept/Edit";
+import { DialogList } from "./features/dialog/List";
+import { DialogEdit } from "./features/dialog/Edit";
+import { DialogGraph } from "./features/dialog/Graph";
+import { AssetList } from "./features/asset/List";
+import { ShaderEdit } from "./features/shader/Edit";
+import { ShaderList } from "./features/shader/List";
+import { BalloonList } from "./features/balloon/List";
+import { BalloonEdit } from "./features/balloon/Edit";
+import { CategoryEdit as CodexCategoryEdit } from "./features/codex/CategoryEdit";
+import { Edit as CodexEntryEdit } from "./features/codex/Edit";
+import { List as CodexList } from "./features/codex/List";
+import { DiagnosticsPage } from "./features/diagnostics/DiagnosticsPage";
+import { QuestList } from "./features/quest/List";
+import { QuestEdit } from "./features/quest/Edit";
+import { ItemList } from "./features/item/List";
+import { ItemEdit } from "./features/item/Edit";
+import { KarmaList } from "./features/karma/List";
+import { KarmaEdit } from "./features/karma/Edit";
+import { NpcList } from "./features/npc/List";
+import { NpcEdit } from "./features/npc/Edit";
+import { FactionList } from "./features/faction/List";
+import { FactionEdit } from "./features/faction/Edit";
+import { PreferencesPage } from "./features/preferences/PreferencesPage";
+import { CategoryView as HelpCategoryView } from "./features/help/CategoryView";
+import { EntryView as HelpEntryView } from "./features/help/EntryView";
+import { HelpLayout } from "./features/help/HelpLayout";
+import { List as HelpList } from "./features/help/List";
 import "./styles/Theme"; // applies saved theme on load (sets data-theme on <html>)
 import "./styles/Font"; // applies saved font + UI scale + letter spacing
 import "./styles/GlobalTheme"; // reconciles legacy keys → server-backed preferences
@@ -87,10 +117,76 @@ window.addEventListener("pagehide", () => {
   closeGlobalThemeChannel();
 });
 
+// Data router (v0.2.2) — replaced declarative <BrowserRouter> + <Routes>
+// so `useBlocker` works in the unsaved-form guard. App.tsx is the
+// layout element and renders <Outlet /> where these children mount.
+//
+// HelpLayout is a nested layout with its own children, so it carries
+// the persistent help sidebar across in-help navigation without
+// remounting the shell.
+const router = createBrowserRouter([
+  {
+    element: <App />,
+    children: [
+      { index: true, element: <Navigate to="/concept" replace /> },
+      { path: "concept", element: <ConceptView /> },
+      { path: "concept/edit", element: <ConceptEdit /> },
+      { path: "dialogs", element: <DialogGraph /> },
+      { path: "dialogs/list", element: <DialogList /> },
+      { path: "dialogs/new", element: <DialogEdit /> },
+      { path: "dialogs/:folder/:id", element: <DialogEdit /> },
+      { path: "balloons", element: <BalloonList /> },
+      { path: "balloons/new", element: <BalloonEdit /> },
+      { path: "balloons/:folder/:basename", element: <BalloonEdit /> },
+      { path: "quests", element: <QuestList /> },
+      { path: "quests/new", element: <QuestEdit /> },
+      { path: "quests/:id", element: <QuestEdit /> },
+      { path: "items", element: <ItemList /> },
+      { path: "items/new", element: <ItemEdit /> },
+      { path: "items/:slug", element: <ItemEdit /> },
+      { path: "karma", element: <KarmaList /> },
+      { path: "karma/new", element: <KarmaEdit /> },
+      { path: "karma/:id", element: <KarmaEdit /> },
+      { path: "npcs", element: <NpcList /> },
+      { path: "npcs/new", element: <NpcEdit /> },
+      { path: "npcs/:npcId", element: <NpcEdit /> },
+      { path: "factions", element: <FactionList /> },
+      { path: "factions/new", element: <FactionEdit /> },
+      { path: "factions/:faction", element: <FactionEdit /> },
+      { path: "codex", element: <CodexList /> },
+      { path: "codex/new", element: <CodexCategoryEdit /> },
+      { path: "codex/:category/_meta", element: <CodexCategoryEdit /> },
+      { path: "codex/:category/new", element: <CodexEntryEdit /> },
+      { path: "codex/:category/:id", element: <CodexEntryEdit /> },
+      { path: "shaders", element: <ShaderList /> },
+      { path: "shaders/edit", element: <ShaderEdit /> },
+      { path: "assets", element: <AssetList /> },
+      { path: "diagnostics/*", element: <DiagnosticsPage /> },
+      { path: "health", element: <Navigate to="/diagnostics" replace /> },
+      { path: "health/integrity", element: <Navigate to="/diagnostics/integrity" replace /> },
+      { path: "health/reconcile", element: <Navigate to="/diagnostics/reconcile" replace /> },
+      { path: "integrity", element: <Navigate to="/diagnostics/integrity" replace /> },
+      { path: "reconcile", element: <Navigate to="/diagnostics/reconcile" replace /> },
+      { path: "preferences", element: <PreferencesPage /> },
+      { path: "import", element: <Navigate to="/preferences" replace /> },
+      {
+        element: <HelpLayout />,
+        children: [
+          { path: "help", element: <HelpList /> },
+          { path: "help/:category", element: <HelpCategoryView /> },
+          { path: "help/:category/:id", element: <HelpEntryView /> },
+        ],
+      },
+      // Easter egg — /boom synchronously throws to verify the
+      // ErrorBoundary's fallback UI.
+      { path: "boom", element: <Boom /> },
+      { path: "*", element: <NotFoundPage /> },
+    ],
+  },
+]);
+
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <BrowserRouter>
-      <App />
-    </BrowserRouter>
+    <RouterProvider router={router} />
   </React.StrictMode>,
 );
