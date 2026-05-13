@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-// In-app Help. Bleepforge-only authoring surface for user-facing
-// documentation: a small Wikipedia-shaped library of categories, each
-// holding a list of entries with optional Section grouping labels.
+// In-app Help. Read-only documentation library: a small Wikipedia-shaped
+// set of categories, each holding a list of entries with optional Section
+// grouping labels.
 //
 // On disk:
 //   data/help/<categoryId>/_meta.json   category metadata + display + color
@@ -12,9 +12,9 @@ import { z } from "zod";
 // list view groups entries by Section within their category; entries with
 // an empty Section land in a default group at the top.
 //
-// Authoring is gated by the BLEEPFORGE_DEV_MODE env var on the server.
-// When the flag is unset, GET endpoints serve content normally but PUT
-// and DELETE return 403 and the client hides edit affordances.
+// Help content is authored directly in these JSON files (and seeded into
+// userData from the asar's bundled seed/help/ on first launch). There is
+// no in-app editor.
 
 const KEY_RE = /^[a-zA-Z0-9_-]+$/;
 

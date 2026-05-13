@@ -2,8 +2,6 @@ import { useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { compareEntries } from "@bleepforge/shared";
 import { formatLongDate } from "../../lib/date";
-import { useDevMode } from "../../lib/useDevMode";
-import { ButtonLink } from "../../components/Button";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { paletteColorClasses } from "../../lib/paletteColor";
 import { useHelpLayout } from "./HelpLayout";
@@ -18,7 +16,6 @@ import { RenderHelpBody } from "./render";
 export function EntryView() {
   const { category, id } = useParams();
   const { allGroups } = useHelpLayout();
-  const devMode = useDevMode();
 
   const group = useMemo(() => {
     if (!allGroups || !category) return null;
@@ -71,20 +68,9 @@ export function EntryView() {
       </nav>
 
       <header className="space-y-2 border-b-2 border-neutral-800 pb-4">
-        <div className="flex items-baseline justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-neutral-100">
-            {entry.Title || entry.Id}
-          </h1>
-          {devMode && (
-            <ButtonLink
-              to={`/help/${encodeURIComponent(category)}/${encodeURIComponent(entry.Id)}/edit`}
-              size="sm"
-              variant="secondary"
-            >
-              edit
-            </ButtonLink>
-          )}
-        </div>
+        <h1 className="text-2xl font-semibold text-neutral-100">
+          {entry.Title || entry.Id}
+        </h1>
         {entry.Summary && (
           <p className="text-sm leading-relaxed text-neutral-400">
             {entry.Summary}

@@ -356,7 +356,6 @@ export async function startServer(): Promise<StartedServer> {
       dataRoot: config.dataRoot,
       assetRoot: config.assetRoot,
       folders: folderAbs,
-      devMode: config.devMode,
       godotProjectRoot: config.godotProjectRoot,
       godotProjectRootSource: config.godotProjectRootSource,
     });

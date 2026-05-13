@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import { Link, useParams } from "react-router";
 import { groupEntriesBySection } from "@bleepforge/shared";
-import { useDevMode } from "../../lib/useDevMode";
-import { ButtonLink } from "../../components/Button";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { paletteColorClasses } from "../../lib/paletteColor";
 import { useHelpLayout } from "./HelpLayout";
@@ -17,7 +15,6 @@ import { HelpSearch } from "./HelpSearch";
 export function CategoryView() {
   const { category } = useParams();
   const { allGroups } = useHelpLayout();
-  const devMode = useDevMode();
 
   const group = useMemo(() => {
     if (!allGroups || !category) return null;
@@ -48,36 +45,16 @@ export function CategoryView() {
           <span className="text-neutral-700">/</span>
           <span className={colors.text}>{display}</span>
         </nav>
-        <div className="flex items-baseline justify-between gap-4">
-          <div className="flex items-baseline gap-3">
-            <span className={`inline-block size-3 ${colors.stripe}`} />
-            <h1
-              className={`font-display text-base uppercase tracking-wider ${colors.text}`}
-            >
-              {display}
-            </h1>
-            <span className="text-[10px] text-neutral-500">
-              ({entries.length} entr{entries.length === 1 ? "y" : "ies"})
-            </span>
-          </div>
-          {devMode && (
-            <div className="flex items-center gap-2">
-              <ButtonLink
-                to={`/help/${encodeURIComponent(category)}/_meta`}
-                size="sm"
-                variant="ghost"
-              >
-                edit category
-              </ButtonLink>
-              <ButtonLink
-                to={`/help/${encodeURIComponent(category)}/new`}
-                size="sm"
-                variant="secondary"
-              >
-                + entry
-              </ButtonLink>
-            </div>
-          )}
+        <div className="flex items-baseline gap-3">
+          <span className={`inline-block size-3 ${colors.stripe}`} />
+          <h1
+            className={`font-display text-base uppercase tracking-wider ${colors.text}`}
+          >
+            {display}
+          </h1>
+          <span className="text-[10px] text-neutral-500">
+            ({entries.length} entr{entries.length === 1 ? "y" : "ies"})
+          </span>
         </div>
         {meta.Description && (
           <p className="text-sm leading-relaxed text-neutral-400">

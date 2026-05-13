@@ -5,8 +5,6 @@ import {
   type HelpCategoryGroup,
   type HelpEntry,
 } from "@bleepforge/shared";
-import { useDevMode } from "../../lib/useDevMode";
-import { ButtonLink } from "../../components/Button";
 import { paletteColorClasses } from "../../lib/paletteColor";
 import { HelpHero } from "./HelpHero";
 import { useHelpLayout } from "./HelpLayout";
@@ -33,7 +31,6 @@ const STARTER_PICKS: { category: string; id: string }[] = [
 
 export function List() {
   const { allGroups: groups } = useHelpLayout();
-  const devMode = useDevMode();
 
   const sortedGroups = useMemo(() => {
     if (!groups) return null;
@@ -67,25 +64,14 @@ export function List() {
           The help library is empty
         </h1>
         <p className="text-sm leading-relaxed text-neutral-500">
-          No categories have been created yet. Help content lives under{" "}
+          No categories were found. Help content lives under{" "}
           <code className="border border-neutral-800 bg-neutral-900 px-1 font-mono text-xs">
             data/help/
           </code>{" "}
-          and authoring is gated by the{" "}
-          <code className="border border-neutral-800 bg-neutral-900 px-1 font-mono text-xs">
-            BLEEPFORGE_DEV_MODE
-          </code>{" "}
-          env var. Set it to{" "}
-          <code className="border border-neutral-800 bg-neutral-900 px-1 font-mono text-xs">
-            1
-          </code>{" "}
-          and restart the server to enable editing.
+          and is shipped with Bleepforge — if this list is empty, the seed
+          either didn't run or the directory was wiped. Restart the app to
+          re-seed from the bundled library.
         </p>
-        {devMode && (
-          <ButtonLink to="/help/new" size="sm">
-            + New category
-          </ButtonLink>
-        )}
       </div>
     );
   }
@@ -95,16 +81,9 @@ export function List() {
       <section className="flex flex-col gap-6 border-2 border-neutral-800 bg-neutral-950/40 p-6 sm:flex-row sm:items-center sm:gap-8">
           <HelpHero className="size-40 shrink-0 self-center text-neutral-400 sm:size-48" />
           <div className="flex-1 space-y-3">
-            <div className="flex items-baseline justify-between gap-4">
-              <h1 className="font-display text-base uppercase tracking-wider text-emerald-300">
-                Help library
-              </h1>
-              {devMode && (
-                <ButtonLink to="/help/new" size="sm" variant="secondary">
-                  + New category
-                </ButtonLink>
-              )}
-            </div>
+            <h1 className="font-display text-base uppercase tracking-wider text-emerald-300">
+              Help library
+            </h1>
             <p className="text-sm leading-relaxed text-neutral-300">
               A library of how things work in Bleepforge. Pick a topic from the
               left, or search across every entry below.

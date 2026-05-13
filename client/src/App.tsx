@@ -38,9 +38,7 @@ import { NpcEdit } from "./features/npc/Edit";
 import { FactionList } from "./features/faction/List";
 import { FactionEdit } from "./features/faction/Edit";
 import { PreferencesPage } from "./features/preferences/PreferencesPage";
-import { CategoryEdit as HelpCategoryEdit } from "./features/help/CategoryEdit";
 import { CategoryView as HelpCategoryView } from "./features/help/CategoryView";
-import { EntryEdit as HelpEntryEdit } from "./features/help/EntryEdit";
 import { EntryView as HelpEntryView } from "./features/help/EntryView";
 import { HelpLayout } from "./features/help/HelpLayout";
 import { List as HelpList } from "./features/help/List";
@@ -140,21 +138,15 @@ export function App() {
           <Route path="/reconcile" element={<Navigate to="/diagnostics/reconcile" replace />} />
           <Route path="/preferences" element={<PreferencesPage />} />
           <Route path="/import" element={<Navigate to="/preferences" replace />} />
-          {/* View routes share HelpLayout — sidebar + allGroups state
-              stay mounted across in-help navigation so clicking between
-              entries doesn't unmount-and-remount the whole shell. Edit
-              routes stay flat: different layout shape (full-width form),
-              and they dispatch "Bleepforge:help-changed" after save so
-              the layout refreshes the sidebar on return. */}
+          {/* View routes share HelpLayout — sidebar + allGroups state stay
+              mounted across in-help navigation so clicking between entries
+              doesn't unmount-and-remount the whole shell. Help is read-only
+              (content is authored directly in data/help/<category>/*.json). */}
           <Route element={<HelpLayout />}>
             <Route path="/help" element={<HelpList />} />
             <Route path="/help/:category" element={<HelpCategoryView />} />
             <Route path="/help/:category/:id" element={<HelpEntryView />} />
           </Route>
-          <Route path="/help/new" element={<HelpCategoryEdit />} />
-          <Route path="/help/:category/_meta" element={<HelpCategoryEdit />} />
-          <Route path="/help/:category/new" element={<HelpEntryEdit />} />
-          <Route path="/help/:category/:id/edit" element={<HelpEntryEdit />} />
           {/* Easter egg — visit /boom to verify the ErrorBoundary by tripping
               a synchronous render-phase throw. Kept around as a manual-test
               hook (and because it's funny). */}

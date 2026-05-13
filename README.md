@@ -92,7 +92,6 @@ GODOT_PROJECT_ROOT=/home/you/Godot/your-project
 PORT=4000           # optional, default 4000
 DATA_ROOT=data      # optional, default ./data
 ASSET_ROOT=/home/you  # optional, defaults to $HOME
-BLEEPFORGE_DEV_MODE=1 # opt-in to Help authoring routes
 ```
 
 The Godot project root is **required** - Bleepforge fails fast at boot without it. You can also set the path in-app via the Preferences page once the server has started; preferences win over the env var on subsequent runs.

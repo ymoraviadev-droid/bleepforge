@@ -10,14 +10,14 @@ import {
 } from "@bleepforge/shared";
 import { folderAbs } from "../../config.js";
 
-// Folder-aware storage for the in-app Help feature. Mirrors the Codex
-// shape: each category is a directory holding a _meta.json schema file
-// plus one .json per entry. Bleepforge-only, no .tres pipeline, no saves
-// feed integration.
+// Folder-aware read-only storage for the in-app Help feature. Each
+// category is a directory holding a _meta.json schema file plus one .json
+// per entry. Help content is authored directly in these JSON files (and
+// seeded from the asar's bundled seed/help/ on first launch); there is
+// no writeback API.
 //
 // Reserved names: `_meta` (schema file) and `_layout` (reserved for
-// future per-category UI state) cannot be used as entry ids. Storage
-// rejects them; the client just doesn't surface them.
+// future per-category UI state) are filtered out of entry listings.
 
 const root = folderAbs.help;
 
@@ -56,22 +56,6 @@ export async function readMeta(category: string): Promise<HelpCategoryMeta | nul
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
-}
-
-export async function writeMeta(meta: HelpCategoryMeta): Promise<HelpCategoryMeta> {
-  sanitize(meta.Category, "category");
-  const validated = HelpCategoryMetaSchema.parse({
-    ...meta,
-    CreatedAt: meta.CreatedAt || new Date().toISOString(),
-  });
-  const dir = path.join(root, validated.Category);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(
-    path.join(dir, META_FILENAME),
-    JSON.stringify(validated, null, 2),
-    "utf8",
-  );
-  return validated;
 }
 
 export async function listInCategory(category: string): Promise<HelpEntry[]> {
@@ -124,53 +108,6 @@ export async function readEntry(category: string, id: string): Promise<HelpEntry
     return HelpEntrySchema.parse(JSON.parse(raw));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
-    throw err;
-  }
-}
-
-export async function writeEntry(category: string, entry: HelpEntry): Promise<HelpEntry> {
-  sanitize(category, "category");
-  sanitize(entry.Id, "id");
-  const meta = await readMeta(category);
-  if (!meta) {
-    throw Object.assign(new Error(`category "${category}" has no _meta.json`), {
-      status: 400,
-    });
-  }
-  const validated = HelpEntrySchema.parse({
-    ...entry,
-    UpdatedAt: new Date().toISOString(),
-  });
-  const dir = path.join(root, category);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(
-    path.join(dir, `${validated.Id}.json`),
-    JSON.stringify(validated, null, 2),
-    "utf8",
-  );
-  return validated;
-}
-
-export async function removeEntry(category: string, id: string): Promise<boolean> {
-  sanitize(category, "category");
-  sanitize(id, "id");
-  try {
-    await fs.unlink(path.join(root, category, `${id}.json`));
-    return true;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
-    throw err;
-  }
-}
-
-export async function removeCategory(category: string): Promise<boolean> {
-  sanitize(category, "category");
-  const dir = path.join(root, category);
-  try {
-    await fs.rm(dir, { recursive: true, force: true });
-    return true;
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
     throw err;
   }
 }

@@ -2,7 +2,7 @@
   "Category": "under-the-hood",
   "DisplayName": "Under the hood",
   "Color": "pink",
-  "Description": "How the machinery works: the canonical .tres model, the boot reconcile, the watcher, atomic saves, error handling, and dev mode.",
+  "Description": "How the machinery works: the canonical .tres model, the boot reconcile, the watcher, atomic saves, and error handling.",
   "Order": 80,
   "CreatedAt": "2026-05-08T18:56:32.294Z"
 }

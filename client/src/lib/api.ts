@@ -606,10 +606,9 @@ export const codexApi = {
   },
 };
 
-// In-app Help. Folder-aware (per-category) browse + Bleepforge-only
-// authoring. Authoring routes (saveMeta, saveEntry, removeMeta,
-// removeEntry, removeCategory) require the server to have been started
-// with BLEEPFORGE_DEV_MODE=1 — they return 403 otherwise.
+// In-app Help. Read-only: Help content is authored directly in the JSON
+// files under `data/help/`, not through the UI. The view pages call into
+// these list/read methods only.
 export const helpApi = {
   listAll: async (): Promise<HelpCategoryGroup[]> => {
     const r = await fetch("/api/help");
@@ -632,32 +631,6 @@ export const helpApi = {
     if (!r.ok) throw new Error(`get meta failed: ${r.status}`);
     return r.json();
   },
-  saveMeta: async (meta: HelpCategoryMeta): Promise<HelpCategoryMeta> => {
-    const r = await fetch(
-      `/api/help/${encodeURIComponent(meta.Category)}/_meta`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(meta),
-      },
-    );
-    if (!r.ok) {
-      const body = await r.text();
-      throw new Error(`save help meta failed: ${r.status} ${body}`);
-    }
-    const data = await r.json();
-    refreshCatalog();
-    return unwrapSavedResponse<HelpCategoryMeta>(data, `help/${meta.Category}/_meta`);
-  },
-  removeCategory: async (category: string): Promise<void> => {
-    const r = await fetch(`/api/help/${encodeURIComponent(category)}`, {
-      method: "DELETE",
-    });
-    if (!r.ok && r.status !== 404) {
-      throw new Error(`remove help category failed: ${r.status}`);
-    }
-    refreshCatalog();
-  },
   getEntry: async (category: string, id: string): Promise<HelpEntry | null> => {
     const r = await fetch(
       `/api/help/${encodeURIComponent(category)}/${encodeURIComponent(id)}`,
@@ -666,43 +639,13 @@ export const helpApi = {
     if (!r.ok) throw new Error(`get entry failed: ${r.status}`);
     return r.json();
   },
-  saveEntry: async (category: string, entry: HelpEntry): Promise<HelpEntry> => {
-    const r = await fetch(
-      `/api/help/${encodeURIComponent(category)}/${encodeURIComponent(entry.Id)}`,
-      {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry),
-      },
-    );
-    if (!r.ok) {
-      const body = await r.text();
-      throw new Error(`save help entry failed: ${r.status} ${body}`);
-    }
-    const data = await r.json();
-    refreshCatalog();
-    return unwrapSavedResponse<HelpEntry>(data, `help/${category}/${entry.Id}`);
-  },
-  removeEntry: async (category: string, id: string): Promise<void> => {
-    const r = await fetch(
-      `/api/help/${encodeURIComponent(category)}/${encodeURIComponent(id)}`,
-      { method: "DELETE" },
-    );
-    if (!r.ok && r.status !== 404) {
-      throw new Error(`remove help entry failed: ${r.status}`);
-    }
-    refreshCatalog();
-  },
 };
 
-// Server health + dev-mode flag. Read once at app boot to decide whether
-// to surface Help authoring affordances. The flag itself originates from
-// the BLEEPFORGE_DEV_MODE env var and is captured at server start.
+// Server health snapshot.
 export interface HealthInfo {
   ok: boolean;
   dataRoot: string;
   assetRoot: string;
-  devMode: boolean;
 }
 
 export const healthApi = {
