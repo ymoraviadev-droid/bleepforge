@@ -1,30 +1,46 @@
 #!/usr/bin/env node
 // Linux desktop integration for the Bleepforge AppImage.
 //
-// Why this exists: KDE Plasma, GNOME, Cinnamon, etc. don't auto-extract
-// the icons + .desktop metadata that ship INSIDE an AppImage. The icon
-// IS there (9 sizes from 16 to 1024 inside the squashfs), but the desktop
-// only sees it after we copy the icon to a hicolor-theme location AND
-// write a .desktop file that references it. Without this, Bleepforge:
-//   - shows as a generic executable in Dolphin / Nautilus
+// Why this exists: AppImages ship their icon embedded in the squashfs
+// (9 sizes from 16 to 1024 inside `usr/share/icons/hicolor/`), but
+// neither KDE Plasma nor GNOME extract it on their own. Without help,
+// Bleepforge:
+//   - shows as a generic-AppImage file in Dolphin / Nautilus
 //   - doesn't appear in the KDE menu / GNOME activities / app search
 //   - uses a generic Electron icon in the taskbar when running
 //
-// This script does it once. After it runs, Bleepforge behaves like a
-// natively-installed app. Re-run after each `pnpm dist` if the AppImage
-// filename changes (e.g. version bump) so the .desktop entry points at
-// the latest binary.
+// This script does the integration in three complementary ways:
 //
-// What it touches (XDG user-local — never system-wide):
-//   ~/.local/share/icons/hicolor/<size>/apps/bleepforge.png  (9 sizes)
-//   ~/.local/share/applications/bleepforge.desktop
+//   1. XDG icon theme registration — copies hicolor PNGs to
+//      ~/.local/share/icons/hicolor/<size>/apps/bleepforge.png
+//   2. .desktop launcher entry — ~/.local/share/applications/
+//      bleepforge.desktop so the app appears in menus
+//   3. Per-file thumbnail pre-cache — writes spec-conformant PNGs to
+//      ~/.cache/thumbnails/{normal,large}/<md5>.png for every AppImage
+//      in release/, so file managers show the embedded icon as the
+//      file thumbnail (the freedesktop Thumbnail Managing Standard
+//      mechanism — KIO reads this cache directly when a thumbnailer
+//      plugin exists for the MIME, but the cache also serves bare
+//      since Plasma 6.6's XDG-thumbnailer bridge counts our shipped
+//      .thumbnailer file as a registered plugin).
 //
-// And refreshes the icon + desktop caches (best-effort).
+// Run this once after `pnpm dist`. Re-run after subsequent builds so
+// the .desktop Exec line + thumbnail entries point at the new AppImage.
+//
+// After install completes: CLOSE and REOPEN Dolphin (Ctrl+Q, then
+// re-launch). F5 / refresh is not enough — Dolphin caches its
+// thumbnail-lookup decisions in-process, and only a full restart
+// makes it re-check the cache for files it already classified as
+// "no preview available". Confirmed in Plasma 6.6.4 on Fedora 44.
+//
+// All writes are user-local (~/.local/share, ~/.cache) — no sudo,
+// no system pollution.
 
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { spawn } from "node:child_process";
+import crypto from "node:crypto";
+import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -194,6 +210,85 @@ MimeType=application/vnd.appimage;application/x-iso9660-appimage;
   console.log(`[install:desktop] wrote ${thumbFile}`);
 }
 
+// Pre-cache thumbnails for every AppImage in release/ under the
+// freedesktop Thumbnail Managing Standard. Without this, Dolphin
+// shows the generic application/vnd.appimage MIME icon for AppImage
+// files even though their embedded icons are correct — KDE's
+// kio-extras is built on Fedora without libappimage, so KIO has no
+// plugin registered for AppImages and never even checks for cached
+// thumbnails on its own. Pre-populating the cache with spec-conformant
+// PNGs (8-bit non-interlaced, proper tEXt::Thumb::URI + Thumb::MTime
+// chunks) makes Dolphin display them once it does a thumbnail lookup.
+//
+// Crucial Dolphin behavior: after writing the cache, you must
+// **close and reopen Dolphin** (Ctrl+Q + relaunch). F5 doesn't work
+// — Dolphin caches its thumbnail-lookup decisions in-process and
+// won't re-check until full restart. Confirmed on Plasma 6.6.4.
+function precacheAppImageThumbnails() {
+  const releaseDir = path.join(electronRoot, "release");
+  if (!fs.existsSync(releaseDir)) {
+    console.warn("[install:desktop] no release/ dir, skipping thumbnail pre-cache");
+    return;
+  }
+  const appImages = fs.readdirSync(releaseDir)
+    .filter((f) => /\.AppImage$/i.test(f))
+    .map((f) => path.join(releaseDir, f));
+  if (appImages.length === 0) {
+    console.warn("[install:desktop] no .AppImage files in release/, skipping thumbnail pre-cache");
+    return;
+  }
+
+  const normalDir = path.join(home, ".cache", "thumbnails", "normal");
+  const largeDir = path.join(home, ".cache", "thumbnails", "large");
+  fs.mkdirSync(normalDir, { recursive: true });
+  fs.mkdirSync(largeDir, { recursive: true });
+
+  const thumbScript = path.join(home, ".local", "share", "bleepforge", "appimage-thumbnailer.sh");
+  if (!fs.existsSync(thumbScript)) {
+    console.warn(`[install:desktop] thumbnailer script missing at ${thumbScript}, skipping pre-cache`);
+    return;
+  }
+
+  let cached = 0;
+  for (const appImagePath of appImages) {
+    const url = `file://${appImagePath}`;
+    const hash = crypto.createHash("md5").update(url).digest("hex");
+    const stat = fs.statSync(appImagePath);
+    const mtime = Math.floor(stat.mtimeMs / 1000);
+    const size = stat.size;
+
+    const tmpIcon = path.join(os.tmpdir(), `bf-precache-${hash}.png`);
+    const extract = spawnSync("bash", [thumbScript, appImagePath, tmpIcon, "256"]);
+    if (extract.status !== 0 || !fs.existsSync(tmpIcon)) {
+      console.warn(`[install:desktop] couldn't extract icon from ${path.basename(appImagePath)}, skipping`);
+      continue;
+    }
+
+    // Common tEXt metadata for both sizes. The freedesktop Thumbnail
+    // Managing Standard requires Thumb::URI + Thumb::MTime at minimum;
+    // Thumb::Size + Thumb::Mimetype are recommended.
+    const meta = [
+      "-set", "Thumb::URI", url,
+      "-set", "Thumb::MTime", String(mtime),
+      "-set", "Thumb::Size", String(size),
+      "-set", "Thumb::Mimetype", "application/vnd.appimage",
+    ];
+
+    const largePath = path.join(largeDir, `${hash}.png`);
+    const normalPath = path.join(normalDir, `${hash}.png`);
+    const rLarge = spawnSync("magick", [tmpIcon, ...meta, largePath]);
+    const rNormal = spawnSync("magick", [tmpIcon, "-resize", "128x128", ...meta, normalPath]);
+    fs.unlinkSync(tmpIcon);
+
+    if (rLarge.status !== 0 || rNormal.status !== 0) {
+      console.warn(`[install:desktop] magick failed on ${path.basename(appImagePath)}`);
+      continue;
+    }
+    cached++;
+  }
+  console.log(`[install:desktop] pre-cached thumbnails for ${cached}/${appImages.length} AppImage(s) in ~/.cache/thumbnails/`);
+}
+
 function refreshCaches() {
   // Both tools are best-effort: if they're not installed, the desktop
   // environment will pick up the new files on next refresh / login
@@ -231,24 +326,23 @@ function refreshCaches() {
 async function main() {
   console.log("[install:desktop] starting Linux desktop integration…");
   const appImage = findLatestAppImage();
-  console.log(`[install:desktop] using ${appImage.name}`);
+  console.log(`[install:desktop] latest AppImage: ${appImage.name}`);
   ensureExecutable(appImage.path);
   copyIcons();
   writeDesktopEntry(appImage.path);
   installAppImageThumbnailer();
+  precacheAppImageThumbnails();
   await refreshCaches();
   console.log("");
   console.log("[install:desktop] done. Bleepforge now appears in your KDE / GNOME");
-  console.log("[install:desktop] app menu with the proper icon, AND any AppImage");
-  console.log("[install:desktop] file in your file manager will show its embedded");
-  console.log("[install:desktop] icon as a thumbnail (the thumbnailer is generic —");
-  console.log("[install:desktop] works for every AppImage on your system).");
+  console.log("[install:desktop] app menu with the proper icon, and every AppImage");
+  console.log("[install:desktop] in release/ has a pre-cached file thumbnail.");
   console.log("");
-  console.log("[install:desktop] If existing AppImages still show a generic icon,");
-  console.log("[install:desktop] their cached thumbnails are stale. Clear with:");
-  console.log("[install:desktop]   rm -rf ~/.cache/thumbnails/");
-  console.log("[install:desktop] Or right-click each AppImage in Dolphin and pick");
-  console.log("[install:desktop] \"Refresh thumbnail\" from the context menu.");
+  console.log("[install:desktop] NEXT STEP — close and reopen Dolphin (Ctrl+Q,");
+  console.log("[install:desktop] then re-launch). F5 / refresh isn't enough:");
+  console.log("[install:desktop] Dolphin caches its thumbnail-lookup decisions");
+  console.log("[install:desktop] in-process and only re-reads the cache on a full");
+  console.log("[install:desktop] restart. Confirmed on Plasma 6.6.4.");
 }
 
 main().catch((err) => {
