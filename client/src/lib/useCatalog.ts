@@ -27,7 +27,6 @@ import {
   type DialogFolderGroup,
   type ShaderAsset,
 } from "./api";
-import { markBootCheckpoint } from "./boot/progress";
 import { catalogTick, subscribeCatalog } from "./catalog-bus";
 
 export { refreshCatalog } from "./catalog-bus";
@@ -139,18 +138,11 @@ export function useCatalog(): Catalog | null {
           shaders: shadersResponse.shaders,
           flags,
         });
-        // Splash checkpoint #3: catalog loaded. Idempotent — subsequent
-        // catalog refreshes (after Godot edits via the watcher) re-enter
-        // this branch but markBootCheckpoint is a no-op once set.
-        markBootCheckpoint("catalog");
       })
       .catch(() => {
         if (!cancelled) setCatalog(null);
-        // Even on failure, advance the splash so the user isn't stuck —
-        // the timeout would catch this anyway, but advancing immediately
-        // is kinder. The UI's own error-handling kicks in once they
-        // navigate (each list page surfaces its own fetch error).
-        markBootCheckpoint("catalog");
+        // The UI's own error-handling kicks in once the user navigates
+        // (each list page surfaces its own fetch error).
       });
     return () => {
       cancelled = true;

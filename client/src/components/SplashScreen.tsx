@@ -57,12 +57,13 @@ export function SplashScreen({ onDone }: Props) {
 
   // Pick one flavor line per checkpoint + one ready-state line, all
   // randomized at mount so back-to-back launches don't always show the
-  // same sequence. useRef so the picks survive re-renders.
+  // same sequence. useRef so the picks survive re-renders. Two
+  // checkpoints means two flavors.
   const phaseFlavorRef = useRef<string[]>([]);
   const readyLineRef = useRef<string>("");
   if (phaseFlavorRef.current.length === 0) {
     const shuffled = [...BOOT_LINES].sort(() => Math.random() - 0.5);
-    phaseFlavorRef.current = shuffled.slice(0, 3);
+    phaseFlavorRef.current = shuffled.slice(0, 2);
     readyLineRef.current = READY_LINES[Math.floor(Math.random() * READY_LINES.length)]!;
   }
 
@@ -70,17 +71,22 @@ export function SplashScreen({ onDone }: Props) {
   //   - During loading: the flavor for the currently-completing phase
   //     (index = completed.length, capped). The progress bar shows the
   //     actual percent so the text is purely vibes.
-  //   - On timeout (still loading): a "server slow to respond" notice.
+  //   - On timeout (still loading): a "still loading" notice. With the
+  //     gate down to 2 honest checkpoints (server + preferences) this
+  //     timeout almost never fires — earlier versions gated on catalog
+  //     too and got stuck at 67% when any of 10 parallel list-fetches
+  //     ran slow on cold boot. Kept as a safety hatch in case the
+  //     server genuinely never comes up.
   //   - When ready: a "READY" message that sticks until CONTINUE is
   //     clicked — sits right above the button so the user always sees
   //     a clear "done" cue, even on fast machines where the per-phase
   //     flavor lines fly by too quick to read.
   const statusLine = useMemo(() => {
     if (progress.timedOut && !progress.ready) {
-      return "SERVER SLOW TO RESPOND";
+      return "STILL LOADING…";
     }
     if (progress.ready) return readyLineRef.current;
-    const idx = Math.min(progress.completed.length, 2);
+    const idx = Math.min(progress.completed.length, 1);
     return `${phaseFlavorRef.current[idx]}…`;
   }, [progress.completed.length, progress.ready, progress.timedOut]);
 

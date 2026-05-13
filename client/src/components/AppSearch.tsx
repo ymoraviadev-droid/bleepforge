@@ -198,7 +198,7 @@ export function AppSearch() {
         Ctrl+K
       </kbd>
       {showDropdown && (
-        <div className="absolute right-0 top-full z-50 mt-1 w-96 border-2 border-neutral-800 bg-neutral-950 shadow-lg">
+        <div className="absolute left-0 top-full z-50 mt-1 w-96 border-2 border-neutral-800 bg-neutral-950 shadow-lg">
           {!catalog ? (
             <div className="px-3 py-2 text-xs text-neutral-500">Loading…</div>
           ) : results.length === 0 ? (

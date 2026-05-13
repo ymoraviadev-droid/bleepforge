@@ -9,7 +9,6 @@ import { NotFoundPage } from "./components/NotFoundPage";
 import { Sidebar } from "./components/Sidebar";
 import { SplashScreen } from "./components/SplashScreen";
 import { ToastHost } from "./components/Toast";
-import { TopBar } from "./components/TopBar";
 import { ImageEditorHost } from "./features/asset/imageEditorHost";
 import { isPopout } from "./lib/electron";
 import { useShaderToasts } from "./lib/shaders/shaderToasts";
@@ -84,9 +83,10 @@ export function App() {
     return <SplashScreen onDone={() => setShowSplash(false)} />;
   }
 
-  // Shell: side-by-side Sidebar (left, fixed width) + TopBar above main.
-  // Popouts skip both pieces of chrome — they're focused subviews sized
-  // to fit their single route and don't need the app's nav surface.
+  // Shell: Sidebar on the left (carries branding, version, meta icons,
+  // search, AND the 11 domain nav links — all chrome in one column) +
+  // main content area on the right. Popouts skip the sidebar entirely;
+  // they're focused single-route subviews sized to fit their content.
   return (
     <div className="flex h-screen">
       {!popout && <Sidebar />}
@@ -95,12 +95,10 @@ export function App() {
       <ContextMenuHost />
       <ToastHost />
       <ImageEditorHost />
-      <div className="flex min-w-0 flex-1 flex-col">
-        {!popout && <TopBar />}
-        <main className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-          <ErrorBoundary>
-          <div className="flex-1 px-6 py-6">
-          <Routes>
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto">
+        <ErrorBoundary>
+        <div className="flex-1 px-6 py-6">
+        <Routes>
           <Route path="/" element={<Navigate to="/concept" replace />} />
           <Route path="/concept" element={<ConceptView />} />
           <Route path="/concept/edit" element={<ConceptEdit />} />
@@ -166,8 +164,7 @@ export function App() {
         </div>
         {!popout && <Footer />}
         </ErrorBoundary>
-        </main>
-      </div>
+      </main>
     </div>
   );
 }
