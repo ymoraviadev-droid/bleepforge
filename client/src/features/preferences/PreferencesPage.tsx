@@ -24,8 +24,10 @@ import { showChoice, showConfirm, showPrompt } from "../../components/Modal";
 import { readVarAsHex } from "../../styles/colorOverrides";
 import { THEMES } from "../../styles/Theme";
 import { Button } from "../../components/Button";
+import { DirtyDot } from "../../components/DirtyDot";
 import { PixelSlider } from "../../components/PixelSlider";
 import { fieldLabel, textInput } from "../../styles/classes";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 
 export function PreferencesPage() {
   return (
@@ -121,6 +123,13 @@ function GodotProjectSection() {
 
   const trimmedDraft = draft.trim();
   const dirty = trimmedDraft !== saved.trim();
+  // Wires the standard unsaved-warning behavior: browser beforeunload
+  // covers window/popout close + refresh, and the in-app blocker would
+  // fire if the user navigated away while dirty. Popouts are
+  // single-route subviews so in-app nav is rare here, but the hook is
+  // free to include and keeps Preferences consistent with the rest of
+  // the Edit pages.
+  useUnsavedWarning(dirty);
   // Empty is always saveable (clears the override → falls back to env on next
   // boot). Non-empty must validate.
   const canSave = dirty && (trimmedDraft === "" || validation?.ok === true);
@@ -149,7 +158,10 @@ function GodotProjectSection() {
       </p>
 
       <label className="block">
-        <span className={fieldLabel}>Project root</span>
+        <span className={`${fieldLabel} flex items-center gap-2`}>
+          Project root
+          <DirtyDot dirty={dirty} />
+        </span>
         <input
           value={draft}
           onChange={(e) => setDraft(e.target.value)}

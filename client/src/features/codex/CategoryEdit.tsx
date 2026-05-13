@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   CODEX_COLORS,
@@ -12,8 +12,10 @@ import {
 } from "@bleepforge/shared";
 import { codexApi } from "../../lib/api";
 import { Button, ButtonLink } from "../../components/Button";
+import { DirtyDot } from "../../components/DirtyDot";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 import { categoryColorClasses } from "./categoryColor";
 
@@ -52,6 +54,13 @@ export function CategoryEdit() {
   const isNew = routeCategory === undefined;
 
   const [meta, setMeta] = useState<CodexCategoryMeta | null>(isNew ? empty() : null);
+  /** Baseline snapshot for the dirty check. For new categories the
+   *  empty stub is the baseline — once the user types anything, dirty
+   *  flips on. For existing categories, baseline gets the loaded meta
+   *  and re-syncs after every successful save. */
+  const [baseline, setBaseline] = useState<CodexCategoryMeta | null>(
+    isNew ? empty() : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -59,9 +68,23 @@ export function CategoryEdit() {
     if (isNew || !routeCategory) return;
     codexApi
       .getMeta(routeCategory)
-      .then((m) => (m === null ? setError("not found") : setMeta(m)))
+      .then((m) => {
+        if (m === null) {
+          setError("not found");
+        } else {
+          setMeta(m);
+          setBaseline(m);
+        }
+      })
       .catch((e) => setError(String(e)));
   }, [routeCategory, isNew]);
+
+  const dirty = useMemo(() => {
+    if (meta === null || baseline === null) return false;
+    return JSON.stringify(meta) !== JSON.stringify(baseline);
+  }, [meta, baseline]);
+
+  useUnsavedWarning(dirty);
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
@@ -126,6 +149,9 @@ export function CategoryEdit() {
     setError(null);
     try {
       const saved = await codexApi.saveMeta(meta);
+      // Update baseline BEFORE the navigate so the useUnsavedWarning
+      // blocker sees clean state and lets the route change through.
+      setBaseline(saved);
       if (isNew) {
         navigate(`/codex/${encodeURIComponent(saved.Category)}/_meta`, {
           replace: true,
@@ -156,10 +182,11 @@ export function CategoryEdit() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
           {isNew
             ? "New category"
             : `Category: ${meta.DisplayName || meta.Category}`}
+          <DirtyDot dirty={dirty} />
         </h1>
         <div className="flex gap-2">
           <ButtonLink to="/codex" variant="secondary">

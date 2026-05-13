@@ -14,6 +14,7 @@ import { NotFoundPage } from "../../components/NotFoundPage";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 import { PixelSkeleton } from "../../components/PixelSkeleton";
+import { DirtyDot } from "../../components/DirtyDot";
 const CATEGORIES: ItemCategory[] = [
   "Misc",
   "Weapon",
@@ -125,8 +126,9 @@ export function ItemEdit() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {!isNew && item.Slug && <ItemIcon slug={item.Slug} size="lg" />}
-          <h1 className="text-xl font-semibold">
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
             {isNew ? "New item" : item.Slug || "(unnamed)"}
+            <DirtyDot dirty={dirty} />
           </h1>
         </div>
         <div className="flex gap-2">

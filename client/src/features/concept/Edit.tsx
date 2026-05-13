@@ -1,10 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import type { Concept } from "@bleepforge/shared";
 import { conceptApi } from "../../lib/api";
 import { AssetPicker } from "../../components/AssetPicker";
 import { ButtonLink } from "../../components/Button";
+import { DirtyDot } from "../../components/DirtyDot";
 import { button, fieldLabel, textInput } from "../../styles/classes";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 
 import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Edit form for the singleton concept doc. After save, navigate back to the
@@ -13,12 +15,26 @@ import { PixelSkeleton } from "../../components/PixelSkeleton";
 export function ConceptEdit() {
   const navigate = useNavigate();
   const [concept, setConcept] = useState<Concept | null>(null);
+  /** Snapshot of the concept doc as last loaded / last saved. Used as
+   *  the baseline for the dirty check — current edits diverge from
+   *  this until the user saves, then it gets updated. */
+  const [baseline, setBaseline] = useState<Concept | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    conceptApi.get().then(setConcept).catch((e) => setError(String(e)));
+    conceptApi.get().then((c) => {
+      setConcept(c);
+      setBaseline(c);
+    }).catch((e) => setError(String(e)));
   }, []);
+
+  const dirty = useMemo(() => {
+    if (concept === null || baseline === null) return false;
+    return JSON.stringify(concept) !== JSON.stringify(baseline);
+  }, [concept, baseline]);
+
+  useUnsavedWarning(dirty);
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (concept === null)
@@ -32,6 +48,10 @@ export function ConceptEdit() {
     setError(null);
     try {
       await conceptApi.save(concept);
+      // Update baseline AFTER the save resolves but BEFORE the navigate
+      // call — that way the useUnsavedWarning hook's blocker sees a
+      // clean state and lets the navigate through without prompting.
+      setBaseline(concept);
       navigate("/concept");
     } catch (e) {
       setError(String(e));
@@ -43,7 +63,10 @@ export function ConceptEdit() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Edit game concept</h1>
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
+          Edit game concept
+          <DirtyDot dirty={dirty} />
+        </h1>
         <div className="flex gap-2">
           <ButtonLink to="/concept" variant="secondary">
             ← Cancel

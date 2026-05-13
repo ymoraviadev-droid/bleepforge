@@ -12,6 +12,7 @@ import { useShaderRefresh } from "../../lib/shaders/useShaderRefresh";
 import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import type { ShaderCardColor, ShaderPattern } from "@bleepforge/shared";
 
+import { DirtyDot } from "../../components/DirtyDot";
 import { CodeEditor } from "./CodeEditor";
 import { ColorPicker } from "./ColorPicker";
 import {
@@ -390,14 +391,7 @@ export function ShaderEdit() {
             title={asset.basename}
           >
             {asset.basename}
-            {dirty && (
-              <span
-                className="font-mono text-xs text-amber-400"
-                title="Unsaved changes"
-              >
-                ●
-              </span>
-            )}
+            <DirtyDot dirty={dirty} />
           </h1>
           {asset.parentRel && (
             <div

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   defaultPropertiesForMeta,
@@ -9,10 +9,12 @@ import {
 import { codexApi } from "../../lib/api";
 import { AssetPicker } from "../../components/AssetPicker";
 import { Button, ButtonLink } from "../../components/Button";
+import { DirtyDot } from "../../components/DirtyDot";
 import { DL } from "../../components/CatalogDatalists";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { useCatalog } from "../../lib/useCatalog";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { fieldLabel, textInput } from "../../styles/classes";
 import { TagInput } from "./TagInput";
 import { validateCodexEntry } from "./propertyValidator";
@@ -44,6 +46,11 @@ export function Edit() {
 
   const [meta, setMeta] = useState<CodexCategoryMeta | null>(null);
   const [entry, setEntry] = useState<CodexEntry | null>(null);
+  /** Snapshot of the entry as last loaded / last saved. Used as the
+   *  baseline for the dirty check; new entries start with their
+   *  populated defaults as the baseline so just-loaded forms read
+   *  clean (typing flips to dirty). */
+  const [baseline, setBaseline] = useState<CodexEntry | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -60,7 +67,9 @@ export function Edit() {
         }
         setMeta(m);
         if (isNew) {
-          setEntry({ ...empty(), Properties: defaultPropertiesForMeta(m) });
+          const fresh = { ...empty(), Properties: defaultPropertiesForMeta(m) };
+          setEntry(fresh);
+          setBaseline(fresh);
         }
       })
       .catch((e) => setError(String(e)));
@@ -70,9 +79,23 @@ export function Edit() {
     if (isNew || !routeCategory || !id) return;
     codexApi
       .getEntry(routeCategory, id)
-      .then((e) => (e === null ? setError("not found") : setEntry(e)))
+      .then((e) => {
+        if (e === null) {
+          setError("not found");
+        } else {
+          setEntry(e);
+          setBaseline(e);
+        }
+      })
       .catch((e) => setError(String(e)));
   }, [routeCategory, id, isNew]);
+
+  const dirty = useMemo(() => {
+    if (entry === null || baseline === null) return false;
+    return JSON.stringify(entry) !== JSON.stringify(baseline);
+  }, [entry, baseline]);
+
+  useUnsavedWarning(dirty);
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
@@ -96,11 +119,20 @@ export function Edit() {
     setError(null);
     try {
       const saved = await codexApi.saveEntry(routeCategory, entry);
+      // Baseline gets the saved entry shape (server may have normalized
+      // fields). Setting BEFORE navigate so the useUnsavedWarning blocker
+      // sees a clean dirty state and lets the route change through
+      // without prompting.
+      setBaseline(saved);
       if (isNew) {
         navigate(
           `/codex/${encodeURIComponent(routeCategory)}/${encodeURIComponent(saved.Id)}`,
           { replace: true },
         );
+      } else {
+        // Also update the live entry to match server normalization so
+        // subsequent edits start from the same shape the server has.
+        setEntry(saved);
       }
     } catch (e) {
       setError(String(e));
@@ -125,15 +157,16 @@ export function Edit() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
           <Link
             to={`/codex?category=${encodeURIComponent(routeCategory)}`}
             className="text-neutral-400 hover:text-neutral-200"
           >
             {meta.DisplayName || routeCategory}
           </Link>
-          <span className="mx-2 text-neutral-600">/</span>
+          <span className="text-neutral-600">/</span>
           {isNew ? "New entry" : entry.DisplayName || entry.Id}
+          <DirtyDot dirty={dirty} />
         </h1>
         <div className="flex gap-2">
           <ButtonLink

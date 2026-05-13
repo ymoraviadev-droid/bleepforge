@@ -13,6 +13,7 @@ import { NotFoundPage } from "../../components/NotFoundPage";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 import { PixelSkeleton } from "../../components/PixelSkeleton";
+import { DirtyDot } from "../../components/DirtyDot";
 const FACTIONS: Faction[] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
 
 const empty = (): FactionData => ({
@@ -117,8 +118,9 @@ export function FactionEdit() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           {data.Icon && <AssetThumb path={data.Icon} size="lg" canEdit />}
-          <h1 className="text-xl font-semibold">
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
             {isNew ? "New faction" : data.DisplayName || data.Faction}
+            <DirtyDot dirty={dirty} />
           </h1>
         </div>
         <div className="flex gap-2">

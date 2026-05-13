@@ -12,6 +12,7 @@ import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 import { PixelSkeleton } from "../../components/PixelSkeleton";
+import { DirtyDot } from "../../components/DirtyDot";
 const FACTIONS: Faction[] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
 
 const emptyDelta = (): KarmaDelta => ({ Faction: "Scavengers", Amount: 0 });
@@ -113,8 +114,9 @@ export function KarmaEdit() {
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">
+        <h1 className="flex items-center gap-2 text-xl font-semibold">
           {isNew ? "New impact" : impact.Id || "(unnamed)"}
+          <DirtyDot dirty={dirty} />
         </h1>
         <div className="flex gap-2">
           <ButtonLink to="/karma" variant="secondary">
