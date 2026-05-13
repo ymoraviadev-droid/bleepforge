@@ -17,6 +17,7 @@ import { fieldLabel, textInput } from "../../styles/classes";
 import { TagInput } from "./TagInput";
 import { validateCodexEntry } from "./propertyValidator";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
 const empty = (): CodexEntry => ({
@@ -76,7 +77,7 @@ export function Edit() {
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (!meta || !entry || !routeCategory)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const update = (partial: Partial<CodexEntry>) => setEntry({ ...entry, ...partial });
   const updateProp = (key: string, value: unknown) =>

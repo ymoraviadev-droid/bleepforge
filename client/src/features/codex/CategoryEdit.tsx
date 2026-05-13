@@ -17,6 +17,7 @@ import { NotFoundPage } from "../../components/NotFoundPage";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 import { categoryColorClasses } from "./categoryColor";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const KEY_RE = /^[a-zA-Z][a-zA-Z0-9_]*$/;
 
@@ -64,7 +65,7 @@ export function CategoryEdit() {
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (meta === null) return <div className="text-neutral-500">Loading…</div>;
+  if (meta === null) return <PixelSkeleton />;
 
   const update = (partial: Partial<CodexCategoryMeta>) =>
     setMeta({ ...meta, ...partial });

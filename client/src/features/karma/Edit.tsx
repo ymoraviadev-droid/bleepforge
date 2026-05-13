@@ -11,6 +11,7 @@ import { useExternalChange } from "../../lib/sync/useExternalChange";
 import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const FACTIONS: Faction[] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
 
 const emptyDelta = (): KarmaDelta => ({ Faction: "Scavengers", Amount: 0 });
@@ -67,7 +68,7 @@ export function KarmaEdit() {
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (impact === null) return <div className="text-neutral-500">Loading…</div>;
+  if (impact === null) return <PixelSkeleton />;
 
   const update = (partial: Partial<KarmaImpact>) =>
     setImpact({ ...impact, ...partial });

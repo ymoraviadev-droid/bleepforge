@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { watcherApi, type WatcherEvent, type WatcherStatus } from "../../lib/api";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // chokidar status + a recent-events feed. The interesting thing the user
 // usually wants to know: "is the watcher firing when I save in Godot?"
 // — this tab answers that without forcing them to dig through the Logs
@@ -28,7 +29,7 @@ export function WatcherTab() {
   useEffect(refresh, []);
 
   if (status === undefined && error === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
   if (error)
     return <p className="text-red-400">Failed to fetch: {error}</p>;
   if (!status)

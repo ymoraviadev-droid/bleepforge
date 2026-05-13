@@ -27,6 +27,7 @@ import { emitGlsl, parseGdshader } from "./translator";
 import type { CompileError, CompileResult, EmitResult, UniformDecl } from "./translator";
 import type { ShaderDiagnostic } from "./diagnostics";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Shader edit page. Phases 2 + 3 ship full authoring + live preview:
 // CodeMirror editor with GDShader syntax highlighting, dirty indicator,
 // save (button + Ctrl+S), delete, duplicate, external-edit banner —
@@ -367,7 +368,7 @@ export function ShaderEdit() {
 
   if (notFound) return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (!asset) return <div className="text-neutral-500">Loading…</div>;
+  if (!asset) return <PixelSkeleton />;
 
   const style = shaderCardStyle(asset);
 

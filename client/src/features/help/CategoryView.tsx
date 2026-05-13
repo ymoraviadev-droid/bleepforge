@@ -6,6 +6,7 @@ import { paletteColorClasses } from "../../lib/paletteColor";
 import { useHelpLayout } from "./HelpLayout";
 import { HelpSearch } from "./HelpSearch";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Per-category landing page. Lists every entry in the active category
 // grouped by Section, with the in-page Help search scoped to this
 // category at the top. The full library is one click away via the
@@ -27,7 +28,7 @@ export function CategoryView() {
   }, [group]);
 
   if (allGroups === null || !category)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
   if (!group || !sections) return <NotFoundPage />;
 
   const meta = group.meta;

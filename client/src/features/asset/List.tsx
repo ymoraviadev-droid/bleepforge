@@ -18,6 +18,7 @@ import { showImageEditor } from "./imageEditorHost";
 import { UsagesDrawer } from "./UsagesDrawer";
 import { makeAssetContextMenuHandler } from "./useAssetMenu";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Image gallery — Phase 1 of the assets work. Browses every image found
 // under the Godot project, with a "used by N" reverse-lookup pill that
 // opens a drawer listing every .tres / JSON reference. The unique value
@@ -225,7 +226,7 @@ export function AssetList() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (images === null || filteredAndSorted === null || renderGroups === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const totalShown = filteredAndSorted.length;
 

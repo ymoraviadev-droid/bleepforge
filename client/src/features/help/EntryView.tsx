@@ -7,6 +7,7 @@ import { paletteColorClasses } from "../../lib/paletteColor";
 import { useHelpLayout } from "./HelpLayout";
 import { RenderHelpBody } from "./render";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Single help entry view. The persistent sidebar comes from HelpLayout
 // (so navigating between entries doesn't unmount it); this component
 // renders only the body + prev/next pager into the outlet. Entry data
@@ -38,7 +39,7 @@ export function EntryView() {
   }, [sortedSiblings, entry]);
 
   if (allGroups === null || !category)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
   if (!group || !entry || !sortedSiblings) return <NotFoundPage />;
 
   const meta = group.meta;

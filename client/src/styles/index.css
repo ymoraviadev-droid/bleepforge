@@ -764,3 +764,19 @@ html {
 .card-lift:hover {
   transform: translateY(-2px);
 }
+
+/* Pixel-skeleton pulse. Drop-in replacement for the bare-text
+   "Loading…" placeholder — see [PixelSkeleton.tsx]. Opacity-only
+   animation (compositor-friendly, no repaint cost) with a slow
+   1.4s cycle so it reads as "data is loading, this is calm" rather
+   than "something is broken, hurry up." Each bar gets a staggered
+   `animation-delay` set inline so they wave from top to bottom
+   instead of pulsing in unison — a small detail that sells the
+   sense of motion. */
+.pixel-skeleton > div {
+  animation: pixel-skeleton-pulse 1.4s ease-in-out infinite;
+}
+@keyframes pixel-skeleton-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.25; }
+}

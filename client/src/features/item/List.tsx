@@ -9,6 +9,7 @@ import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/Vi
 import { ItemCard } from "./ItemCard";
 import { ItemRow } from "./ItemRow";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const CATEGORIES: ItemCategory[] = [
   "Misc",
   "Weapon",
@@ -73,7 +74,7 @@ export function ItemList() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (items === null || grouped === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const totalShown = Array.from(grouped.values()).reduce((n, l) => n + l.length, 0);
 

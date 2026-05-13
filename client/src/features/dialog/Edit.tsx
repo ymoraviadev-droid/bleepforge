@@ -17,6 +17,7 @@ import { useExternalChange } from "../../lib/sync/useExternalChange";
 import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const emptyChoice = (): DialogChoice => ({
   Text: "",
   NextSequenceId: "",
@@ -97,7 +98,7 @@ export function DialogEdit() {
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (seq === null) return <div className="text-neutral-500">Loading…</div>;
+  if (seq === null) return <PixelSkeleton />;
 
   const updateLine = (lineIdx: number, partial: Partial<DialogLine>) => {
     setSeq({

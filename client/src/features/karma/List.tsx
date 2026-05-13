@@ -9,6 +9,7 @@ import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/Vi
 import { KarmaCard } from "./KarmaCard";
 import { KarmaRow } from "./KarmaRow";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 type SortBy = "id" | "magnitude-desc" | "deltas-desc";
 
 const SORT_LABEL: Record<SortBy, string> = {
@@ -105,7 +106,7 @@ export function KarmaList() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (impacts === null || filteredAndSorted === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const totalShown = filteredAndSorted.length;
 

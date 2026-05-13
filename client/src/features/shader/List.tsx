@@ -18,6 +18,7 @@ import { ShaderRow } from "./ShaderRow";
 import { buildShaderEditUrl } from "./format";
 import { makeShaderContextMenuHandler } from "./shaderMenu";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Shader gallery — Phase 1 of the shader work. Browses every .gdshader
 // found under the Godot project, with a "used by N" reverse-lookup pill
 // for each (clicking the pill navigates to the shader's view page where
@@ -159,7 +160,7 @@ export function ShaderList() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (shaders === null || filteredAndSorted === null || renderGroups === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const totalShown = filteredAndSorted.length;
 

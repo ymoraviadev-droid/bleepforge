@@ -13,6 +13,7 @@ import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const CATEGORIES: ItemCategory[] = [
   "Misc",
   "Weapon",
@@ -85,7 +86,7 @@ export function ItemEdit() {
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (item === null) return <div className="text-neutral-500">Loading…</div>;
+  if (item === null) return <PixelSkeleton />;
 
   const update = (partial: Partial<Item>) => setItem({ ...item, ...partial });
 

@@ -17,6 +17,7 @@ import { useExternalChange } from "../../lib/sync/useExternalChange";
 import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const OBJECTIVE_TYPES: ObjectiveType[] = [
   "CollectItem",
   "ReachLocation",
@@ -108,7 +109,7 @@ export function QuestEdit() {
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (quest === null) return <div className="text-neutral-500">Loading…</div>;
+  if (quest === null) return <PixelSkeleton />;
 
   const update = (partial: Partial<Quest>) => setQuest({ ...quest, ...partial });
 

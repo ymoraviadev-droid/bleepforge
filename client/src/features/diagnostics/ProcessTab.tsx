@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { processApi, type ProcessInfo } from "../../lib/api";
 import { formatLongDateTime } from "../../lib/date";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Read-only "what is the running server" view. Useful when you suspect the
 // process you're talking to isn't the one you expect — common after editing
 // preferences and forgetting to restart, or when running multiple checkouts.
@@ -26,7 +27,7 @@ export function ProcessTab() {
   useEffect(refresh, []);
 
   if (info === undefined && error === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
   if (error)
     return <p className="text-red-400">Failed to fetch: {error}</p>;
   if (!info)

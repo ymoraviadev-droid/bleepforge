@@ -8,6 +8,7 @@ import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/Vi
 import { FactionCard } from "./FactionCard";
 import { FactionRow } from "./FactionRow";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Stable display order — matches the C# Faction enum declaration so the cards
 // always read in the canonical order regardless of import order.
 const ORDER: FactionData["Faction"][] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
@@ -27,7 +28,7 @@ export function FactionList() {
   });
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (factions === null) return <div className="text-neutral-500">Loading…</div>;
+  if (factions === null) return <PixelSkeleton />;
 
   const sorted = [...factions].sort(
     (a, b) => ORDER.indexOf(a.Faction) - ORDER.indexOf(b.Faction),

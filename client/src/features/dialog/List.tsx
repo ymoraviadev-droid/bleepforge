@@ -8,6 +8,7 @@ import { GRAPH_LIST_OPTIONS, ViewToggle } from "../../components/ViewToggle";
 import { FolderTabs } from "./FolderTabs";
 import { SourceFilter, useDialogSourceFilter } from "./SourceFilter";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 export function DialogList() {
   const [folders, setFolders] = useState<string[] | null>(null);
   // Folder → sequences mapping across the whole project. Used by visibleFolders
@@ -106,7 +107,7 @@ export function DialogList() {
   }, [seqs, sourceFilter]);
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (folders === null) return <div className="text-neutral-500">Loading…</div>;
+  if (folders === null) return <PixelSkeleton />;
 
   return (
     <div>
@@ -154,7 +155,7 @@ export function DialogList() {
           No folders contain {sourceFilter === "Npc" ? "NPC" : sourceFilter} sequences.
         </p>
       ) : seqs === null || filteredSeqs === null ? (
-        <div className="text-neutral-500">Loading…</div>
+        <PixelSkeleton />
       ) : filteredSeqs.length === 0 ? (
         <p className="text-neutral-500">
           No {sourceFilter === "all" ? "" : `${sourceFilter === "Npc" ? "NPC" : sourceFilter} `}

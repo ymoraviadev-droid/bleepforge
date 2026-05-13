@@ -48,6 +48,7 @@ import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { useTheme } from "../../styles/Theme";
 import { useThemeColors, type ThemeColors } from "../../styles/themeColors";
 import { GRAPH_LIST_OPTIONS, ViewToggle } from "../../components/ViewToggle";
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 import { FolderTabs } from "./FolderTabs";
 import { SourceFilter, useDialogSourceFilter } from "./SourceFilter";
 
@@ -1673,7 +1674,7 @@ function DialogGraphInner() {
   }, [folder]);
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (folders === null) return <div className="text-neutral-500">Loading…</div>;
+  if (folders === null) return <PixelSkeleton />;
 
   return (
     <div className="flex h-full flex-col gap-4">

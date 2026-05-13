@@ -9,6 +9,7 @@ import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/Vi
 import { NpcCard } from "./NpcCard";
 import { NpcRow } from "./NpcRow";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const NO_MODEL_KEY = "__none__";
 const NO_MODEL_LABEL = "(no model)";
 
@@ -104,7 +105,7 @@ export function NpcList() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (npcs === null || filteredAndGrouped === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const totalShown = filteredAndGrouped.sorted.length;
 

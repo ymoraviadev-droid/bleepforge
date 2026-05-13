@@ -9,6 +9,7 @@ import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/Vi
 import { BalloonCard } from "./BalloonCard";
 import { BalloonRow } from "./BalloonRow";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Flat list across all model folders. Two filter dropdowns:
 //   - by NPC: reverse lookup over NpcData.CasualRemarks (which NPC speaks
 //     this balloon at runtime).
@@ -216,7 +217,7 @@ export function BalloonList() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (flat === null || filteredAndSorted === null || renderGroups === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const totalShown = filteredAndSorted.length;
 

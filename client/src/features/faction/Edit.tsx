@@ -12,6 +12,7 @@ import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const FACTIONS: Faction[] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
 
 const empty = (): FactionData => ({
@@ -73,7 +74,7 @@ export function FactionEdit() {
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (data === null) return <div className="text-neutral-500">Loading…</div>;
+  if (data === null) return <PixelSkeleton />;
 
   const update = (partial: Partial<FactionData>) =>
     setData({ ...data, ...partial });

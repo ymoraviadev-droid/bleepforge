@@ -10,6 +10,7 @@ import { CodexCard } from "./CodexCard";
 import { CodexRow } from "./CodexRow";
 import { categoryColorClasses } from "./categoryColor";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 type SortBy = "id" | "name";
 
 const SORT_LABEL: Record<SortBy, string> = {
@@ -61,7 +62,7 @@ export function List() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (groups === null || filteredGroups === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const totalCategories = groups.length;
   const totalShown = filteredGroups.reduce((acc, g) => acc + g.entries.length, 0);

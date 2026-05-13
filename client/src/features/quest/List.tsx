@@ -9,6 +9,7 @@ import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/Vi
 import { QuestCard } from "./QuestCard";
 import { QuestRow } from "./QuestRow";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const NO_GIVER_KEY = "__none__";
 const NO_GIVER_LABEL = "(no giver)";
 
@@ -127,7 +128,7 @@ export function QuestList() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (quests === null || filteredAndGrouped === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const totalShown = filteredAndGrouped.sorted.length;
 

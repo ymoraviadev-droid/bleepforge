@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { reconcileApi, type ReconcileStatus } from "../../lib/api";
 import { formatLongDateTime } from "../../lib/date";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Boot-reconcile diagnostic tab. Same content as the previous /reconcile page
 // minus the page chrome (header lives in HealthPage). Read-only — rebuilding
 // requires a server restart by design (config is captured once at boot).
@@ -28,7 +29,7 @@ export function ReconcileTab() {
   }, []);
 
   if (status === undefined && error === null) {
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
   }
 
   if (error) {

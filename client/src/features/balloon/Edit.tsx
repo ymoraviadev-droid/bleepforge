@@ -12,6 +12,7 @@ import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 
 const empty = (): Balloon => ({
@@ -105,7 +106,7 @@ export function BalloonEdit() {
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
-  if (balloon === null) return <div className="text-neutral-500">Loading…</div>;
+  if (balloon === null) return <PixelSkeleton />;
 
   const update = (partial: Partial<Balloon>) =>
     setBalloon({ ...balloon, ...partial });

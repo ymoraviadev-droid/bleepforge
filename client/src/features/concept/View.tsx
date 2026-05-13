@@ -10,6 +10,7 @@ import {
 } from "../../components/PixelPlaceholder";
 import { button } from "../../styles/classes";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Read-only homepage view of the concept doc. The "Edit" button takes you to
 // /concept/edit. Mirrors the items/quests pattern (list = preview-ish, edit
 // = form), except this is a singleton so the "list" is the full page.
@@ -24,7 +25,7 @@ export function ConceptView() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (concept === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const hasMeta = concept.Genre || concept.Setting || concept.Status;
 

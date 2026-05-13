@@ -6,6 +6,7 @@ import { AssetPicker } from "../../components/AssetPicker";
 import { ButtonLink } from "../../components/Button";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Edit form for the singleton concept doc. After save, navigate back to the
 // /concept view so the user sees the result. Cancel = same.
 
@@ -21,7 +22,7 @@ export function ConceptEdit() {
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (concept === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const update = (partial: Partial<Concept>) =>
     setConcept({ ...concept, ...partial });

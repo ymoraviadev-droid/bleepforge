@@ -10,6 +10,7 @@ import { HelpHero } from "./HelpHero";
 import { useHelpLayout } from "./HelpLayout";
 import { HelpSearch } from "./HelpSearch";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Top-level Help landing page. The persistent sidebar on the left lets
 // the user drill in by category; the main panel is a welcome screen
 // that promotes the two ways to find content (search across everything,
@@ -53,7 +54,7 @@ export function List() {
   }, [groups]);
 
   if (groups === null || sortedGroups === null)
-    return <div className="text-neutral-500">Loading…</div>;
+    return <PixelSkeleton />;
 
   const totalEntries = groups.reduce((acc, g) => acc + g.entries.length, 0);
 

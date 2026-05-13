@@ -4,6 +4,7 @@ import { useCatalog } from "../../lib/useCatalog";
 import { button } from "../../styles/classes";
 import { computeIssues } from "../../lib/integrity/issues";
 
+import { PixelSkeleton } from "../../components/PixelSkeleton";
 // Authored-data integrity tab. Same logic as the previous standalone
 // /integrity page — extracted into a tab body. computeIssues + Issue type
 // stay in ../integrity/issues.ts so App.tsx can also evaluate the count
@@ -12,7 +13,7 @@ import { computeIssues } from "../../lib/integrity/issues";
 export function IntegrityTab() {
   const catalog = useCatalog();
   if (catalog === null)
-    return <div className="text-neutral-500">Loading catalog…</div>;
+    return <PixelSkeleton />;
 
   const issues = computeIssues(catalog);
   const byDomain = groupBy(issues, (i) => i.domain);
