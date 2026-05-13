@@ -48,11 +48,10 @@ export function PatternPicker({
               title={def.label}
               disabled={disabled}
               onClick={() => onChange(def.id)}
-              className={`group relative flex aspect-[5/3] w-full items-end overflow-hidden border-2 bg-neutral-950 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                isActive
+              className={`group relative flex aspect-5/3 w-full items-end overflow-hidden border-2 bg-neutral-950 transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${isActive
                   ? "border-emerald-500"
                   : "border-neutral-800 hover:border-neutral-600"
-              }`}
+                }`}
             >
               <PatternBackdrop
                 pattern={def.id}
@@ -61,9 +60,8 @@ export function PatternPicker({
                 className="absolute inset-0 size-full"
               />
               <span
-                className={`relative z-10 w-full bg-gradient-to-t from-neutral-950 via-neutral-950/80 to-transparent px-1.5 py-1 text-left font-mono text-[9px] uppercase tracking-wider ${
-                  isActive ? "text-emerald-300" : "text-neutral-400 group-hover:text-neutral-300"
-                }`}
+                className={`relative z-10 w-full bg-linear-to-t from-neutral-950 via-neutral-950/80 to-transparent px-1.5 py-1 text-left font-mono text-[9px] uppercase tracking-wider ${isActive ? "text-emerald-300" : "text-neutral-400 group-hover:text-neutral-300"
+                  }`}
               >
                 {def.label}
               </span>
