@@ -183,6 +183,8 @@ Run from the repo root:
 | `pnpm dist` | Build the packaged Linux AppImage (Vite + esbuild + tsc + electron-builder) |
 | `pnpm build` | Build all workspaces (`tsc` for shared/server/electron, `vite build` for client) |
 | `pnpm typecheck` | Run `tsc --noEmit` across all workspaces |
+| `pnpm sync:from-userdata` | Pull AppImage edits back into the repo (`~/.config/Bleepforge/data/` → `./data/`). Dry-run + confirm by default; `-y` to skip prompt. |
+| `pnpm sync:to-userdata` | Push repo content into the running AppImage's userData (opposite direction). |
 
 Server-side dev tools (run via `pnpm --filter @bleepforge/server <name>`):
 

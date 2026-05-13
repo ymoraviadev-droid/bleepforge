@@ -10,6 +10,7 @@
 // Heavy lifting lives in the modules below; this file's job is wiring.
 
 import express from "express";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import {
@@ -62,27 +63,85 @@ export interface StartedServer {
 // help dir. Bleepforge ships its built-in help content (the entries authored
 // alongside the app itself) inside app.asar at <BLEEPFORGE_SEED_ROOT>/help.
 //
-// Two paths:
+// Three classes of behavior, decided per file via a hash manifest at
+// <userData root>/.bleepforge-seed-manifest.json:
 //
 //   1. Fresh install (userData/help missing or empty) — copy the whole seed
-//      tree so the user has the full library out of the box.
-//   2. Upgrade install (userData/help already has content) — walk the seed
-//      tree and copy only files that DON'T already exist in userData. New
-//      entries shipped in a newer build (e.g. the v0.3.0 release notes
-//      entry) flow into userData automatically on first boot of the
-//      upgraded AppImage; existing entries the user may have edited are
-//      never overwritten. Deletions from the seed are intentionally NOT
-//      propagated — if a help entry is removed from the bundled seed in
-//      a future version, the user's stale copy lingers harmlessly.
+//      tree and write the manifest with every seed file's current hash.
+//      Sets the baseline for future "user-edited vs untouched" checks.
 //
-// What this DOESN'T do: re-sync content updates to existing entries.
-// If v0.3.0 ships a typo fix on a file the user already has, the user
-// keeps the old version. Doing that properly requires a "last-seeded
-// hashes" manifest so we can tell "user-edited" from "untouched, safe
-// to overwrite" — deferred until it becomes a real problem.
+//   2. Upgrade with manifest — for each seed file:
+//      - userData missing the file        → copy seed (new entry shipped)
+//      - userData hash === seed hash      → no-op (already up to date)
+//      - userData hash === manifest hash  → user hasn't touched it since
+//                                           last seed; safe to overwrite
+//                                           with the new seed content
+//                                           (content update propagated)
+//      - userData hash differs from both  → user has edited; preserve
+//
+//   3. Upgrade WITHOUT manifest (pre-v0.2.1 install) — same as today's
+//      legacy behavior: copy missing files, preserve everything that
+//      exists. The first run after the upgrade populates the manifest
+//      so the NEXT upgrade can propagate content updates cleanly.
+//
+// The manifest itself records the hashes of the seed content we last
+// shipped (not the user's). That's what lets us tell "user changed this"
+// from "user accepted this and we now want to update it."
+//
+// Deletions from the seed are intentionally NOT propagated — if a help
+// entry is removed in a future version, the user's stale copy lingers
+// harmlessly. Could be added later with a "last-seeded paths" tracker
+// + delete-prompt; out of scope today.
 //
 // The Codex and Concept docs are intentionally NOT seeded — those are
 // user-authored content for their project, not built-in.
+
+interface SeedManifest {
+  /** Map from seed-relative path (e.g. "getting-started/welcome.json") to
+   *  the sha256 of the seed content we last shipped to this user. */
+  help: Record<string, string>;
+}
+
+function seedManifestPath(): string {
+  // <dataRoot>/help → parent of dataRoot is the userData root (packaged) or
+  // the repo root (dev with BLEEPFORGE_SEED_ROOT set, rare).
+  const userDataRoot = path.resolve(config.dataRoot, "..");
+  return path.join(userDataRoot, ".bleepforge-seed-manifest.json");
+}
+
+function loadSeedManifest(): SeedManifest {
+  try {
+    const text = fs.readFileSync(seedManifestPath(), "utf8");
+    const parsed = JSON.parse(text);
+    if (parsed && typeof parsed === "object" && parsed.help && typeof parsed.help === "object") {
+      return parsed as SeedManifest;
+    }
+  } catch {
+    // ENOENT or malformed — fall through to empty. Without a baseline we
+    // treat every existing file as user-edited (conservative; matches
+    // pre-manifest behavior).
+  }
+  return { help: {} };
+}
+
+function saveSeedManifest(manifest: SeedManifest): void {
+  const file = seedManifestPath();
+  try {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, JSON.stringify(manifest, null, 2), "utf8");
+  } catch (err) {
+    // Non-fatal: seed itself succeeded, the user just won't get update
+    // propagation on the next upgrade until the manifest writes succeed.
+    console.warn(
+      `[bleepforge/server] could not write seed manifest at ${file}: ${(err as Error).message}`,
+    );
+  }
+}
+
+function sha256(buf: Buffer | string): string {
+  return crypto.createHash("sha256").update(buf).digest("hex");
+}
+
 function seedHelpLibrary(): void {
   const seedRoot = process.env.BLEEPFORGE_SEED_ROOT;
   if (!seedRoot) return;
@@ -98,39 +157,102 @@ function seedHelpLibrary(): void {
     // readdirSync + copyFileSync are both supported by Electron's asar
     // polyfill, so we walk the tree ourselves.
     copyDirRecursive(seedHelp, destHelp);
+    const manifest: SeedManifest = { help: hashSeedTree(seedHelp) };
+    saveSeedManifest(manifest);
     console.log(`[bleepforge/server] seeded help library: ${seedHelp} → ${destHelp}`);
     return;
   }
 
-  const newCount = mergeMissingFilesRecursive(seedHelp, destHelp);
-  if (newCount > 0) {
-    console.log(
-      `[bleepforge/server] help library merge: copied ${newCount} new file(s) from seed → ${destHelp}`,
-    );
+  // Upgrade path: add new files + update untouched ones + preserve edits.
+  const manifest = loadSeedManifest();
+  const lastSeed = manifest.help;
+  const newSeed: Record<string, string> = {};
+
+  const counts = { added: 0, updated: 0, preserved: 0 };
+  mergeSeedTree(seedHelp, destHelp, lastSeed, newSeed, "", counts);
+
+  // Persist the manifest with the seed hashes we just shipped — sets the
+  // baseline for the NEXT upgrade to detect what's user-edited.
+  manifest.help = newSeed;
+  saveSeedManifest(manifest);
+
+  const parts: string[] = [];
+  if (counts.added > 0) parts.push(`${counts.added} new`);
+  if (counts.updated > 0) parts.push(`${counts.updated} updated`);
+  if (counts.preserved > 0) parts.push(`${counts.preserved} preserved`);
+  if (parts.length > 0) {
+    console.log(`[bleepforge/server] help library merge: ${parts.join(", ")} (${destHelp})`);
   }
 }
 
-// Walk `src` and copy any file whose corresponding `dest` path doesn't yet
-// exist. Never overwrites existing files. Returns the count of new files
-// copied. Used by the help-library upgrade path so new entries shipped in
-// a newer build flow into the user's existing userData without clobbering
-// any of their edits.
-function mergeMissingFilesRecursive(src: string, dest: string): number {
-  let added = 0;
-  fs.mkdirSync(dest, { recursive: true });
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const s = path.join(src, entry.name);
-    const d = path.join(dest, entry.name);
+/** Walk the seed tree, comparing each file against (a) the user's current
+ *  copy and (b) the last-seeded hash from the manifest. Per-file rules in
+ *  the seedHelpLibrary doc-comment. Recursively descends; `newSeed` and
+ *  `counts` accumulate as we go. */
+function mergeSeedTree(
+  srcDir: string,
+  dstDir: string,
+  lastSeed: Record<string, string>,
+  newSeed: Record<string, string>,
+  relBase: string,
+  counts: { added: number; updated: number; preserved: number },
+): void {
+  fs.mkdirSync(dstDir, { recursive: true });
+  for (const entry of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const rel = relBase ? `${relBase}/${entry.name}` : entry.name;
+    const s = path.join(srcDir, entry.name);
+    const d = path.join(dstDir, entry.name);
     if (entry.isDirectory()) {
-      added += mergeMissingFilesRecursive(s, d);
-    } else if (entry.isFile()) {
-      if (!fs.existsSync(d)) {
-        fs.copyFileSync(s, d);
-        added++;
-      }
+      mergeSeedTree(s, d, lastSeed, newSeed, rel, counts);
+      continue;
+    }
+    if (!entry.isFile()) continue;
+
+    const seedContent = fs.readFileSync(s);
+    const seedHash = sha256(seedContent);
+    newSeed[rel] = seedHash;
+
+    if (!fs.existsSync(d)) {
+      // New file shipped in this seed.
+      fs.writeFileSync(d, seedContent);
+      counts.added++;
+      continue;
+    }
+
+    const userContent = fs.readFileSync(d);
+    const userHash = sha256(userContent);
+    if (userHash === seedHash) {
+      // Already up to date — no-op.
+      continue;
+    }
+
+    const lastHash = lastSeed[rel];
+    if (lastHash && userHash === lastHash) {
+      // User hasn't touched it since the last seed; seed has new content.
+      // Safe to overwrite — content update propagates.
+      fs.writeFileSync(d, seedContent);
+      counts.updated++;
+    } else {
+      // User has edited (or no baseline → conservative). Preserve.
+      counts.preserved++;
     }
   }
-  return added;
+}
+
+/** Compute sha256 of every file in `root`, keyed by relative path. Used
+ *  to populate the manifest on fresh install. */
+function hashSeedTree(root: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  function walk(dir: string, relBase: string): void {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const rel = relBase ? `${relBase}/${entry.name}` : entry.name;
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) walk(abs, rel);
+      else if (entry.isFile()) out[rel] = sha256(fs.readFileSync(abs));
+    }
+  }
+  walk(root, "");
+  return out;
 }
 
 function copyDirRecursive(src: string, dest: string): void {
