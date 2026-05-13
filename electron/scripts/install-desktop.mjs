@@ -110,6 +110,90 @@ function ensureExecutable(p) {
   }
 }
 
+// Installs a user-local XDG thumbnailer that teaches Dolphin / Nautilus
+// to extract the embedded icon from ANY AppImage (not just Bleepforge)
+// and use it as the file thumbnail. The trick: Linux file managers
+// support arbitrary thumbnailers via `.thumbnailer` files in
+// ~/.local/share/thumbnailers/. Our thumbnailer registers for the
+// `application/vnd.appimage` MIME type (which Fedora's shared-mime-info
+// already maps to .AppImage files — confirmed via xdg-mime).
+//
+// The actual extraction is a tiny bash script that uses the AppImage's
+// own --appimage-extract command to pull out `.DirIcon` (the AppImage
+// spec's standard icon location, present in every conforming AppImage)
+// and resizes it via ImageMagick to the thumbnail size the file manager
+// requested. Two-step extract: .DirIcon is typically a symlink to the
+// largest hicolor PNG inside the squashfs, so we extract the symlink
+// first, readlink it, then extract the target.
+//
+// Why this beats installing libappimage / appimaged: zero system packages
+// to install, works user-locally, and handles every AppImage on the
+// system uniformly — Bleepforge plus any third-party AppImage gets a
+// proper thumbnail in the file manager.
+const THUMBNAILER_SCRIPT = `#!/usr/bin/env bash
+# Bleepforge AppImage thumbnailer for XDG-conformant file managers.
+# Args: \$1 input file (.AppImage), \$2 output thumb (PNG), \$3 size in px
+#
+# Installed by Bleepforge's \`pnpm install:desktop\`. The Exec line of
+# ~/.local/share/thumbnailers/bleepforge-appimage.thumbnailer points
+# here. Works for ANY AppImage, not just Bleepforge.
+
+set -euo pipefail
+INPUT="\$1"
+OUTPUT="\$2"
+SIZE="\${3:-256}"
+
+[ -x "\$INPUT" ] || exit 1
+command -v magick >/dev/null 2>&1 || exit 1
+
+WORK=\$(mktemp -d)
+trap 'rm -rf "\$WORK"' EXIT
+cd "\$WORK"
+
+# Step 1: extract .DirIcon (typically a symlink to the largest icon).
+"\$INPUT" --appimage-extract '.DirIcon' >/dev/null 2>&1 || exit 1
+ICON="\$WORK/squashfs-root/.DirIcon"
+# Symlink check first — \`-e\` returns false on broken symlinks, but
+# .DirIcon at this point IS a broken symlink (its target wasn't
+# extracted in this pass), so \`-e\` would fail. Use \`-L\` for the
+# symlink case and \`-f\` for the rare regular-file case.
+if [ -L "\$ICON" ]; then
+  TARGET=\$(readlink "\$ICON")
+  rm -rf "\$WORK/squashfs-root"
+  cd "\$WORK"
+  "\$INPUT" --appimage-extract "\$TARGET" >/dev/null 2>&1 || exit 1
+  ICON="\$WORK/squashfs-root/\$TARGET"
+elif [ ! -f "\$ICON" ]; then
+  exit 1
+fi
+
+[ -f "\$ICON" ] || exit 1
+magick "\$ICON" -resize "\${SIZE}x\${SIZE}" "\$OUTPUT" 2>/dev/null
+`;
+
+function installAppImageThumbnailer() {
+  const dataDir = path.join(home, ".local", "share", "bleepforge");
+  fs.mkdirSync(dataDir, { recursive: true });
+  const scriptPath = path.join(dataDir, "appimage-thumbnailer.sh");
+  fs.writeFileSync(scriptPath, THUMBNAILER_SCRIPT);
+  fs.chmodSync(scriptPath, 0o755);
+  console.log(`[install:desktop] wrote ${scriptPath}`);
+
+  const thumbDir = path.join(home, ".local", "share", "thumbnailers");
+  fs.mkdirSync(thumbDir, { recursive: true });
+  const thumbFile = path.join(thumbDir, "bleepforge-appimage.thumbnailer");
+  // TryExec gates the thumbnailer on `magick` being available; missing
+  // ImageMagick → thumbnailer silently disabled, file manager falls
+  // back to generic icon (same as before this script ran).
+  const contents = `[Thumbnailer Entry]
+TryExec=magick
+Exec=${scriptPath} %i %o %s
+MimeType=application/vnd.appimage;application/x-iso9660-appimage;
+`;
+  fs.writeFileSync(thumbFile, contents);
+  console.log(`[install:desktop] wrote ${thumbFile}`);
+}
+
 function refreshCaches() {
   // Both tools are best-effort: if they're not installed, the desktop
   // environment will pick up the new files on next refresh / login
@@ -151,16 +235,20 @@ async function main() {
   ensureExecutable(appImage.path);
   copyIcons();
   writeDesktopEntry(appImage.path);
+  installAppImageThumbnailer();
   await refreshCaches();
   console.log("");
-  console.log("[install:desktop] done. Bleepforge should now appear in your");
-  console.log("[install:desktop] KDE / GNOME app menu with the proper icon.");
+  console.log("[install:desktop] done. Bleepforge now appears in your KDE / GNOME");
+  console.log("[install:desktop] app menu with the proper icon, AND any AppImage");
+  console.log("[install:desktop] file in your file manager will show its embedded");
+  console.log("[install:desktop] icon as a thumbnail (the thumbnailer is generic —");
+  console.log("[install:desktop] works for every AppImage on your system).");
   console.log("");
-  console.log("[install:desktop] If the AppImage's file thumbnail in Dolphin still");
-  console.log("[install:desktop] shows a generic icon, that's a separate issue —");
-  console.log("[install:desktop] thumbnailing AppImage files requires libappimage,");
-  console.log("[install:desktop] which isn't packaged for Fedora. Use the sidecar");
-  console.log("[install:desktop] Bleepforge.png in release/ to eyeball the icon.");
+  console.log("[install:desktop] If existing AppImages still show a generic icon,");
+  console.log("[install:desktop] their cached thumbnails are stale. Clear with:");
+  console.log("[install:desktop]   rm -rf ~/.cache/thumbnails/");
+  console.log("[install:desktop] Or right-click each AppImage in Dolphin and pick");
+  console.log("[install:desktop] \"Refresh thumbnail\" from the context menu.");
 }
 
 main().catch((err) => {
