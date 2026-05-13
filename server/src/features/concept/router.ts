@@ -3,6 +3,7 @@ import path from "node:path";
 import { Router } from "express";
 import { ConceptSchema, emptyConcept, type Concept } from "@bleepforge/shared";
 import { config } from "../../config.js";
+import { recordSave } from "../../lib/saves/buffer.js";
 
 // Singleton document — one `data/concept.json` for the whole project.
 // No id, no list, no .tres pipeline. Just GET (with empty fallback) + PUT.
@@ -38,6 +39,31 @@ conceptRouter.put("/", async (req, res) => {
     res.status(400).json({ error: parsed.error.format() });
     return;
   }
-  const saved = await write(parsed.data);
-  res.json({ entity: saved, tresWrite: { attempted: false } });
+  try {
+    const saved = await write(parsed.data);
+    // Bleepforge-only domain — no .tres counterpart, but we still
+    // record the save so it shows up in the Saves audit feed AND
+    // fires an outgoing-save toast like every other Save button.
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "concept",
+      key: "concept",
+      action: "updated",
+      outcome: "ok",
+      path: conceptFile,
+    });
+    res.json({ entity: saved, tresWrite: { attempted: false } });
+  } catch (err) {
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "concept",
+      key: "concept",
+      action: "updated",
+      outcome: "error",
+      error: (err as Error).message,
+    });
+    throw err;
+  }
 });

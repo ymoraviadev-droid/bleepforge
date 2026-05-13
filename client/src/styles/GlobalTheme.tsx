@@ -6,6 +6,7 @@ import {
   type GlobalTheme,
   type Preferences,
 } from "@bleepforge/shared";
+import { pushToast } from "../components/Toast";
 import { preferencesApi } from "../lib/api";
 import { markBootCheckpoint } from "../lib/boot/progress";
 import { applyColorOverrides } from "./colorOverrides";
@@ -310,6 +311,16 @@ export function switchGlobalTheme(name: string) {
   applyToDom(t);
   persist();
   notify();
+  // Toast every discrete theme action — these are user-initiated
+  // one-off events worth confirming (the user just picked from a
+  // dropdown / clicked a button), unlike the continuous slider drags
+  // + color picker adjustments which deliberately stay silent.
+  pushToast({
+    id: `theme-switch:${name}`,
+    title: "Theme switched",
+    body: name,
+    variant: "saved",
+  });
 }
 
 export function createGlobalTheme(name: string): GlobalTheme | null {
@@ -321,6 +332,12 @@ export function createGlobalTheme(name: string): GlobalTheme | null {
   activeName = trimmed;
   persist();
   notify();
+  pushToast({
+    id: `theme-create:${trimmed}`,
+    title: "Theme created",
+    body: trimmed,
+    variant: "saved",
+  });
   return next;
 }
 
@@ -337,6 +354,12 @@ export function deleteGlobalTheme(name: string) {
   }
   persist();
   notify();
+  pushToast({
+    id: `theme-delete:${name}`,
+    title: "Theme deleted",
+    body: name,
+    variant: "warn",
+  });
 }
 
 function patchActive(updates: Partial<Omit<GlobalTheme, "name">>) {
@@ -453,6 +476,12 @@ export function createCustomColorTheme(
   if (refreshed) applyToDom(refreshed);
   persist();
   notify();
+  pushToast({
+    id: `custom-color-create:${trimmed}`,
+    title: "Custom color theme created",
+    body: trimmed,
+    variant: "saved",
+  });
   return created;
 }
 
@@ -469,6 +498,12 @@ export function deleteCustomColorTheme(name: string): void {
   if (active) applyToDom(active);
   persist();
   notify();
+  pushToast({
+    id: `custom-color-delete:${name}`,
+    title: "Custom color theme deleted",
+    body: name,
+    variant: "warn",
+  });
 }
 
 /** Set one override field on the named custom color theme. Passing

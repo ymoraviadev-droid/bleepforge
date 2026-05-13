@@ -281,8 +281,12 @@ export type SaveDirection = "outgoing" | "incoming";
 export type SaveOutcome = "ok" | "warning" | "error";
 export type SaveAction = "updated" | "deleted";
 
-// Mirrors the SyncDomain union — kept as a separate type alias so the
-// client stays decoupled from the sync stream's exports.
+// Mirrors the server's SaveDomain union (v0.2.2 extended this with
+// three Bleepforge-only domains that don't have a .tres watcher
+// counterpart — concept / codex-entry / codex-category — so their
+// manual Save buttons also show up in the Saves audit feed AND fire
+// outgoing-save toasts). Kept as a separate type alias so the client
+// stays decoupled from the sync stream's exports.
 export type SaveDomain =
   | "item"
   | "karma"
@@ -291,7 +295,10 @@ export type SaveDomain =
   | "npc"
   | "faction"
   | "balloon"
-  | "shader";
+  | "shader"
+  | "concept"
+  | "codex-entry"
+  | "codex-category";
 
 export interface SaveEntry {
   ts: string;

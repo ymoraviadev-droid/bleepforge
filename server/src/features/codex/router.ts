@@ -3,6 +3,7 @@ import {
   CodexCategoryMetaSchema,
   CodexEntrySchema,
 } from "@bleepforge/shared";
+import { recordSave } from "../../lib/saves/buffer.js";
 import * as storage from "./storage.js";
 
 // HTTP surface for the Game Codex domain. Folder-aware (per-category)
@@ -48,11 +49,29 @@ codexRouter.put("/:category/_meta", async (req, res) => {
     return;
   }
   const saved = await storage.writeMeta(parsed.data);
+  recordSave({
+    ts: new Date().toISOString(),
+    direction: "outgoing",
+    domain: "codex-category",
+    key: parsed.data.Category,
+    action: "updated",
+    outcome: "ok",
+  });
   res.json({ entity: saved, tresWrite: { attempted: false } });
 });
 
 codexRouter.delete("/:category", async (req, res) => {
   const deleted = await storage.removeCategory(req.params.category);
+  if (deleted) {
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "codex-category",
+      key: req.params.category,
+      action: "deleted",
+      outcome: "ok",
+    });
+  }
   res.status(deleted ? 204 : 404).end();
 });
 
@@ -81,10 +100,31 @@ codexRouter.put("/:category/:id", async (req, res) => {
     res.status(400).json({ error: "Id in body does not match URL" });
     return;
   }
+  // Saves-feed key is "<category>/<id>" so the toast bridge + audit
+  // feed can disambiguate entries across categories (one Id can exist
+  // in multiple categories).
+  const key = `${req.params.category}/${parsed.data.Id}`;
   try {
     const saved = await storage.writeEntry(req.params.category, parsed.data);
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "codex-entry",
+      key,
+      action: "updated",
+      outcome: "ok",
+    });
     res.json({ entity: saved, tresWrite: { attempted: false } });
   } catch (err) {
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "codex-entry",
+      key,
+      action: "updated",
+      outcome: "error",
+      error: (err as Error).message,
+    });
     const status = (err as { status?: number }).status ?? 500;
     res.status(status).json({ error: (err as Error).message });
   }
@@ -92,5 +132,15 @@ codexRouter.put("/:category/:id", async (req, res) => {
 
 codexRouter.delete("/:category/:id", async (req, res) => {
   const deleted = await storage.removeEntry(req.params.category, req.params.id);
+  if (deleted) {
+    recordSave({
+      ts: new Date().toISOString(),
+      direction: "outgoing",
+      domain: "codex-entry",
+      key: `${req.params.category}/${req.params.id}`,
+      action: "deleted",
+      outcome: "ok",
+    });
+  }
   res.status(deleted ? 204 : 404).end();
 });

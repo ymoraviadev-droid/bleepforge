@@ -87,6 +87,36 @@ const DOMAIN: Record<SaveDomain, DomainRoute> = {
       path ? `/shaders/edit?path=${encodeURIComponent(path)}` : "/shaders",
     deleted: () => "/shaders",
   },
+  // Bleepforge-only domains (v0.2.2) — no .tres counterpart but the
+  // manual Save button records into the saves stream so they show up
+  // in this audit feed too.
+  concept: {
+    label: "Game concept",
+    updated: () => "/concept",
+    deleted: () => "/concept",
+  },
+  "codex-entry": {
+    label: "Codex entry",
+    // key is "<category>/<id>" — same split as dialog/balloon.
+    updated: (key) => {
+      const slash = key.indexOf("/");
+      if (slash < 0) return "/codex";
+      const category = key.slice(0, slash);
+      const id = key.slice(slash + 1);
+      return `/codex/${encodeURIComponent(category)}/${encodeURIComponent(id)}`;
+    },
+    deleted: (key) => {
+      const slash = key.indexOf("/");
+      if (slash < 0) return "/codex";
+      const category = key.slice(0, slash);
+      return `/codex?category=${encodeURIComponent(category)}`;
+    },
+  },
+  "codex-category": {
+    label: "Codex category",
+    updated: (key) => `/codex/${encodeURIComponent(key)}/_meta`,
+    deleted: () => "/codex",
+  },
 };
 
 export function routeForSave(
@@ -103,10 +133,17 @@ export function labelForDomain(domain: SaveDomain): string {
   return DOMAIN[domain].label;
 }
 
-/** For dialog keys, render "folder / id" with breathing room; otherwise the
- *  key as-is. Used in row body so the eye can scan domain + slug fast. */
+/** For composite-key domains (dialog, balloon, codex-entry), render
+ *  "folder / id" with breathing room; otherwise the key as-is. Used in
+ *  row body so the eye can scan domain + slug fast. */
 export function displayKey(domain: SaveDomain, key: string): string {
-  if (domain !== "dialog") return key;
+  if (
+    domain !== "dialog" &&
+    domain !== "balloon" &&
+    domain !== "codex-entry"
+  ) {
+    return key;
+  }
   const slash = key.indexOf("/");
   if (slash < 0) return key;
   return `${key.slice(0, slash)} / ${key.slice(slash + 1)}`;

@@ -82,6 +82,36 @@ export const DOMAIN_LABELS: Record<SaveDomain, DomainInfo> = {
     updatedRoute: (key) => `/shaders/edit?path=${encodeURIComponent(key)}`,
     deletedRoute: () => "/shaders",
   },
+  concept: {
+    label: "Game concept",
+    // Singleton doc — the key is the literal "concept", the route is
+    // always the same regardless.
+    updatedRoute: () => "/concept",
+    deletedRoute: () => "/concept",
+  },
+  "codex-entry": {
+    label: "Codex entry",
+    // key is "<category>/<id>" — split same as dialog/balloon.
+    updatedRoute: (key) => {
+      const slash = key.indexOf("/");
+      if (slash < 0) return "/codex";
+      const category = key.slice(0, slash);
+      const id = key.slice(slash + 1);
+      return `/codex/${encodeURIComponent(category)}/${encodeURIComponent(id)}`;
+    },
+    deletedRoute: (key) => {
+      const slash = key.indexOf("/");
+      if (slash < 0) return "/codex";
+      const category = key.slice(0, slash);
+      return `/codex?category=${encodeURIComponent(category)}`;
+    },
+  },
+  "codex-category": {
+    label: "Codex category",
+    updatedRoute: (key) =>
+      `/codex/${encodeURIComponent(key)}/_meta`,
+    deletedRoute: () => "/codex",
+  },
 };
 
 // Display body for a toast. Dialog + balloon keys get rendered as
@@ -89,7 +119,11 @@ export const DOMAIN_LABELS: Record<SaveDomain, DomainInfo> = {
 // else uses the key verbatim. Shader keys are file paths; show just
 // the basename to keep the toast narrow.
 export function toToastBody(domain: SaveDomain, key: string): string {
-  if (domain === "dialog" || domain === "balloon") {
+  if (
+    domain === "dialog" ||
+    domain === "balloon" ||
+    domain === "codex-entry"
+  ) {
     const slash = key.indexOf("/");
     if (slash < 0) return key;
     return `${key.slice(0, slash)} / ${key.slice(slash + 1)}`;

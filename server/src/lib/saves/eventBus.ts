@@ -12,10 +12,27 @@ export type SaveDirection = "outgoing" | "incoming";
 export type SaveOutcome = "ok" | "warning" | "error";
 export type SaveAction = "updated" | "deleted";
 
+// SaveDomain extends SyncDomain with three Bleepforge-only domains that
+// don't have a .tres watcher counterpart (v0.2.2). These are still
+// user-initiated saves worth recording in the Saves audit feed AND
+// surfacing as outgoing-save toasts; the sync stream just doesn't
+// carry them because there's no "external" side to sync from.
+//   - concept: the singleton concept doc (data/concept.json)
+//   - codex-entry: one Codex entry per save
+//   - codex-category: the per-category _meta.json schema definition
+// Continuous / noisy saves (preferences slider drags, dialog graph
+// layout writes, shader card-pattern picks) deliberately stay out of
+// this list — they'd flood the feed and toast-bridge.
+export type SaveDomain =
+  | SyncDomain
+  | "concept"
+  | "codex-entry"
+  | "codex-category";
+
 export interface SaveEvent {
   ts: string;
   direction: SaveDirection;
-  domain: SyncDomain;
+  domain: SaveDomain;
   // For dialog: "<folder>/<id>". For others: the entity's primary key.
   key: string;
   // Outgoing is always "updated" (no .tres deletion). Incoming may be
