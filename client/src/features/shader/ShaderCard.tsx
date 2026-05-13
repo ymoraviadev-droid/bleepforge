@@ -4,6 +4,7 @@ import type { ShaderAsset } from "../../lib/api";
 import {
   buildShaderEditUrl,
   fmtBytes,
+  shaderDisplayName,
   shaderTypeLabel,
   shaderTypeStyle,
 } from "./format";
@@ -58,8 +59,20 @@ export function ShaderCard({ asset, usageCount, onShowUsages, onContextMenu }: P
             text class on the parent — keeps the type-tint cue while
             varying the shape per shader. */}
         <PatternBackdrop pattern={asset.pattern} className="absolute inset-0 size-full" />
+        {/* Headline label = the shader's name (basename without
+            .gdshader). The tint color already encodes shader_type;
+            putting "canvas_item" here on every canvas_item shader was
+            redundant noise. Small corner chips below carry type +
+            uniform count for users who want the metadata at a glance. */}
         <span
-          className={`relative z-10 font-display text-[11px] uppercase tracking-wider ${style.text}`}
+          className={`relative z-10 max-w-[90%] truncate px-3 text-center font-display text-sm uppercase tracking-wider ${style.text}`}
+          title={asset.basename}
+        >
+          {shaderDisplayName(asset.basename)}
+        </span>
+        <span
+          className={`absolute left-1 top-1 z-10 border px-1 font-mono text-[9px] uppercase tracking-wider ${style.border} bg-neutral-950/80 ${style.text}`}
+          title={`shader_type ${shaderTypeLabel(asset.shaderType)}`}
         >
           {shaderTypeLabel(asset.shaderType)}
         </span>
@@ -72,12 +85,6 @@ export function ShaderCard({ asset, usageCount, onShowUsages, onContextMenu }: P
       </div>
 
       <div className="flex min-h-0 flex-col gap-1 p-2">
-        <div
-          className="truncate font-mono text-xs text-neutral-100"
-          title={asset.basename}
-        >
-          {asset.basename}
-        </div>
         {asset.parentRel && (
           <div
             className="truncate font-mono text-[10px] text-emerald-500/80"

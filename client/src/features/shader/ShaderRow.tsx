@@ -4,6 +4,7 @@ import type { ShaderAsset } from "../../lib/api";
 import {
   buildShaderEditUrl,
   fmtBytes,
+  shaderDisplayName,
   shaderTypeLabel,
   shaderTypeStyle,
 } from "./format";
@@ -70,7 +71,7 @@ export function ShaderRow({ asset, usageCount, onShowUsages, onContextMenu }: Pr
         className="min-w-0 flex-1 truncate font-mono text-xs text-neutral-100"
         title={asset.basename}
       >
-        {asset.basename}
+        {shaderDisplayName(asset.basename)}
       </span>
       {asset.parentRel && (
         <span

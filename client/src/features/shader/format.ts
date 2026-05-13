@@ -69,6 +69,9 @@ export function shaderTypeLabel(t: ShaderType | null): string {
 // graph's Terminal nodes use, just resolved through a fixed lime tint
 // since shader cards don't theme-retint per node. Sells "this is a
 // shader, not generic UI" at a glance without needing custom art.
+//
+// Kept for back-compat / future surfaces; cards now render their per-
+// shader PatternBackdrop instead of a fixed scanline overlay.
 export const SCANLINE_OVERLAY_STYLE: React.CSSProperties = {
   backgroundImage:
     "repeating-linear-gradient(to bottom, rgba(132, 204, 22, 0.08) 0 1px, transparent 1px 3px)",
@@ -76,4 +79,15 @@ export const SCANLINE_OVERLAY_STYLE: React.CSSProperties = {
 
 export function buildShaderEditUrl(path: string): string {
   return `/shaders/edit?path=${encodeURIComponent(path)}`;
+}
+
+// User-facing display name for a shader: filename without the
+// `.gdshader` extension. The extension is implementation detail —
+// "scanlines" is what the user thinks of as the shader's name,
+// "scanlines.gdshader" is how Godot stores it on disk. Used as the
+// headline label on cards + the main label on rows.
+export function shaderDisplayName(basename: string): string {
+  return basename.endsWith(".gdshader")
+    ? basename.slice(0, -".gdshader".length)
+    : basename;
 }
