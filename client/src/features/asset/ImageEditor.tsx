@@ -175,14 +175,59 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
     return out;
   }, [working, tintColor, tintPower, tintAlpha, tintBgFill]);
 
+  // Dirty check for the close-confirmation flow. The editor's "dirty"
+  // signal is multi-pronged because edits live in three buckets:
+  //   - destructive ops on `working` get snapshotted into undoStackRef
+  //     before mutating, so a non-empty undo stack means at least one
+  //     destructive op has been applied;
+  //   - the crop rect lives in its own state; drawing one IS a user
+  //     edit, even if no destructive op has fired yet;
+  //   - the tint dials (power/alpha/bgFill) are "live" — they're
+  //     applied at save time, not stored on `working` — so non-default
+  //     values represent staged edits the user would lose on close.
+  // bgSample (eyedropper color pick) is intentionally NOT a dirty
+  // signal: it's a temporary state for the bg-remove sampler that
+  // doesn't change the image until the user clicks Apply.
+  const isDirty =
+    undoStackRef.current.length > 0 ||
+    crop !== null ||
+    tintPower > 0 ||
+    tintAlpha < 1 ||
+    tintBgFill > 0;
+
+  // Wrapper around onClose that prompts when there are unsaved edits.
+  // Every user-initiated close path (Esc, backdrop click, the inset ✕,
+  // Cancel button) goes through this; the post-save close (handleSave)
+  // calls onClose directly because the just-saved state is by
+  // definition not dirty anymore.
+  const attemptClose = async () => {
+    if (busy) return;
+    if (!isDirty) {
+      onClose();
+      return;
+    }
+    const ok = await showConfirm({
+      title: "Discard image edits?",
+      message:
+        "You have unsaved changes to this image. Closing the editor will discard them.",
+      confirmLabel: "Discard and close",
+      cancelLabel: "Keep editing",
+      danger: true,
+    });
+    if (ok) onClose();
+  };
+
   // --- Esc closes (unless we're saving) ---
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && !busy) onClose();
+      if (e.key === "Escape" && !busy) attemptClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [busy, onClose]);
+    // attemptClose closes over current dirty signals + busy; re-binding
+    // on each render so the handler reads the latest values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [busy, isDirty, crop, tintPower, tintAlpha, tintBgFill, onClose]);
 
   // --- File picking (import mode only) ---
   const acceptFile = async (file: File) => {
@@ -534,7 +579,7 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
           z-55 threads between them. */}
       <div
         className="fixed inset-0 z-55 bg-black/70"
-        onClick={() => !busy && onClose()}
+        onClick={() => !busy && attemptClose()}
         aria-hidden
       />
       <div
@@ -557,7 +602,7 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
           <button
             type="button"
             aria-label="Close"
-            onClick={() => !busy && onClose()}
+            onClick={() => !busy && attemptClose()}
             className="border border-neutral-800 px-2 py-0.5 font-mono text-xs text-neutral-400 hover:border-neutral-600 hover:text-neutral-200 disabled:opacity-50"
             disabled={busy}
           >
@@ -779,7 +824,7 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
         </div>
 
         <footer className="flex shrink-0 items-center justify-end gap-2 border-t-2 border-neutral-800 bg-neutral-900 px-4 py-2">
-          <Button size="sm" variant="secondary" onClick={onClose} disabled={busy}>
+          <Button size="sm" variant="secondary" onClick={attemptClose} disabled={busy}>
             Cancel
           </Button>
           <Button
