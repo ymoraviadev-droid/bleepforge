@@ -22,6 +22,7 @@ import { useDiagnostics } from "../features/diagnostics/useDiagnostics";
 import { GearIcon } from "../features/preferences/GearIcon";
 import { HelpIcon } from "../features/help/HelpIcon";
 import { isElectron, popoutOrNavigate, restartApp } from "../lib/electron";
+import { useRestartRequired } from "../lib/useRestartRequired";
 
 // Single chrome column on the left edge. Holds (top-to-bottom):
 //   1. BLEEPFORGE branding + version
@@ -137,6 +138,7 @@ const NAV_ITEMS: NavEntry[] = [
 
 export function Sidebar() {
   const diagnostics = useDiagnostics();
+  const restartRequired = useRestartRequired();
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r-2 border-neutral-800 bg-neutral-950">
@@ -200,9 +202,21 @@ export function Sidebar() {
             <button
               type="button"
               onClick={handleRestart}
-              className={prefsClass({ isActive: false })}
-              title="Restart Bleepforge"
-              aria-label="Restart Bleepforge"
+              className={
+                restartRequired
+                  ? `${ICON_BASE} restart-pending-glow border-emerald-600 bg-emerald-950/40 text-emerald-300 hover:border-emerald-500 hover:bg-emerald-950/60`
+                  : prefsClass({ isActive: false })
+              }
+              title={
+                restartRequired
+                  ? "Restart Bleepforge — boot-captured config has changed"
+                  : "Restart Bleepforge"
+              }
+              aria-label={
+                restartRequired
+                  ? "Restart Bleepforge (action required)"
+                  : "Restart Bleepforge"
+              }
             >
               <RestartIcon size={20} />
             </button>

@@ -666,3 +666,31 @@ html {
   0%, 100% { opacity: 0.18; }
   50% { opacity: 0.6; }
 }
+
+/* Restart icon "action required" glow. Same compositor-only opacity-
+   pulse technique as splash-continue-glow above (NOT box-shadow — see
+   the comment block on the splash class for why) but tighter geometry
+   to wrap a small icon button instead of a wide CTA: inset is -3px and
+   blur is 8px so the halo bleeds just past the button's 2px border.
+   Slightly faster cycle (2s vs 2.4s) than the splash glow because this
+   is a "you should do something" cue rather than an idle invitation —
+   a hair more urgency reads as more actionable without crossing into
+   alarm. */
+.restart-pending-glow {
+  position: relative;
+  isolation: isolate;
+}
+.restart-pending-glow::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  background: var(--color-emerald-500);
+  filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+  animation: restart-pending-glow 2s ease-in-out infinite;
+}
+@keyframes restart-pending-glow {
+  0%, 100% { opacity: 0.22; }
+  50% { opacity: 0.55; }
+}
