@@ -116,7 +116,12 @@ const SPLASH_HEIGHT = 520;
 // natural content extent; the user can resize freely from there.
 const POPOUT_SIZES: Record<string, { width: number; height: number }> = {
   "/diagnostics": { width: 1100, height: 750 },
-  "/help": { width: 1100, height: 800 },
+  // Help is the largest of the three because it ships the persistent
+  // 2-column layout (sidebar + content) plus prose bodies that benefit
+  // from a wider reading column. 1100×800 felt cramped on first daily
+  // use; bumped to 1400×950 in v0.2.2 to give the sidebar room without
+  // squashing the entry body's max-w-prose column.
+  "/help": { width: 1400, height: 950 },
   "/preferences": { width: 720, height: 800 },
 };
 const POPOUT_DEFAULT = { width: 900, height: 700 };
