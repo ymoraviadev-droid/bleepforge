@@ -41,6 +41,31 @@ export const FONTS = [
     label: "Sixtyfour",
     family: '"Sixtyfour", system-ui, sans-serif',
   },
+  {
+    id: "majormono",
+    label: "Major Mono Display",
+    family: '"Major Mono Display", ui-monospace, monospace',
+  },
+  {
+    id: "iceland",
+    label: "Iceland",
+    family: '"Iceland", system-ui, sans-serif',
+  },
+  {
+    id: "monoton",
+    label: "Monoton",
+    family: '"Monoton", system-ui, sans-serif',
+  },
+  {
+    id: "bungee",
+    label: "Bungee",
+    family: '"Bungee", system-ui, sans-serif',
+  },
+  {
+    id: "fasterone",
+    label: "Faster One",
+    family: '"Faster One", system-ui, sans-serif',
+  },
 ] as const;
 
 export type FontId = (typeof FONTS)[number]["id"];

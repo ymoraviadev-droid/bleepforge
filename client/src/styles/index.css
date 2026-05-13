@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=DotGothic16&family=Handjet:wght@100..900&family=Jersey+10&family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Sixtyfour&family=Tiny5&family=VT323&family=Workbench&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bungee&family=DotGothic16&family=Faster+One&family=Handjet:wght@100..900&family=Iceland&family=Jersey+10&family=Major+Mono+Display&family=Monoton&family=Pixelify+Sans:wght@400..700&family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Sixtyfour&family=Tiny5&family=VT323&family=Workbench&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -229,6 +229,21 @@ html {
 }
 [data-font="sixtyfour"] {
   --font-body: "Sixtyfour", system-ui, sans-serif;
+}
+[data-font="majormono"] {
+  --font-body: "Major Mono Display", ui-monospace, monospace;
+}
+[data-font="iceland"] {
+  --font-body: "Iceland", system-ui, sans-serif;
+}
+[data-font="monoton"] {
+  --font-body: "Monoton", system-ui, sans-serif;
+}
+[data-font="bungee"] {
+  --font-body: "Bungee", system-ui, sans-serif;
+}
+[data-font="fasterone"] {
+  --font-body: "Faster One", system-ui, sans-serif;
 }
 
 [data-theme="amber"] {

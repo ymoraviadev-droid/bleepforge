@@ -58,7 +58,8 @@ export const GlobalThemeSchema = z.object({
   // (when matched, apply base CSS + overrides); fall back to built-in.
   colorTheme: z.string().default("dark"),
   // FontId — one of "pixelify"/"silkscreen"/"jersey10"/"tiny5"/"dotgothic16"/
-  // "handjet"/"workbench"/"sixtyfour".
+  // "handjet"/"workbench"/"sixtyfour"/"majormono"/"iceland"/"monoton"/"bungee"/
+  // "fasterone".
   font: z.string().default("pixelify"),
   fontSize: z.number().default(1),
   letterSpacing: z.number().default(0.01),
