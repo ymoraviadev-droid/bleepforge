@@ -1,12 +1,14 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ButtonLink } from "../../components/Button";
 import type { Faction, KarmaDelta, KarmaImpact } from "@bleepforge/shared";
 import { karmaApi } from "../../lib/api";
+import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { SliderField } from "../../components/SliderField";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
+import { useExternalChange } from "../../lib/sync/useExternalChange";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 const FACTIONS: Faction[] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
@@ -20,6 +22,9 @@ export function KarmaEdit() {
   const isNew = id === undefined;
 
   const [impact, setImpact] = useState<KarmaImpact | null>(isNew ? empty() : null);
+  /** Last-loaded / last-saved snapshot — dirty comparisons run against
+   *  this. Stays null for the new-impact form. */
+  const [baseline, setBaseline] = useState<KarmaImpact | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -27,18 +32,38 @@ export function KarmaEdit() {
     if (isNew) return;
     karmaApi
       .get(id!)
-      .then((k) => (k === null ? setError("not found") : setImpact(k)))
+      .then((k) => {
+        if (k === null) {
+          setError("not found");
+          return;
+        }
+        setImpact(k);
+        setBaseline(k);
+      })
       .catch((e) => setError(String(e)));
   }, [id, isNew]);
 
-  useSyncRefresh({
+  const reload = useCallback(() => {
+    if (isNew || !id) return;
+    karmaApi
+      .get(id)
+      .then((k) => {
+        if (!k) return;
+        setImpact(k);
+        setBaseline(k);
+      })
+      .catch(() => {});
+  }, [isNew, id]);
+
+  const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "karma",
     key: isNew ? undefined : id,
-    onChange: () => {
-      if (isNew || !id) return;
-      karmaApi.get(id).then((k) => k && setImpact(k)).catch(() => {});
-    },
+    baseline,
+    current: impact,
+    onReload: reload,
   });
+
+  useUnsavedWarning(dirty);
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
@@ -61,6 +86,8 @@ export function KarmaEdit() {
     setError(null);
     try {
       const saved = await karmaApi.save(impact);
+      setImpact(saved);
+      setBaseline(saved);
       if (isNew) navigate(`/karma/${encodeURIComponent(saved.Id)}`, { replace: true });
     } catch (e) {
       setError(String(e));
@@ -109,6 +136,14 @@ export function KarmaEdit() {
           </button>
         </div>
       </div>
+
+      {externalChange && (
+        <ExternalChangeBanner
+          kind={externalChange.kind}
+          onReload={handleReload}
+          onDismiss={handleDismiss}
+        />
+      )}
 
       <section className="space-y-3 rounded border border-neutral-800 p-4">
         <label className="block">

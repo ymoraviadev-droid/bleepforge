@@ -13,7 +13,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
-import { getShaderPattern } from "./meta.js";
+import { getShaderColor, getShaderPattern } from "./meta.js";
 import { parseShaderHeader } from "./parseHeader.js";
 import type { ShaderAsset } from "./types.js";
 
@@ -79,6 +79,7 @@ export async function summarizeShader(
     sizeBytes: stat.size,
     mtimeMs: stat.mtimeMs,
     pattern: getShaderPattern(relPath),
+    color: getShaderColor(relPath),
   };
 }
 

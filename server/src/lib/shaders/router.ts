@@ -24,7 +24,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Router } from "express";
 
-import { ShaderPatternSchema, type ShaderPattern } from "@bleepforge/shared";
+import {
+  ShaderCardColorSchema,
+  ShaderPatternSchema,
+  type ShaderCardColor,
+  type ShaderPattern,
+} from "@bleepforge/shared";
 import { config } from "../../config.js";
 import { recordSave } from "../saves/buffer.js";
 import { listShaders, rebuildShaderCache, upsertShader } from "./cache.js";
@@ -33,6 +38,7 @@ import { subscribeShaderEvents, publishShaderEvent } from "./eventBus.js";
 import {
   randomShaderPattern,
   removeShaderMeta,
+  setShaderColor,
   setShaderPattern,
 } from "./meta.js";
 import { noteShaderSelfWrite, shaderSaveKey } from "./selfWrite.js";
@@ -134,6 +140,7 @@ shadersRouter.get("/usages", async (req, res) => {
       sizeBytes: 0,
       mtimeMs: 0,
       pattern: null,
+      color: null,
     };
     const usages = await findShaderUsages(fallback);
     res.json({ asset: null, usages });
@@ -417,15 +424,20 @@ shadersRouter.post("/new", async (req, res) => {
   res.json({ ok: true, path: targetPath, asset, source: template });
 });
 
-// PUT /api/shaders/meta — update the user-picked card pattern for one
-// shader. Body: { path: <absolute>, pattern: ShaderPattern }. Triggers
-// a cache upsert + ShaderEvent so other open windows refresh.
+// PUT /api/shaders/meta — update the user-picked card pattern and/or
+// color for one shader. Body: { path: <absolute>, pattern?: ShaderPattern,
+// color?: ShaderCardColor | null }. At least one of pattern/color must be
+// supplied; passing color: null clears the override (card falls back to
+// the shader_type tint). Triggers a cache upsert + ShaderEvent so other
+// open windows refresh.
 shadersRouter.put("/meta", async (req, res) => {
   if (!config.godotProjectRoot) {
     res.status(503).json({ error: "godotProjectRoot not configured" });
     return;
   }
-  const body = req.body as { path?: unknown; pattern?: unknown } | undefined;
+  const body = req.body as
+    | { path?: unknown; pattern?: unknown; color?: unknown }
+    | undefined;
   if (!body || typeof body !== "object") {
     res.status(400).json({ error: "JSON body required" });
     return;
@@ -434,19 +446,49 @@ shadersRouter.put("/meta", async (req, res) => {
     res.status(400).json({ error: "path (absolute) is required" });
     return;
   }
-  const parsedPattern = ShaderPatternSchema.safeParse(body.pattern);
-  if (!parsedPattern.success) {
-    res.status(400).json({ error: `invalid pattern: ${parsedPattern.error.message}` });
+  // pattern is optional but, when present, must be a valid enum value.
+  let pattern: ShaderPattern | undefined;
+  if (body.pattern !== undefined) {
+    const parsed = ShaderPatternSchema.safeParse(body.pattern);
+    if (!parsed.success) {
+      res
+        .status(400)
+        .json({ error: `invalid pattern: ${parsed.error.message}` });
+      return;
+    }
+    pattern = parsed.data;
+  }
+  // color is optional; explicit null clears the override. Anything else
+  // must be one of the palette enum values.
+  let color: ShaderCardColor | null | undefined;
+  if (body.color !== undefined) {
+    if (body.color === null) {
+      color = null;
+    } else {
+      const parsed = ShaderCardColorSchema.safeParse(body.color);
+      if (!parsed.success) {
+        res
+          .status(400)
+          .json({ error: `invalid color: ${parsed.error.message}` });
+        return;
+      }
+      color = parsed.data;
+    }
+  }
+  if (pattern === undefined && color === undefined) {
+    res
+      .status(400)
+      .json({ error: "at least one of pattern or color must be supplied" });
     return;
   }
-  const pattern: ShaderPattern = parsedPattern.data;
   const resolved = path.resolve(body.path);
   const rel = path.relative(config.godotProjectRoot, resolved);
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
     res.status(403).json({ error: "path must be inside the Godot project root" });
     return;
   }
-  setShaderPattern(rel, pattern);
+  if (pattern !== undefined) setShaderPattern(rel, pattern);
+  if (color !== undefined) setShaderColor(rel, color);
   // Refresh the in-memory descriptor + tell other windows.
   const updated = await upsertShader(resolved);
   publishShaderEvent({ kind: "changed", path: resolved });

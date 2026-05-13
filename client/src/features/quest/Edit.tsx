@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { ButtonLink } from "../../components/Button";
 import type {
@@ -10,9 +10,11 @@ import type {
 } from "@bleepforge/shared";
 import { questsApi } from "../../lib/api";
 import { DL } from "../../components/CatalogDatalists";
+import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
+import { useExternalChange } from "../../lib/sync/useExternalChange";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 const OBJECTIVE_TYPES: ObjectiveType[] = [
@@ -61,6 +63,9 @@ export function QuestEdit() {
   const isNew = id === undefined;
 
   const [quest, setQuest] = useState<Quest | null>(isNew ? empty() : null);
+  /** Last-loaded / last-saved snapshot — dirty comparisons run against
+   *  this. Stays null for the new-quest form. */
+  const [baseline, setBaseline] = useState<Quest | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -68,18 +73,38 @@ export function QuestEdit() {
     if (isNew) return;
     questsApi
       .get(id!)
-      .then((q) => (q === null ? setError("not found") : setQuest(q)))
+      .then((q) => {
+        if (q === null) {
+          setError("not found");
+          return;
+        }
+        setQuest(q);
+        setBaseline(q);
+      })
       .catch((e) => setError(String(e)));
   }, [id, isNew]);
 
-  useSyncRefresh({
+  const reload = useCallback(() => {
+    if (isNew || !id) return;
+    questsApi
+      .get(id)
+      .then((q) => {
+        if (!q) return;
+        setQuest(q);
+        setBaseline(q);
+      })
+      .catch(() => {});
+  }, [isNew, id]);
+
+  const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "quest",
     key: isNew ? undefined : id,
-    onChange: () => {
-      if (isNew || !id) return;
-      questsApi.get(id).then((q) => q && setQuest(q)).catch(() => {});
-    },
+    baseline,
+    current: quest,
+    onReload: reload,
   });
+
+  useUnsavedWarning(dirty);
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
@@ -111,6 +136,8 @@ export function QuestEdit() {
     setError(null);
     try {
       const saved = await questsApi.save(quest);
+      setQuest(saved);
+      setBaseline(saved);
       if (isNew) navigate(`/quests/${encodeURIComponent(saved.Id)}`, { replace: true });
     } catch (e) {
       setError(String(e));
@@ -159,6 +186,14 @@ export function QuestEdit() {
           </button>
         </div>
       </div>
+
+      {externalChange && (
+        <ExternalChangeBanner
+          kind={externalChange.kind}
+          onReload={handleReload}
+          onDismiss={handleDismiss}
+        />
+      )}
 
       <section className="grid grid-cols-2 gap-4 rounded border border-neutral-800 p-4">
         <label className="block">

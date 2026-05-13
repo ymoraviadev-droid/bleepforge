@@ -4,9 +4,9 @@ import type { ShaderAsset } from "../../lib/api";
 import {
   buildShaderEditUrl,
   fmtBytes,
+  shaderCardStyle,
   shaderDisplayName,
   shaderTypeLabel,
-  shaderTypeStyle,
 } from "./format";
 import { PatternBackdrop } from "./patterns";
 
@@ -33,7 +33,7 @@ interface Props {
 
 export function ShaderCard({ asset, usageCount, onShowUsages, onContextMenu }: Props) {
   const navigate = useNavigate();
-  const style = shaderTypeStyle(asset.shaderType);
+  const style = shaderCardStyle(asset);
   const href = buildShaderEditUrl(asset.path);
 
   return (

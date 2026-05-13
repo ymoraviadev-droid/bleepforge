@@ -1,5 +1,6 @@
 {
   "shared/shaders/hallucinations.gdshader": {
-    "Pattern": "circuit"
+    "Pattern": "circuit",
+    "Color": "red"
   }
 }

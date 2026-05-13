@@ -876,6 +876,9 @@ export interface ShaderAsset {
   /** Bleepforge-only card pattern. Null when not yet set; client falls
    *  back to "scanlines" as the default at render time. */
   pattern: import("@bleepforge/shared").ShaderPattern | null;
+  /** Bleepforge-only card color override. Null = no override; the card
+   *  uses its shader_type's default tint. */
+  color: import("@bleepforge/shared").ShaderCardColor | null;
 }
 
 export interface ShadersResponse {
@@ -1002,6 +1005,22 @@ export const shadersApi = {
     if (!r.ok) {
       const body = await r.text();
       throw new Error(`set shader pattern failed: ${r.status} ${body}`);
+    }
+    noteLocalShaderSave(path);
+    return r.json();
+  },
+  setColor: async (
+    path: string,
+    color: import("@bleepforge/shared").ShaderCardColor | null,
+  ): Promise<{ ok: boolean; asset: ShaderAsset | null }> => {
+    const r = await fetch("/api/shaders/meta", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, color }),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`set shader color failed: ${r.status} ${body}`);
     }
     noteLocalShaderSave(path);
     return r.json();

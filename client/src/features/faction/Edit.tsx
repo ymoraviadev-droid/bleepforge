@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Faction, FactionData } from "@bleepforge/shared";
 import { factionsApi } from "../../lib/api";
 import { AssetPicker } from "../../components/AssetPicker";
 import { AssetThumb } from "../../components/AssetThumb";
 import { ButtonLink } from "../../components/Button";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
+import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
+import { useExternalChange } from "../../lib/sync/useExternalChange";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { button, fieldLabel, textInput } from "../../styles/classes";
@@ -26,6 +28,9 @@ export function FactionEdit() {
   const isNew = factionParam === undefined;
 
   const [data, setData] = useState<FactionData | null>(isNew ? empty() : null);
+  /** Last-loaded / last-saved snapshot — dirty comparisons run against
+   *  this. Stays null for the new-faction form. */
+  const [baseline, setBaseline] = useState<FactionData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -33,21 +38,38 @@ export function FactionEdit() {
     if (isNew) return;
     factionsApi
       .get(factionParam!)
-      .then((d) => (d === null ? setError("not found") : setData(d)))
+      .then((d) => {
+        if (d === null) {
+          setError("not found");
+          return;
+        }
+        setData(d);
+        setBaseline(d);
+      })
       .catch((e) => setError(String(e)));
   }, [factionParam, isNew]);
 
-  useSyncRefresh({
+  const reload = useCallback(() => {
+    if (isNew || !factionParam) return;
+    factionsApi
+      .get(factionParam)
+      .then((d) => {
+        if (!d) return;
+        setData(d);
+        setBaseline(d);
+      })
+      .catch(() => {});
+  }, [isNew, factionParam]);
+
+  const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "faction",
     key: isNew ? undefined : factionParam,
-    onChange: () => {
-      if (isNew || !factionParam) return;
-      factionsApi
-        .get(factionParam)
-        .then((d) => d && setData(d))
-        .catch(() => {});
-    },
+    baseline,
+    current: data,
+    onReload: reload,
   });
+
+  useUnsavedWarning(dirty);
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
@@ -61,6 +83,8 @@ export function FactionEdit() {
     setError(null);
     try {
       const saved = await factionsApi.save(data);
+      setData(saved);
+      setBaseline(saved);
       if (isNew) {
         navigate(`/factions/${encodeURIComponent(saved.Faction)}`, {
           replace: true,
@@ -117,6 +141,14 @@ export function FactionEdit() {
           </button>
         </div>
       </div>
+
+      {externalChange && (
+        <ExternalChangeBanner
+          kind={externalChange.kind}
+          onReload={handleReload}
+          onDismiss={handleDismiss}
+        />
+      )}
 
       <section className="grid grid-cols-2 gap-4 rounded border border-neutral-800 p-4">
         <label className="block">

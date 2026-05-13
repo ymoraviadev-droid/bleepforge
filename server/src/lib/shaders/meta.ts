@@ -19,6 +19,7 @@ import { folderAbs } from "../../config.js";
 import {
   ShaderMetaRegistrySchema,
   SHADER_PATTERN_IDS,
+  type ShaderCardColor,
   type ShaderMeta,
   type ShaderMetaRegistry,
   type ShaderPattern,
@@ -69,13 +70,42 @@ export function getShaderPattern(relPath: string): ShaderPattern | null {
   return reg[relPath]?.Pattern ?? null;
 }
 
-/** Set a shader's pattern. Persists immediately. */
+/** Look up a shader's user-picked card color override. Null = no override,
+ *  use the shader_type's default tint (canvas_item → lime, etc.). */
+export function getShaderColor(relPath: string): ShaderCardColor | null {
+  const reg = loadRegistry();
+  return reg[relPath]?.Color ?? null;
+}
+
+/** Set a shader's pattern. Persists immediately. Preserves any other meta
+ *  fields (Color, future flags) so updating one field doesn't blow away
+ *  the others. */
 export function setShaderPattern(
   relPath: string,
   pattern: ShaderPattern,
 ): void {
   const reg = { ...loadRegistry() };
-  reg[relPath] = { Pattern: pattern };
+  reg[relPath] = { ...reg[relPath], Pattern: pattern };
+  saveRegistry(reg);
+}
+
+/** Set (or clear) a shader's card color override. Passing null removes
+ *  the Color field — the card falls back to its shader_type tint. */
+export function setShaderColor(
+  relPath: string,
+  color: ShaderCardColor | null,
+): void {
+  const reg = { ...loadRegistry() };
+  const existing = reg[relPath] ?? {};
+  if (color === null) {
+    const { Color: _omit, ...rest } = existing;
+    // If clearing leaves an empty object, drop the entry so the registry
+    // stays compact and hand-editable.
+    if (Object.keys(rest).length === 0) delete reg[relPath];
+    else reg[relPath] = rest;
+  } else {
+    reg[relPath] = { ...existing, Color: color };
+  }
   saveRegistry(reg);
 }
 

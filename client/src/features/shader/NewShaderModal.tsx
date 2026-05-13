@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import {
   SHADER_PATTERN_IDS,
+  type ShaderCardColor,
   type ShaderPattern,
 } from "@bleepforge/shared";
 import { Button } from "../../components/Button";
@@ -10,7 +11,8 @@ import type { ShaderType } from "../../lib/api";
 import { shadersApi } from "../../lib/api";
 import { fieldLabel, textInput } from "../../styles/classes";
 import { FolderPicker } from "../asset/FolderPicker";
-import { shaderTypeLabel } from "./format";
+import { ColorPicker } from "./ColorPicker";
+import { shaderPreviewTint, shaderTypeLabel } from "./format";
 import { PatternPicker } from "./PatternPicker";
 
 // Self-contained modal for shader creation. Lighter shape than the
@@ -50,6 +52,10 @@ export function NewShaderModal({ onClose, onCreated }: Props) {
     return SHADER_PATTERN_IDS[idx]!;
   }, []);
   const [pattern, setPattern] = useState<ShaderPattern>(initialPattern);
+  // Card color override — null = Auto (follows shader_type). Picker
+  // defaults to Auto so a fresh shader looks like every other one of its
+  // type until the user has a reason to distinguish.
+  const [color, setColor] = useState<ShaderCardColor | null>(null);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,8 +82,11 @@ export function NewShaderModal({ onClose, onCreated }: Props) {
       // Apply the user-picked pattern (server seeded a random one; the
       // user may have changed it before submitting — push that choice
       // through immediately so the card paints with the right pattern).
+      // Also push the picked color if the user moved it off Auto; null
+      // is the server default so there's no point sending it.
       try {
         await shadersApi.setPattern(r.path, pattern);
+        if (color !== null) await shadersApi.setColor(r.path, color);
       } catch {
         // Non-fatal — the random default from the server remains. Don't
         // block the success toast.
@@ -177,13 +186,32 @@ export function NewShaderModal({ onClose, onCreated }: Props) {
             </div>
           </div>
 
-          <div>
-            <label className={fieldLabel}>Card pattern</label>
-            <p className="mb-2 font-mono text-[10px] text-neutral-600">
-              Bleepforge-only visual identity for the card. A random one
-              is pre-selected; change anytime in Edit.
-            </p>
-            <PatternPicker value={pattern} onChange={setPattern} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={fieldLabel}>Card pattern</label>
+              <p className="mb-2 font-mono text-[10px] text-neutral-600">
+                Bleepforge-only visual identity for the card. A random one
+                is pre-selected; change anytime in Edit.
+              </p>
+              <PatternPicker
+                value={pattern}
+                onChange={setPattern}
+                color={shaderPreviewTint(color, shaderType)}
+              />
+            </div>
+            <div>
+              <label className={fieldLabel}>Card color</label>
+              <p className="mb-2 font-mono text-[10px] text-neutral-600">
+                Auto follows shader_type ({shaderTypeLabel(shaderType)}).
+                Override to distinguish this shader from others of the
+                same type.
+              </p>
+              <ColorPicker
+                value={color}
+                onChange={setColor}
+                shaderType={shaderType}
+              />
+            </div>
           </div>
 
           {error && (

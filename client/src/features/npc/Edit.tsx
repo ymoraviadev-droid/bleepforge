@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import type {
   Item,
@@ -12,8 +12,10 @@ import { AssetPicker } from "../../components/AssetPicker";
 import { AssetThumb } from "../../components/AssetThumb";
 import { Button, ButtonLink } from "../../components/Button";
 import { DL } from "../../components/CatalogDatalists";
+import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
 import { useCatalog } from "../../lib/useCatalog";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
+import { useExternalChange } from "../../lib/sync/useExternalChange";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { SliderField } from "../../components/SliderField";
@@ -42,6 +44,9 @@ export function NpcEdit() {
   const isNew = npcId === undefined;
 
   const [npc, setNpc] = useState<Npc | null>(isNew ? empty() : null);
+  /** Last-loaded / last-saved snapshot — dirty comparisons run against
+   *  this. Stays null for the new-NPC form. */
+  const [baseline, setBaseline] = useState<Npc | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [pickups, setPickups] = useState<Pickup[]>([]);
@@ -51,7 +56,14 @@ export function NpcEdit() {
     if (isNew) return;
     npcsApi
       .get(npcId!)
-      .then((n) => (n === null ? setError("not found") : setNpc(n)))
+      .then((n) => {
+        if (n === null) {
+          setError("not found");
+          return;
+        }
+        setNpc(n);
+        setBaseline(n);
+      })
       .catch((e) => setError(String(e)));
   }, [npcId, isNew]);
 
@@ -63,14 +75,27 @@ export function NpcEdit() {
     itemsApi.list().then(setItems).catch(() => {});
   }, []);
 
-  useSyncRefresh({
+  const reload = useCallback(() => {
+    if (isNew || !npcId) return;
+    npcsApi
+      .get(npcId)
+      .then((n) => {
+        if (!n) return;
+        setNpc(n);
+        setBaseline(n);
+      })
+      .catch(() => {});
+  }, [isNew, npcId]);
+
+  const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "npc",
     key: isNew ? undefined : npcId,
-    onChange: () => {
-      if (isNew || !npcId) return;
-      npcsApi.get(npcId).then((n) => n && setNpc(n)).catch(() => {});
-    },
+    baseline,
+    current: npc,
+    onReload: reload,
   });
+
+  useUnsavedWarning(dirty);
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
@@ -83,6 +108,8 @@ export function NpcEdit() {
     setError(null);
     try {
       const saved = await npcsApi.save(npc);
+      setNpc(saved);
+      setBaseline(saved);
       if (isNew)
         navigate(`/npcs/${encodeURIComponent(saved.NpcId)}`, { replace: true });
     } catch (e) {
@@ -136,6 +163,14 @@ export function NpcEdit() {
           </button>
         </div>
       </div>
+
+      {externalChange && (
+        <ExternalChangeBanner
+          kind={externalChange.kind}
+          onReload={handleReload}
+          onDismiss={handleDismiss}
+        />
+      )}
 
       <Section title="Identity">
         <div className="grid grid-cols-2 gap-4">

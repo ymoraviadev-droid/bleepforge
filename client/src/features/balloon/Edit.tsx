@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import type { Balloon, Npc } from "@bleepforge/shared";
 import { balloonsApi, npcsApi } from "../../lib/api";
 import { ButtonLink } from "../../components/Button";
+import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { SliderField } from "../../components/SliderField";
+import { useExternalChange } from "../../lib/sync/useExternalChange";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
@@ -35,6 +38,9 @@ export function BalloonEdit() {
 
   const [folder, setFolder] = useState<string>(initialFolder);
   const [balloon, setBalloon] = useState<Balloon | null>(isNew ? empty() : null);
+  /** Last-loaded / last-saved snapshot — what dirty comparisons run
+   *  against. Stays null for the new-entity form. */
+  const [baseline, setBaseline] = useState<Balloon | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [npcs, setNpcs] = useState<Npc[]>([]);
@@ -44,7 +50,14 @@ export function BalloonEdit() {
     if (!routeFolder || !basename) return;
     balloonsApi
       .get(routeFolder, basename)
-      .then((b) => (b === null ? setError("not found") : setBalloon(b)))
+      .then((b) => {
+        if (b === null) {
+          setError("not found");
+          return;
+        }
+        setBalloon(b);
+        setBaseline(b);
+      })
       .catch((e) => setError(String(e)));
   }, [routeFolder, basename, isNew]);
 
@@ -52,15 +65,33 @@ export function BalloonEdit() {
     npcsApi.list().then(setNpcs).catch(() => {});
   }, []);
 
-  // Live updates: if the .tres changes externally, refresh in place.
-  useSyncRefresh({
+  // Reload-from-disk path — used both for the external-change banner's
+  // Reload action AND as the silent-refetch path when the form is clean.
+  const reload = useCallback(() => {
+    if (isNew || !routeFolder || !basename) return;
+    balloonsApi
+      .get(routeFolder, basename)
+      .then((b) => {
+        if (!b) return;
+        setBalloon(b);
+        setBaseline(b);
+      })
+      .catch(() => {});
+  }, [isNew, routeFolder, basename]);
+
+  // Dirty-aware sync: banner when local is dirty + external change;
+  // silent refetch when clean.
+  const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "balloon",
     key: isNew ? undefined : `${routeFolder}/${basename}`,
-    onChange: () => {
-      if (isNew || !routeFolder || !basename) return;
-      balloonsApi.get(routeFolder, basename).then((b) => b && setBalloon(b)).catch(() => {});
-    },
+    baseline,
+    current: balloon,
+    onReload: reload,
   });
+
+  // Warn on window close / in-app navigation while the form is dirty.
+  useUnsavedWarning(dirty);
+
   useSyncRefresh({
     domain: "npc",
     onChange: () => npcsApi.list().then(setNpcs).catch(() => {}),
@@ -88,6 +119,12 @@ export function BalloonEdit() {
     setError(null);
     try {
       const saved = await balloonsApi.save(folder, balloon);
+      // Update both baseline and current to the saved entity so the
+      // form returns to clean state and the watcher-echoed sync event
+      // (which is going to arrive ~150ms later) won't trip the
+      // "modified externally" banner.
+      setBalloon(saved);
+      setBaseline(saved);
       if (isNew) {
         navigate(
           `/balloons/${encodeURIComponent(folder)}/${encodeURIComponent(saved.Id)}`,
@@ -142,6 +179,14 @@ export function BalloonEdit() {
           </button>
         </div>
       </div>
+
+      {externalChange && (
+        <ExternalChangeBanner
+          kind={externalChange.kind}
+          onReload={handleReload}
+          onDismiss={handleDismiss}
+        />
+      )}
 
       <section className="space-y-3 rounded border border-neutral-800 p-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -6,7 +6,7 @@
 // learns about each unsupported feature. Until then every shader is just
 // "viewable + has usages".
 
-import type { ShaderPattern } from "@bleepforge/shared";
+import type { ShaderCardColor, ShaderPattern } from "@bleepforge/shared";
 
 export type ShaderType =
   | "canvas_item"
@@ -40,6 +40,10 @@ export interface ShaderAsset {
    *  pattern is set (client falls back to a default). Stored in
    *  data/shaders/_meta.json keyed by project-relative path. */
   pattern: ShaderPattern | null;
+  /** Bleepforge-only card color override. Null = no override; the card
+   *  uses its shader_type's default tint (canvas_item → lime, etc.).
+   *  Same _meta.json registry as `pattern`. */
+  color: ShaderCardColor | null;
 }
 
 /** Live event published when a .gdshader file changes on disk. Phase 2

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ButtonLink } from "../../components/Button";
 import type {
@@ -10,9 +10,11 @@ import type {
 import { dialogsApi } from "../../lib/api";
 import { AssetPicker } from "../../components/AssetPicker";
 import { DL } from "../../components/CatalogDatalists";
+import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
+import { useExternalChange } from "../../lib/sync/useExternalChange";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
 const emptyChoice = (): DialogChoice => ({
@@ -46,6 +48,9 @@ export function DialogEdit() {
   );
   const [folders, setFolders] = useState<string[]>([]);
   const [seq, setSeq] = useState<DialogSequence | null>(isNew ? emptySequence() : null);
+  /** Last-loaded / last-saved snapshot — dirty comparisons run against
+   *  this. Stays null for the new-sequence form. */
+  const [baseline, setBaseline] = useState<DialogSequence | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -57,18 +62,38 @@ export function DialogEdit() {
     if (isNew) return;
     dialogsApi
       .get(folderParam!, id!)
-      .then((s) => (s === null ? setError("not found") : setSeq(s)))
+      .then((s) => {
+        if (s === null) {
+          setError("not found");
+          return;
+        }
+        setSeq(s);
+        setBaseline(s);
+      })
       .catch((e) => setError(String(e)));
   }, [folderParam, id, isNew]);
 
-  useSyncRefresh({
+  const reload = useCallback(() => {
+    if (isNew || !folderParam || !id) return;
+    dialogsApi
+      .get(folderParam, id)
+      .then((s) => {
+        if (!s) return;
+        setSeq(s);
+        setBaseline(s);
+      })
+      .catch(() => {});
+  }, [isNew, folderParam, id]);
+
+  const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "dialog",
     key: isNew || !folderParam || !id ? undefined : `${folderParam}/${id}`,
-    onChange: () => {
-      if (isNew || !folderParam || !id) return;
-      dialogsApi.get(folderParam, id).then((s) => s && setSeq(s)).catch(() => {});
-    },
+    baseline,
+    current: seq,
+    onReload: reload,
   });
+
+  useUnsavedWarning(dirty);
 
   if (error === "not found") return <NotFoundPage />;
   if (error) return <div className="text-red-400">Error: {error}</div>;
@@ -120,6 +145,8 @@ export function DialogEdit() {
     setError(null);
     try {
       const saved = await dialogsApi.save(folder, seq);
+      setSeq(saved);
+      setBaseline(saved);
       if (isNew) {
         navigate(
           `/dialogs/${encodeURIComponent(folder)}/${encodeURIComponent(saved.Id)}`,
@@ -177,6 +204,14 @@ export function DialogEdit() {
           </button>
         </div>
       </div>
+
+      {externalChange && (
+        <ExternalChangeBanner
+          kind={externalChange.kind}
+          onReload={handleReload}
+          onDismiss={handleDismiss}
+        />
+      )}
 
       <section className="grid grid-cols-2 gap-4 rounded border border-neutral-800 p-4">
         <label className="block">

@@ -2,19 +2,23 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 
 import { Button, ButtonLink } from "../../components/Button";
+import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
 import { showConfirm, showPrompt } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { pushToast } from "../../components/Toast";
 import type { ShaderAsset, ShaderUsage } from "../../lib/api";
 import { shadersApi } from "../../lib/api";
 import { useShaderRefresh } from "../../lib/shaders/useShaderRefresh";
-import type { ShaderPattern } from "@bleepforge/shared";
+import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
+import type { ShaderCardColor, ShaderPattern } from "@bleepforge/shared";
 
 import { CodeEditor } from "./CodeEditor";
+import { ColorPicker } from "./ColorPicker";
 import {
   fmtBytes,
+  shaderCardStyle,
+  shaderPreviewTint,
   shaderTypeLabel,
-  shaderTypeStyle,
 } from "./format";
 import { PatternPicker } from "./PatternPicker";
 import { PreviewPane } from "./PreviewPane";
@@ -63,6 +67,8 @@ export function ShaderEdit() {
   >(null);
 
   const dirty = saved !== editing;
+
+  useUnsavedWarning(dirty);
 
   useEffect(() => {
     if (!path) {
@@ -181,6 +187,27 @@ export function ShaderEdit() {
           id: `shader-pattern-error:${path}`,
           variant: "error",
           title: "Pattern save failed",
+          body: String(e),
+        });
+      }
+    },
+    [path],
+  );
+
+  // Card color override — same save-on-pick model as the pattern picker.
+  // Passing null clears the override (card falls back to shader_type
+  // tint); the API handles both.
+  const handleColorChange = useCallback(
+    async (next: ShaderCardColor | null) => {
+      if (!path) return;
+      try {
+        const r = await shadersApi.setColor(path, next);
+        if (r.asset) setAsset(r.asset);
+      } catch (e) {
+        pushToast({
+          id: `shader-color-error:${path}`,
+          variant: "error",
+          title: "Color save failed",
           body: String(e),
         });
       }
@@ -342,7 +369,7 @@ export function ShaderEdit() {
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (!asset) return <div className="text-neutral-500">Loading…</div>;
 
-  const style = shaderTypeStyle(asset.shaderType);
+  const style = shaderCardStyle(asset);
 
   return (
     <div className="space-y-4">
@@ -430,6 +457,11 @@ export function ShaderEdit() {
           kind={externalChange.kind}
           onReload={reloadFromDisk}
           onDismiss={() => setExternalChange(null)}
+          message={
+            externalChange.kind === "removed"
+              ? "This shader was deleted on disk. Your editor still has the last-known source; you can save to recreate it, or navigate away."
+              : undefined
+          }
         />
       )}
 
@@ -464,15 +496,31 @@ export function ShaderEdit() {
           <section className="border-2 border-neutral-800 bg-neutral-950">
             <header className="border-b-2 border-neutral-800 px-3 py-2">
               <h2 className="font-display text-xs uppercase tracking-wider text-neutral-300">
-                Card pattern
+                Card style
               </h2>
             </header>
-            <div className="p-3">
-              <PatternPicker
-                value={asset.pattern}
-                onChange={handlePatternChange}
-              />
-              <p className="mt-2 font-mono text-[9px] uppercase tracking-wider text-neutral-600">
+            <div className="space-y-3 p-3">
+              <div>
+                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-neutral-500">
+                  Pattern
+                </div>
+                <PatternPicker
+                  value={asset.pattern}
+                  onChange={handlePatternChange}
+                  color={shaderPreviewTint(asset.color, asset.shaderType)}
+                />
+              </div>
+              <div>
+                <div className="mb-2 font-mono text-[10px] uppercase tracking-wider text-neutral-500">
+                  Color
+                </div>
+                <ColorPicker
+                  value={asset.color}
+                  onChange={handleColorChange}
+                  shaderType={asset.shaderType}
+                />
+              </div>
+              <p className="font-mono text-[9px] uppercase tracking-wider text-neutral-600">
                 Bleepforge-only visual identity. Not saved to the .gdshader.
               </p>
             </div>
@@ -528,46 +576,3 @@ function SaveStatusIndicator({
   return null;
 }
 
-// Banner shown when the watcher emits a change/remove event for the
-// file we're currently editing AND we have local unsaved edits. Lets the
-// user choose: keep editing (their save will resolve the conflict in
-// their favor) or reload from disk (their unsaved work is discarded).
-function ExternalChangeBanner({
-  kind,
-  onReload,
-  onDismiss,
-}: {
-  kind: "changed" | "removed";
-  onReload: () => void;
-  onDismiss: () => void;
-}) {
-  if (kind === "removed") {
-    return (
-      <div className="flex items-center justify-between gap-3 border-2 border-red-700 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-        <span>
-          This shader was deleted on disk. Your editor still has the last-known
-          source; you can save to recreate it, or navigate away.
-        </span>
-        <Button onClick={onDismiss} variant="secondary" size="sm">
-          Dismiss
-        </Button>
-      </div>
-    );
-  }
-  return (
-    <div className="flex items-center justify-between gap-3 border-2 border-amber-700 bg-amber-950/40 px-3 py-2 text-sm text-amber-200">
-      <span>
-        Modified externally while you had unsaved edits. Save to overwrite
-        their changes, or reload to discard yours.
-      </span>
-      <div className="flex gap-2">
-        <Button onClick={onReload} variant="secondary" size="sm">
-          Reload from disk
-        </Button>
-        <Button onClick={onDismiss} variant="secondary" size="sm">
-          Keep editing
-        </Button>
-      </div>
-    </div>
-  );
-}
