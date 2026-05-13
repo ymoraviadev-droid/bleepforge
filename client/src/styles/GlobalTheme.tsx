@@ -404,13 +404,25 @@ export function listCustomColorThemes(): CustomColorTheme[] {
   return customColorThemes.slice();
 }
 
-/** Fork the currently active GlobalTheme's color theme into a new
- *  CustomColorTheme record. If the current color theme is a built-in,
- *  the new custom theme uses that as its `base` and starts with empty
- *  overrides (visually identical to the built-in until edited). If the
- *  current is already custom, the new one is a copy with a new name.
- *  Returns the created theme or null on conflict. */
-export function createCustomColorTheme(name: string): CustomColorTheme | null {
+/** Create a new CustomColorTheme. Two modes:
+ *
+ *    mode: "fork" (default) — start from the currently-active color theme.
+ *      If active is a built-in, new theme inherits that as `base` + empty
+ *      overrides (visually identical to the built-in until edited). If
+ *      active is a custom theme, new theme copies its base + overrides.
+ *
+ *    mode: "blank" — fresh theme on `base: "dark"` with empty overrides,
+ *      regardless of what's currently active. The user gets a clean
+ *      starting point.
+ *
+ *  Returns the created theme or null on conflict (duplicate name / empty
+ *  name / collision with a built-in id). Switches the active GlobalTheme
+ *  to point at the new custom so the user lands editing what they
+ *  created. */
+export function createCustomColorTheme(
+  name: string,
+  mode: "fork" | "blank" = "fork",
+): CustomColorTheme | null {
   const trimmed = name.trim();
   if (!trimmed) return null;
   if (customColorThemes.some((c) => c.name === trimmed)) return null;
@@ -419,12 +431,17 @@ export function createCustomColorTheme(name: string): CustomColorTheme | null {
   const BUILTIN_IDS = new Set(["dark", "light", "red", "amber", "green", "cyan", "blue", "magenta"]);
   if (BUILTIN_IDS.has(trimmed)) return null;
 
-  const active = find(activeName);
-  const fromRef = active?.colorTheme ?? "dark";
-  const fromCustom = customColorThemes.find((c) => c.name === fromRef);
-  const created: CustomColorTheme = fromCustom
-    ? { name: trimmed, base: fromCustom.base, overrides: { ...fromCustom.overrides } }
-    : { name: trimmed, base: fromRef, overrides: {} };
+  let created: CustomColorTheme;
+  if (mode === "blank") {
+    created = { name: trimmed, base: "dark", overrides: {} };
+  } else {
+    const active = find(activeName);
+    const fromRef = active?.colorTheme ?? "dark";
+    const fromCustom = customColorThemes.find((c) => c.name === fromRef);
+    created = fromCustom
+      ? { name: trimmed, base: fromCustom.base, overrides: { ...fromCustom.overrides } }
+      : { name: trimmed, base: fromRef, overrides: {} };
+  }
 
   customColorThemes = [...customColorThemes, created];
   // Switch the active GlobalTheme to point at the new custom theme so

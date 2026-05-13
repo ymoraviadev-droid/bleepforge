@@ -40,11 +40,21 @@ const LADDER: Array<{ stop: number; mix: string }> = [
 // expressions. We can't inline the base color into every mix expression
 // because that would mean recomputing it 11 times per render-frame; the
 // browser resolves `var(--__bf-base)` once per element instead. One
-// scratch var per palette so the two ladders don't collide.
+// scratch var per palette so the ladders don't collide.
 const SCRATCH = {
   accent: "--__bf-base-accent",
   neutral: "--__bf-base-neutral",
+  sourceNpc: "--__bf-base-source-npc",
+  sourceTerminal: "--__bf-base-source-terminal",
+  choice: "--__bf-base-choice",
 } as const;
+
+// Each ladder uses the same per-stop mix percentages but writes to a
+// different CSS variable family. Tailwind names emerald/neutral; the
+// three dialog-graph palettes have their own --color-source-npc-* etc.
+type LadderTarget =
+  | { kind: "tailwind"; family: "emerald" | "neutral" }
+  | { kind: "custom"; prefix: string };
 
 /** Apply `overrides` to the document root via inline setProperty. Missing
  *  fields are cleared so toggling overrides off restores the built-in's
@@ -55,8 +65,11 @@ export function applyColorOverrides(
   if (typeof document === "undefined") return;
   const el = document.documentElement;
 
-  applyLadder(el, "accent", "emerald", overrides?.accent);
-  applyLadder(el, "neutral", "neutral", overrides?.neutral);
+  applyLadder(el, "accent", { kind: "tailwind", family: "emerald" }, overrides?.accent);
+  applyLadder(el, "neutral", { kind: "tailwind", family: "neutral" }, overrides?.neutral);
+  applyLadder(el, "sourceNpc", { kind: "custom", prefix: "--color-source-npc-" }, overrides?.sourceNpc);
+  applyLadder(el, "sourceTerminal", { kind: "custom", prefix: "--color-source-terminal-" }, overrides?.sourceTerminal);
+  applyLadder(el, "choice", { kind: "custom", prefix: "--color-choice-" }, overrides?.choice);
 
   if (overrides?.canvasBg) {
     el.style.setProperty("--canvas-bg", overrides.canvasBg);
@@ -71,10 +84,66 @@ export function applyColorOverrides(
   }
 }
 
+function ladderVarName(target: LadderTarget, stop: number): string {
+  if (target.kind === "tailwind") return `--color-${target.family}-${stop}`;
+  return `${target.prefix}${stop}`;
+}
+
+// ---- CSS-color → hex resolver ----------------------------------------------
+// `<input type="color">` only accepts hex (#RRGGBB). The CSS variables in
+// our themes resolve to `oklch(...)` strings, which the input can't take.
+// Instead of writing an OKLch→sRGB converter in JS, we delegate to the
+// browser's own color parser: paint the CSS color onto a 1×1 canvas, read
+// the pixel back as sRGB triplets, format as hex. Works for any CSS color
+// string the browser understands (oklch, hsl, rgb, hex, color-mix, named).
+
+let resolveCanvas: HTMLCanvasElement | null = null;
+let resolveCtx: CanvasRenderingContext2D | null = null;
+
+function ensureResolver(): CanvasRenderingContext2D | null {
+  if (typeof document === "undefined") return null;
+  if (resolveCtx) return resolveCtx;
+  resolveCanvas = document.createElement("canvas");
+  resolveCanvas.width = 1;
+  resolveCanvas.height = 1;
+  resolveCtx = resolveCanvas.getContext("2d", { willReadFrequently: true });
+  return resolveCtx;
+}
+
+/** Convert any CSS color string to a #RRGGBB hex via 1×1 canvas. Returns
+ *  `#000000` when the browser can't parse the input (which only happens
+ *  for malformed strings — empty string, garbage, etc.). */
+export function cssColorToHex(css: string): string {
+  const ctx = ensureResolver();
+  if (!ctx) return "#000000";
+  // Reset to a sentinel so a parse failure on the next assignment leaves
+  // it visible (canvas2d silently ignores invalid colors).
+  ctx.fillStyle = "#000000";
+  ctx.fillStyle = css;
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+  const hex = (v: number) => v.toString(16).padStart(2, "0");
+  return `#${hex(r ?? 0)}${hex(g ?? 0)}${hex(b ?? 0)}`;
+}
+
+/** Read the document root's current value for a CSS custom property and
+ *  resolve it to a #RRGGBB hex. Used by the Preferences theme editor so
+ *  each color picker shows the active theme's current effective value
+ *  (whether that came from the built-in's CSS block or from an existing
+ *  override). Returns null when document isn't available. */
+export function readVarAsHex(varName: string): string | null {
+  if (typeof document === "undefined") return null;
+  const css = getComputedStyle(document.documentElement)
+    .getPropertyValue(varName)
+    .trim();
+  if (!css) return null;
+  return cssColorToHex(css);
+}
+
 function applyLadder(
   el: HTMLElement,
   scratchKey: keyof typeof SCRATCH,
-  tailwindFamily: "emerald" | "neutral",
+  target: LadderTarget,
   base: string | undefined,
 ): void {
   const scratchVar = SCRATCH[scratchKey];
@@ -84,7 +153,7 @@ function applyLadder(
     // and the CSS-block defaults take over.
     el.style.removeProperty(scratchVar);
     for (const { stop } of LADDER) {
-      el.style.removeProperty(`--color-${tailwindFamily}-${stop}`);
+      el.style.removeProperty(ladderVarName(target, stop));
     }
     return;
   }
@@ -95,6 +164,6 @@ function applyLadder(
   el.style.setProperty(scratchVar, base);
   for (const { stop, mix } of LADDER) {
     const expr = mix.replace(/--__bf-base/g, scratchVar);
-    el.style.setProperty(`--color-${tailwindFamily}-${stop}`, expr);
+    el.style.setProperty(ladderVarName(target, stop), expr);
   }
 }

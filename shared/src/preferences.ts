@@ -22,6 +22,12 @@ export const ColorOverridesSchema = z.object({
   accent: z.string().optional(),
   /** Drives the full --color-neutral-* ladder. Picked = the 500 stop. */
   neutral: z.string().optional(),
+  /** Drives the full --color-source-npc-* ladder (dialog graph NPC tint). */
+  sourceNpc: z.string().optional(),
+  /** Drives the full --color-source-terminal-* ladder (dialog graph Terminal tint). */
+  sourceTerminal: z.string().optional(),
+  /** Drives the full --color-choice-* ladder (dialog graph choice handles + edges). */
+  choice: z.string().optional(),
   /** Single color for --canvas-bg (dialog-graph backdrop, etc.). */
   canvasBg: z.string().optional(),
   /** Single color for --canvas-pattern (dot grid on the canvas). */

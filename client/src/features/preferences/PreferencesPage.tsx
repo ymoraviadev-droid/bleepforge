@@ -20,7 +20,8 @@ import {
   useGlobalThemes,
   useGodotProjectRoot,
 } from "../../styles/GlobalTheme";
-import { showConfirm, showPrompt } from "../../components/Modal";
+import { showChoice, showConfirm, showPrompt } from "../../components/Modal";
+import { readVarAsHex } from "../../styles/colorOverrides";
 import { THEMES } from "../../styles/Theme";
 import { Button } from "../../components/Button";
 import { PixelSlider } from "../../components/PixelSlider";
@@ -283,33 +284,93 @@ function GlobalThemeSection() {
   );
 }
 
+const BUILTIN_IDS = new Set([
+  "dark", "light", "red", "amber", "green", "cyan", "blue", "magenta",
+]);
+
 function ColorThemeSection() {
   const { custom, activeRef, activeCustom } = useCustomColorThemes();
+  // Editor visibility is local UI state, not theme state — toggled by
+  // the Edit button. Auto-opens when a fresh fork lands (so the user
+  // sees the pickers immediately after Edit/New). Auto-closes when
+  // the active theme switches back to a built-in via the select.
+  const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    if (!activeCustom && editing) setEditing(false);
+  }, [activeCustom, editing]);
 
-  const handleSelect = (value: string) => {
-    setActiveColorTheme(value);
-  };
-
-  const handleFork = async () => {
-    const name = await showPrompt({
-      title: "Fork color theme",
-      message: activeCustom
-        ? `Create a copy of "${activeCustom.name}" with a new name. The new theme starts with the same base + overrides; tweak from there.`
-        : `Create a custom color theme starting from the "${activeRef}" built-in. The new theme starts visually identical until you edit the colors below.`,
-      placeholder: activeCustom ? `${activeCustom.name} copy` : `My ${activeRef}`,
+  const promptName = async (
+    defaultName: string,
+    title: string,
+    message: string,
+  ): Promise<string | null> => {
+    return showPrompt({
+      title,
+      message,
+      placeholder: defaultName,
+      defaultValue: defaultName,
       confirmLabel: "Create",
       cancelLabel: "Cancel",
       validate: (v) => {
         const t = v.trim();
         if (!t) return "Name is required";
-        const builtins = new Set(["dark", "light", "red", "amber", "green", "cyan", "blue", "magenta"]);
-        if (builtins.has(t)) return "That name is reserved by a built-in";
+        if (BUILTIN_IDS.has(t)) return "That name is reserved by a built-in";
         if (custom.some((c) => c.name === t)) return "Name already in use";
         return null;
       },
     });
+  };
+
+  const handleNew = async () => {
+    // Two starting points: inherit from current (built-in or custom),
+    // or start blank on dark with no overrides. The chooser keeps both
+    // as clear positive actions so neither has to wear the Cancel label.
+    const mode = await showChoice({
+      title: "New color theme",
+      message: activeCustom
+        ? `Start the new theme from the currently-selected "${activeCustom.name}" custom theme (carries over its base + overrides), or fresh on the dark built-in with no overrides?`
+        : `Start the new theme from the currently-selected "${activeRef}" built-in (inherits its colors as a starting point), or fresh on the dark built-in with no overrides?`,
+      options: [
+        { id: "blank", label: "Blank (dark)", variant: "secondary" },
+        { id: "fork", label: "From current", variant: "primary" },
+      ],
+    });
+    if (!mode) return;
+    const defaultName =
+      mode === "blank"
+        ? "My theme"
+        : activeCustom
+          ? `${activeCustom.name} copy`
+          : `My ${activeRef}`;
+    const name = await promptName(
+      defaultName,
+      "Name the new theme",
+      mode === "blank"
+        ? "Fresh theme on the dark built-in with no overrides — tweak the colors after."
+        : "New theme will inherit the current colors as a starting point.",
+    );
     if (!name) return;
-    createCustomColorTheme(name.trim());
+    createCustomColorTheme(name.trim(), mode === "blank" ? "blank" : "fork");
+    setEditing(true);
+  };
+
+  const handleEdit = async () => {
+    // Editing a built-in needs to auto-fork: built-in CSS blocks are
+    // read-only, so the cleanest UX is "click Edit → fork → land in the
+    // editor with the fork active." No separate confirm step; the
+    // single name prompt is the user's chance to back out.
+    if (!activeCustom) {
+      const name = await promptName(
+        `My ${activeRef}`,
+        `Fork "${activeRef}" to edit?`,
+        `Built-ins are read-only — click Create to fork a custom theme starting from "${activeRef}". You can rename or delete the new theme later.`,
+      );
+      if (!name) return;
+      createCustomColorTheme(name.trim(), "fork");
+      setEditing(true);
+      return;
+    }
+    setEditing((e) => !e);
   };
 
   const handleDelete = async () => {
@@ -331,7 +392,7 @@ function ColorThemeSection() {
           <span className={fieldLabel}>Color theme</span>
           <select
             value={activeRef}
-            onChange={(e) => handleSelect(e.target.value)}
+            onChange={(e) => setActiveColorTheme(e.target.value)}
             className={textInput}
           >
             <optgroup label="Built-ins">
@@ -352,8 +413,11 @@ function ColorThemeSection() {
             )}
           </select>
         </label>
-        <Button onClick={handleFork} variant="secondary" size="sm">
-          + New from current
+        <Button onClick={handleNew} variant="secondary" size="sm">
+          + New
+        </Button>
+        <Button onClick={handleEdit} variant="secondary" size="sm">
+          {activeCustom ? (editing ? "Close editor" : "Edit") : "Edit"}
         </Button>
         {activeCustom && (
           <Button onClick={handleDelete} variant="danger" size="sm">
@@ -362,11 +426,10 @@ function ColorThemeSection() {
         )}
       </div>
 
-      {activeCustom ? (
-        <CustomColorEditor custom={activeCustom} />
-      ) : (
+      {activeCustom && editing && <CustomColorEditor custom={activeCustom} />}
+      {!activeCustom && (
         <p className="text-xs text-neutral-500">
-          Built-in themes are read-only. Click <span className="text-neutral-300">+ New from current</span> to fork a custom theme you can edit.
+          Built-in themes are read-only. <span className="text-neutral-300">Edit</span> forks the current built-in into a custom theme you can tweak; <span className="text-neutral-300">+ New</span> creates one from scratch.
         </p>
       )}
     </div>
@@ -374,21 +437,52 @@ function ColorThemeSection() {
 }
 
 // ---- Custom-theme inline editor ---------------------------------------------
-// Four color pickers for the active custom theme's overrides. Each row
-// has a native <input type="color"> + a "reset" button that clears that
-// field back to the base built-in's value. Empty/null means "no override
-// — fall through to base." Pickers stay in sync with the active theme
-// record via the useCustomColorThemes subscription.
+// Seven color rows for the active custom theme's overrides. Each picker
+// is populated from the current EFFECTIVE color — read from the active
+// CSS variable via getComputedStyle + canvas color-resolve — so a fresh
+// fork of "dark" shows dark's actual accent in the picker, not #000.
+// Setting a color writes to the override; ↺ clears it back to the base
+// built-in's value. Empty/null means "no override — fall through to base."
+//
+// The five ladder rows pick the 500-stop; the apply pipeline derives 50
+// → 950 from there via CSS color-mix at render time. Canvas bg + pattern
+// are direct single-color overrides (no ladder).
+
+const LADDER_FIELDS: Array<{
+  key: "accent" | "neutral" | "sourceNpc" | "sourceTerminal" | "choice";
+  label: string;
+  cssVar: string;
+  hint: string;
+}> = [
+  { key: "accent", label: "Accent (500)", cssVar: "--color-emerald-500", hint: "Drives the full emerald-50→950 ladder." },
+  { key: "neutral", label: "Neutral (500)", cssVar: "--color-neutral-500", hint: "Drives the full neutral-50→950 ladder." },
+  { key: "sourceNpc", label: "Source NPC (500)", cssVar: "--color-source-npc-500", hint: "Dialog graph NPC node tint." },
+  { key: "sourceTerminal", label: "Source Terminal (500)", cssVar: "--color-source-terminal-500", hint: "Dialog graph Terminal node tint." },
+  { key: "choice", label: "Choice (500)", cssVar: "--color-choice-500", hint: "Dialog graph choice handles + edges + → glyphs." },
+];
+
+const SINGLE_FIELDS: Array<{
+  key: "canvasBg" | "canvasPattern";
+  label: string;
+  cssVar: string;
+  hint: string;
+}> = [
+  { key: "canvasBg", label: "Canvas bg", cssVar: "--canvas-bg", hint: "Dialog-graph backdrop color." },
+  { key: "canvasPattern", label: "Canvas pattern", cssVar: "--canvas-pattern", hint: "Dot grid drawn over the canvas." },
+];
 
 function CustomColorEditor({ custom }: { custom: CustomColorTheme }) {
   const o = custom.overrides;
-  const anyOverride = !!(o.accent || o.neutral || o.canvasBg || o.canvasPattern);
+  const anyOverride = !!(
+    o.accent || o.neutral || o.sourceNpc || o.sourceTerminal ||
+    o.choice || o.canvasBg || o.canvasPattern
+  );
 
   return (
-    <div className="space-y-2 border-l-2 border-neutral-800 pl-3">
+    <div className="space-y-3 border-l-2 border-neutral-800 pl-3">
       <div className="flex items-center justify-between">
         <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-500">
-          Overrides on {custom.base}
+          Editing {custom.name} — overrides on {custom.base}
         </span>
         {anyOverride && (
           <button
@@ -400,30 +494,36 @@ function CustomColorEditor({ custom }: { custom: CustomColorTheme }) {
           </button>
         )}
       </div>
-      <ColorOverrideRow
-        label="Accent"
-        hint="Drives the full emerald-50→950 ladder via OKLch mix."
-        value={o.accent}
-        onChange={(v) => setCustomColorOverride(custom.name, "accent", v)}
-      />
-      <ColorOverrideRow
-        label="Neutral"
-        hint="Drives the full neutral-50→950 ladder."
-        value={o.neutral}
-        onChange={(v) => setCustomColorOverride(custom.name, "neutral", v)}
-      />
-      <ColorOverrideRow
-        label="Canvas bg"
-        hint="Backdrop of the dialog graph + similar canvases."
-        value={o.canvasBg}
-        onChange={(v) => setCustomColorOverride(custom.name, "canvasBg", v)}
-      />
-      <ColorOverrideRow
-        label="Canvas pattern"
-        hint="Dot grid drawn over the canvas backdrop."
-        value={o.canvasPattern}
-        onChange={(v) => setCustomColorOverride(custom.name, "canvasPattern", v)}
-      />
+      <div className="space-y-2">
+        <div className="font-mono text-[9px] uppercase tracking-wider text-neutral-600">
+          Palette ladders — picked color = 500-stop
+        </div>
+        {LADDER_FIELDS.map((f) => (
+          <ColorOverrideRow
+            key={f.key}
+            label={f.label}
+            hint={f.hint}
+            cssVar={f.cssVar}
+            value={o[f.key]}
+            onChange={(v) => setCustomColorOverride(custom.name, f.key, v)}
+          />
+        ))}
+      </div>
+      <div className="space-y-2">
+        <div className="font-mono text-[9px] uppercase tracking-wider text-neutral-600">
+          Single colors
+        </div>
+        {SINGLE_FIELDS.map((f) => (
+          <ColorOverrideRow
+            key={f.key}
+            label={f.label}
+            hint={f.hint}
+            cssVar={f.cssVar}
+            value={o[f.key]}
+            onChange={(v) => setCustomColorOverride(custom.name, f.key, v)}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -431,23 +531,33 @@ function CustomColorEditor({ custom }: { custom: CustomColorTheme }) {
 function ColorOverrideRow({
   label,
   hint,
+  cssVar,
   value,
   onChange,
 }: {
   label: string;
   hint: string;
+  cssVar: string;
   value: string | undefined;
   onChange: (v: string | undefined) => void;
 }) {
   const set = !!value;
-  // <input type="color"> wants a 7-char hex; fall back to a sensible
-  // default so the picker has something to display when no override is
-  // set. The actual override value is null/undefined until the user
-  // commits a change.
-  const display = value ?? "#000000";
+  // Picker `value` MUST be a 7-char hex. Three sources, in order:
+  //   1. The override value, if set (already hex from <input type=color>).
+  //   2. The current effective CSS variable value, resolved via the
+  //      canvas-based readVarAsHex — covers oklch() / color-mix() / etc.
+  //      The browser is the color-parser so the picker shows the user's
+  //      actual current color, not a #000000 placeholder.
+  //   3. Fall back to #000000 if reading failed (SSR, malformed CSS).
+  //
+  // Re-resolves on every render so a theme-switch or sibling-override
+  // change updates the picker live. The CSS value chain is fast — one
+  // getComputedStyle read + one 1×1 canvas pixel — so the per-render
+  // cost is negligible.
+  const display = value ?? readVarAsHex(cssVar) ?? "#000000";
   return (
     <div className="flex items-center gap-3">
-      <span className="w-28 shrink-0 font-mono text-[11px] text-neutral-300">
+      <span className="w-36 shrink-0 font-mono text-[11px] text-neutral-300">
         {label}
       </span>
       <input
@@ -457,8 +567,13 @@ function ColorOverrideRow({
         className="h-7 w-12 cursor-pointer border-2 border-neutral-700 bg-neutral-900 p-0"
         title={`${label} color`}
       />
-      <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-500">
-        {set ? value : hint}
+      <span
+        className={`min-w-0 flex-1 truncate font-mono text-[10px] ${
+          set ? "text-emerald-400" : "text-neutral-500"
+        }`}
+        title={set ? "Override active" : "Inheriting from base built-in"}
+      >
+        {set ? `${value} • override` : hint}
       </span>
       {set && (
         <button

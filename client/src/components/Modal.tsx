@@ -20,9 +20,24 @@ export interface PromptOptions {
   validate?: (value: string) => string | null;
 }
 
+export interface ChoiceOption {
+  id: string;
+  label: string;
+  variant?: "primary" | "secondary" | "danger";
+}
+
+export interface ChoiceOptions {
+  title: string;
+  message?: string;
+  /** Array of options shown as a horizontal button row. Order is
+   *  display order; the rightmost option is the visual default. */
+  options: ChoiceOption[];
+}
+
 type Active =
   | { kind: "confirm"; opts: ConfirmOptions; resolve: (v: boolean) => void }
-  | { kind: "prompt"; opts: PromptOptions; resolve: (v: string | null) => void };
+  | { kind: "prompt"; opts: PromptOptions; resolve: (v: string | null) => void }
+  | { kind: "choice"; opts: ChoiceOptions; resolve: (v: string | null) => void };
 
 let active: Active | null = null;
 const subs = new Set<() => void>();
@@ -54,6 +69,20 @@ export function showPrompt(opts: PromptOptions): Promise<string | null> {
   });
 }
 
+/** Show an N-option chooser dialog. Returns the chosen option's `id`,
+ *  or null on dismiss (Escape, backdrop click). Use when a yes/no
+ *  confirm doesn't fit because the user needs to pick between 2+
+ *  positive actions — e.g. "New theme: from current OR blank" where
+ *  both are creating-something paths, just with different starting
+ *  points. */
+export function showChoice(opts: ChoiceOptions): Promise<string | null> {
+  return new Promise((resolve) => {
+    dismissCurrent();
+    active = { kind: "choice", opts, resolve };
+    notify();
+  });
+}
+
 export function ModalHost() {
   const [, force] = useState(0);
   useEffect(() => {
@@ -76,6 +105,9 @@ export function ModalHost() {
 
   if (a.kind === "confirm") {
     return <ConfirmDialog opts={a.opts} onResult={(v) => close(v)} />;
+  }
+  if (a.kind === "choice") {
+    return <ChoiceDialog opts={a.opts} onResult={(v) => close(v)} />;
   }
   return <PromptDialog opts={a.opts} onResult={(v) => close(v)} />;
 }
@@ -145,6 +177,44 @@ function ConfirmDialog({
           >
             {opts.confirmLabel ?? "OK"}
           </Button>
+        </div>
+      </Card>
+    </Backdrop>
+  );
+}
+
+function ChoiceDialog({
+  opts,
+  onResult,
+}: {
+  opts: ChoiceOptions;
+  onResult: (v: string | null) => void;
+}) {
+  return (
+    <Backdrop onClose={() => onResult(null)}>
+      <Card>
+        <h2 className="font-display text-sm tracking-wide text-emerald-400">
+          {opts.title}
+        </h2>
+        {opts.message && (
+          <p className="mt-3 whitespace-pre-line text-sm text-neutral-200">
+            {opts.message}
+          </p>
+        )}
+        <div className="mt-5 flex flex-wrap items-center justify-end gap-3">
+          <Button variant="secondary" onClick={() => onResult(null)}>
+            Cancel
+          </Button>
+          {opts.options.map((opt, i) => (
+            <Button
+              key={opt.id}
+              autoFocus={i === opts.options.length - 1}
+              variant={opt.variant ?? (i === opts.options.length - 1 ? "primary" : "secondary")}
+              onClick={() => onResult(opt.id)}
+            >
+              {opt.label}
+            </Button>
+          ))}
         </div>
       </Card>
     </Backdrop>
