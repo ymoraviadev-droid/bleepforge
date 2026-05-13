@@ -1,7 +1,21 @@
+import type { ReactNode } from "react";
 import { NavLink } from "react-router";
 
 import { AppSearch } from "./AppSearch";
 import { showConfirm } from "./Modal";
+import {
+  BalloonIcon,
+  BookIcon,
+  BubbleIcon,
+  CrateIcon,
+  FrameIcon,
+  HouseIcon,
+  RobotIcon,
+  ScaleIcon,
+  ScrollIcon,
+  ShaderIcon,
+  ShieldIcon,
+} from "./NavIcons";
 import { RestartIcon } from "./RestartIcon";
 import { DiagnosticsIcon } from "../features/diagnostics/DiagnosticsIcon";
 import { useDiagnostics } from "../features/diagnostics/useDiagnostics";
@@ -28,7 +42,7 @@ import { isElectron, popoutOrNavigate, restartApp } from "../lib/electron";
 // windows — those are focused subviews and ship without app chrome.
 
 const NAV_BASE =
-  "flex items-center border-l-4 px-4 py-2 text-sm font-medium transition-colors";
+  "flex items-center gap-3 border-l-4 px-3 py-2 text-sm font-medium transition-colors";
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `${NAV_BASE} ${
@@ -99,20 +113,26 @@ async function handleRestart(): Promise<void> {
 interface NavEntry {
   to: string;
   label: string;
+  icon: ReactNode;
 }
 
+// Icon size kept at 16 — matches the cap-height of the text-sm labels
+// at the same line, so each row reads as "icon AND label" rather than
+// "icon AND smaller label." Stored as JSX so the icon component picks
+// up currentColor from the row's active/inactive text class without
+// any per-icon wiring.
 const NAV_ITEMS: NavEntry[] = [
-  { to: "/concept", label: "Game concept" },
-  { to: "/factions", label: "Factions" },
-  { to: "/npcs", label: "NPCs" },
-  { to: "/quests", label: "Quests" },
-  { to: "/karma", label: "Karma" },
-  { to: "/dialogs", label: "Dialogs" },
-  { to: "/balloons", label: "Balloons" },
-  { to: "/items", label: "Items" },
-  { to: "/shaders", label: "Shaders" },
-  { to: "/codex", label: "Game codex" },
-  { to: "/assets", label: "Assets" },
+  { to: "/concept", label: "Game concept", icon: <HouseIcon /> },
+  { to: "/factions", label: "Factions", icon: <ShieldIcon /> },
+  { to: "/npcs", label: "NPCs", icon: <RobotIcon /> },
+  { to: "/quests", label: "Quests", icon: <ScrollIcon /> },
+  { to: "/karma", label: "Karma", icon: <ScaleIcon /> },
+  { to: "/dialogs", label: "Dialogs", icon: <BubbleIcon /> },
+  { to: "/balloons", label: "Balloons", icon: <BalloonIcon /> },
+  { to: "/items", label: "Items", icon: <CrateIcon /> },
+  { to: "/shaders", label: "Shaders", icon: <ShaderIcon /> },
+  { to: "/codex", label: "Game codex", icon: <BookIcon /> },
+  { to: "/assets", label: "Assets", icon: <FrameIcon /> },
 ];
 
 export function Sidebar() {
@@ -139,7 +159,7 @@ export function Sidebar() {
           Same four icons + same severity-aware tinting the old top bar
           had, just stacked above search + nav instead of beside them. */}
       <div className="shrink-0 border-y-2 border-neutral-800 px-3 py-2">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-center gap-1.5">
           <NavLink
             to="/diagnostics"
             onClick={(e) => popoutOrNavigate(e, "/diagnostics")}
@@ -203,7 +223,10 @@ export function Sidebar() {
       <nav className="flex flex-1 flex-col overflow-y-auto py-2">
         {NAV_ITEMS.map((item) => (
           <NavLink key={item.to} to={item.to} className={navLinkClass}>
-            {item.label}
+            <span className="flex w-4 shrink-0 items-center justify-center">
+              {item.icon}
+            </span>
+            <span>{item.label}</span>
           </NavLink>
         ))}
       </nav>
