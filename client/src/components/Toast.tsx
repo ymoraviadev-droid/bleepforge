@@ -13,7 +13,19 @@ import { Link } from "react-router";
 // the sync-toast bridge so rapid re-saves of the same entity collapse into a
 // single entry that resets its timer).
 
-export type ToastVariant = "info" | "success" | "warn" | "error";
+// Toast variants drive the border + progress-bar + icon color.
+//
+// info / success / warn / error are severity-axis variants — pick by
+// how alarming the message is. info and success share emerald; warn
+// is amber; error is red.
+//
+// `saved` is a DIRECTION marker, not a severity (v0.2.2): cyan-themed
+// to distinguish at-a-glance "I saved this in Bleepforge" (outgoing)
+// from "this got updated externally" (success, emerald). Lets two
+// directional save toasts coexist without semantic collision —
+// you can tell which direction a save came from before reading the
+// title.
+export type ToastVariant = "info" | "success" | "warn" | "error" | "saved";
 
 export interface ToastOptions {
   title: string;
@@ -141,6 +153,11 @@ const ACCENT: Record<
     border: "border-red-700",
     bar: "bg-red-500",
     icon: "text-red-400",
+  },
+  saved: {
+    border: "border-cyan-700",
+    bar: "bg-cyan-500",
+    icon: "text-cyan-400",
   },
 };
 

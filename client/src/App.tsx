@@ -10,6 +10,7 @@ import { SplashScreen } from "./components/SplashScreen";
 import { ToastHost } from "./components/Toast";
 import { ImageEditorHost } from "./features/asset/imageEditorHost";
 import { isPopout } from "./lib/electron";
+import { useOutgoingSaveToasts } from "./lib/saves/outgoingSaveToasts";
 import { useShaderToasts } from "./lib/shaders/shaderToasts";
 import { useSyncToasts } from "./lib/sync/syncToasts";
 
@@ -51,12 +52,19 @@ export function App() {
     window.addEventListener("pageshow", onPageShow);
     return () => window.removeEventListener("pageshow", onPageShow);
   }, []);
-  // Bridge .tres-save SSE events into pixel toasts. Mounted at App root so
-  // every page gets the same notification surface. Shader toasts run on a
-  // parallel hook against the .gdshader event channel, with echo-of-own-save
-  // suppression so the user's own Save click doesn't double-feedback.
+  // Bridge save events into pixel toasts. Three hooks, three directions:
+  //   - useSyncToasts: INCOMING .tres saves (Godot → Bleepforge) via the
+  //     sync SSE stream. Emerald "success" variant, title "X updated
+  //     externally".
+  //   - useShaderToasts: INCOMING .gdshader saves via the shader SSE
+  //     stream, with per-window echo-of-own-save suppression.
+  //   - useOutgoingSaveToasts: OUTGOING saves (Bleepforge → disk) for
+  //     every domain via the saves SSE stream. Cyan "saved" variant,
+  //     title "Saved X". Distinguishes at-a-glance from the incoming
+  //     toasts (color + title both carry direction).
   useSyncToasts();
   useShaderToasts();
+  useOutgoingSaveToasts();
 
   if (showSplash) {
     return <SplashScreen onDone={() => setShowSplash(false)} />;
