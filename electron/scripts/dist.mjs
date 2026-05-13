@@ -17,6 +17,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import fs from "node:fs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const electronRoot = path.resolve(here, "..");
@@ -61,7 +62,23 @@ async function main() {
     electronRoot,
   );
 
+  // Sidecar icon next to the AppImage. KDE Dolphin / GNOME Files don't
+  // peek inside the AppImage's squashfs to render its embedded icon
+  // unless the user has libappimage / appimaged installed (Fedora and
+  // most distros don't ship that out of the box). Copying the 512px
+  // PNG to release/Bleepforge.png gives the user an immediately-
+  // visible icon in their file manager right next to the AppImage —
+  // no thumbnailer required. Tiny (~4KB) compared to the 115MB
+  // binary, free win.
+  console.log("[bleepforge/dist] copying sidecar icon to release/Bleepforge.png…");
+  fs.copyFileSync(
+    path.join(electronRoot, "build-resources", "icons", "512x512.png"),
+    path.join(electronRoot, "release", "Bleepforge.png"),
+  );
+
   console.log("[bleepforge/dist] done. Artifacts in electron/release/");
+  console.log("[bleepforge/dist] tip: run `pnpm install:desktop` once to");
+  console.log("[bleepforge/dist] register Bleepforge in the KDE/GNOME app menu.");
 }
 
 main().catch((err) => {
