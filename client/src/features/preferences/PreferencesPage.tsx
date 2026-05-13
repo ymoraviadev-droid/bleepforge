@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import type { CustomColorTheme } from "@bleepforge/shared";
 import {
   godotProjectApi,
   type GodotProjectInfo,
@@ -7,15 +8,20 @@ import {
 import { FONT_SIZE, FONTS, LETTER_SPACING, useFont, useFontSize, useLetterSpacing } from "../../styles/Font";
 import {
   DEFAULT_THEME_NAME,
+  clearCustomColorOverrides,
+  createCustomColorTheme,
+  deleteCustomColorTheme,
   setActiveColorTheme,
   setActiveFont,
   setActiveFontSize,
   setActiveLetterSpacing,
+  setCustomColorOverride,
+  useCustomColorThemes,
   useGlobalThemes,
   useGodotProjectRoot,
 } from "../../styles/GlobalTheme";
 import { showConfirm, showPrompt } from "../../components/Modal";
-import { THEMES, useTheme } from "../../styles/Theme";
+import { THEMES } from "../../styles/Theme";
 import { Button } from "../../components/Button";
 import { PixelSlider } from "../../components/PixelSlider";
 import { fieldLabel, textInput } from "../../styles/classes";
@@ -278,39 +284,192 @@ function GlobalThemeSection() {
 }
 
 function ColorThemeSection() {
-  const { theme } = useTheme();
+  const { custom, activeRef, activeCustom } = useCustomColorThemes();
+
+  const handleSelect = (value: string) => {
+    setActiveColorTheme(value);
+  };
+
+  const handleFork = async () => {
+    const name = await showPrompt({
+      title: "Fork color theme",
+      message: activeCustom
+        ? `Create a copy of "${activeCustom.name}" with a new name. The new theme starts with the same base + overrides; tweak from there.`
+        : `Create a custom color theme starting from the "${activeRef}" built-in. The new theme starts visually identical until you edit the colors below.`,
+      placeholder: activeCustom ? `${activeCustom.name} copy` : `My ${activeRef}`,
+      confirmLabel: "Create",
+      cancelLabel: "Cancel",
+      validate: (v) => {
+        const t = v.trim();
+        if (!t) return "Name is required";
+        const builtins = new Set(["dark", "light", "red", "amber", "green", "cyan", "blue", "magenta"]);
+        if (builtins.has(t)) return "That name is reserved by a built-in";
+        if (custom.some((c) => c.name === t)) return "Name already in use";
+        return null;
+      },
+    });
+    if (!name) return;
+    createCustomColorTheme(name.trim());
+  };
+
+  const handleDelete = async () => {
+    if (!activeCustom) return;
+    const ok = await showConfirm({
+      title: `Delete "${activeCustom.name}"?`,
+      message: `Any Global theme that referenced it will fall back to the "${activeCustom.base}" built-in.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (!ok) return;
+    deleteCustomColorTheme(activeCustom.name);
+  };
+
   return (
-    <div className="space-y-2">
-      <span className={fieldLabel}>Accent + canvas tint</span>
-      <div
-        className="flex flex-wrap gap-3"
-        role="radiogroup"
-        aria-label="Color theme"
-      >
-        {THEMES.map((t) => {
-          const active = theme === t.id;
-          return (
-            <button
-              key={t.id}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => setActiveColorTheme(t.id)}
-              className={`flex items-center gap-2 border-2 px-2 py-1 text-xs transition-colors ${
-                active
-                  ? "border-emerald-400 bg-emerald-950/40 text-emerald-100"
-                  : "border-neutral-700 text-neutral-300 hover:border-neutral-500 hover:bg-neutral-900"
-              }`}
-            >
-              <span
-                className="size-4 border border-black/40"
-                style={{ background: t.swatch }}
-              />
-              <span>{t.label}</span>
-            </button>
-          );
-        })}
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-end gap-2">
+        <label className="block min-w-48 flex-1">
+          <span className={fieldLabel}>Color theme</span>
+          <select
+            value={activeRef}
+            onChange={(e) => handleSelect(e.target.value)}
+            className={textInput}
+          >
+            <optgroup label="Built-ins">
+              {THEMES.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.label}
+                </option>
+              ))}
+            </optgroup>
+            {custom.length > 0 && (
+              <optgroup label="Custom">
+                {custom.map((c) => (
+                  <option key={c.name} value={c.name}>
+                    {c.name} (from {c.base})
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+        </label>
+        <Button onClick={handleFork} variant="secondary" size="sm">
+          + New from current
+        </Button>
+        {activeCustom && (
+          <Button onClick={handleDelete} variant="danger" size="sm">
+            Delete
+          </Button>
+        )}
       </div>
+
+      {activeCustom ? (
+        <CustomColorEditor custom={activeCustom} />
+      ) : (
+        <p className="text-xs text-neutral-500">
+          Built-in themes are read-only. Click <span className="text-neutral-300">+ New from current</span> to fork a custom theme you can edit.
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ---- Custom-theme inline editor ---------------------------------------------
+// Four color pickers for the active custom theme's overrides. Each row
+// has a native <input type="color"> + a "reset" button that clears that
+// field back to the base built-in's value. Empty/null means "no override
+// — fall through to base." Pickers stay in sync with the active theme
+// record via the useCustomColorThemes subscription.
+
+function CustomColorEditor({ custom }: { custom: CustomColorTheme }) {
+  const o = custom.overrides;
+  const anyOverride = !!(o.accent || o.neutral || o.canvasBg || o.canvasPattern);
+
+  return (
+    <div className="space-y-2 border-l-2 border-neutral-800 pl-3">
+      <div className="flex items-center justify-between">
+        <span className="font-mono text-[10px] uppercase tracking-wider text-neutral-500">
+          Overrides on {custom.base}
+        </span>
+        {anyOverride && (
+          <button
+            type="button"
+            onClick={() => clearCustomColorOverrides(custom.name)}
+            className="font-mono text-[10px] uppercase tracking-wider text-neutral-500 hover:text-neutral-300"
+          >
+            ↺ Reset all
+          </button>
+        )}
+      </div>
+      <ColorOverrideRow
+        label="Accent"
+        hint="Drives the full emerald-50→950 ladder via OKLch mix."
+        value={o.accent}
+        onChange={(v) => setCustomColorOverride(custom.name, "accent", v)}
+      />
+      <ColorOverrideRow
+        label="Neutral"
+        hint="Drives the full neutral-50→950 ladder."
+        value={o.neutral}
+        onChange={(v) => setCustomColorOverride(custom.name, "neutral", v)}
+      />
+      <ColorOverrideRow
+        label="Canvas bg"
+        hint="Backdrop of the dialog graph + similar canvases."
+        value={o.canvasBg}
+        onChange={(v) => setCustomColorOverride(custom.name, "canvasBg", v)}
+      />
+      <ColorOverrideRow
+        label="Canvas pattern"
+        hint="Dot grid drawn over the canvas backdrop."
+        value={o.canvasPattern}
+        onChange={(v) => setCustomColorOverride(custom.name, "canvasPattern", v)}
+      />
+    </div>
+  );
+}
+
+function ColorOverrideRow({
+  label,
+  hint,
+  value,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+}) {
+  const set = !!value;
+  // <input type="color"> wants a 7-char hex; fall back to a sensible
+  // default so the picker has something to display when no override is
+  // set. The actual override value is null/undefined until the user
+  // commits a change.
+  const display = value ?? "#000000";
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-28 shrink-0 font-mono text-[11px] text-neutral-300">
+        {label}
+      </span>
+      <input
+        type="color"
+        value={display}
+        onChange={(e) => onChange(e.target.value)}
+        className="h-7 w-12 cursor-pointer border-2 border-neutral-700 bg-neutral-900 p-0"
+        title={`${label} color`}
+      />
+      <span className="min-w-0 flex-1 truncate font-mono text-[10px] text-neutral-500">
+        {set ? value : hint}
+      </span>
+      {set && (
+        <button
+          type="button"
+          onClick={() => onChange(undefined)}
+          className="shrink-0 font-mono text-[10px] uppercase tracking-wider text-neutral-500 hover:text-neutral-300"
+          title="Reset to built-in"
+        >
+          ↺
+        </button>
+      )}
     </div>
   );
 }

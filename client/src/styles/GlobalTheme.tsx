@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 import {
   PreferencesSchema,
+  type ColorOverrides,
+  type CustomColorTheme,
   type GlobalTheme,
   type Preferences,
 } from "@bleepforge/shared";
 import { preferencesApi } from "../lib/api";
 import { markBootCheckpoint } from "../lib/boot/progress";
+import { applyColorOverrides } from "./colorOverrides";
 import {
   FONT_SIZE,
   LETTER_SPACING,
@@ -74,6 +77,7 @@ function writeCache(p: Preferences) {
 // ---- State + pub/sub --------------------------------------------------------
 
 let themes: GlobalTheme[] = [];
+let customColorThemes: CustomColorTheme[] = [];
 let activeName: string = DEFAULT_NAME;
 // godotProjectRoot lives alongside themes in the same Preferences document
 // even though it isn't a theme. Routing it through the same persist machinery
@@ -90,15 +94,42 @@ function find(name: string): GlobalTheme | undefined {
   return themes.find((t) => t.name === name);
 }
 
+/** Resolve a colorTheme reference (string) to either a built-in id
+ *  (apply as data-theme, no overrides) or a custom theme record
+ *  (apply base as data-theme, then overrides on top). */
+function resolveColorTheme(ref: string): {
+  baseId: ThemeId;
+  overrides: ColorOverrides | undefined;
+} {
+  const custom = customColorThemes.find((c) => c.name === ref);
+  if (custom) {
+    return { baseId: (custom.base as ThemeId), overrides: custom.overrides };
+  }
+  return { baseId: ref as ThemeId, overrides: undefined };
+}
+
 function applyToDom(t: GlobalTheme) {
-  setTheme(t.colorTheme as ThemeId);
+  const { baseId, overrides } = resolveColorTheme(t.colorTheme);
+  setTheme(baseId);
   setFont(t.font as FontId);
   setFontSize(t.fontSize);
   setLetterSpacing(t.letterSpacing);
+  // Apply color overrides AFTER setTheme so the new built-in's CSS
+  // block lands first, then setProperty inlines win over it where
+  // overrides are set. Order matters because setTheme just flips the
+  // data-theme attribute; the browser may not have applied the new
+  // CSS-block values yet when we setProperty, but inline-style is
+  // more specific so they still win at paint.
+  applyColorOverrides(overrides);
 }
 
 function snapshotPreferences(): Preferences {
-  return { themes: themes.slice(), activeName, godotProjectRoot };
+  return {
+    themes: themes.slice(),
+    activeName,
+    customColorThemes: customColorThemes.slice(),
+    godotProjectRoot,
+  };
 }
 
 // Fire-and-mostly-forget save. Updates the cache on success; logs and continues
@@ -176,6 +207,7 @@ export function closeGlobalThemeChannel(): void {
 
 function adopt(prefs: Preferences, applyDom: boolean) {
   themes = prefs.themes;
+  customColorThemes = prefs.customColorThemes ?? [];
   godotProjectRoot = prefs.godotProjectRoot ?? "";
   // Resolve active: prefer the saved name, fall back to default, then first.
   const desired = prefs.activeName || DEFAULT_NAME;
@@ -319,9 +351,16 @@ function patchActive(updates: Partial<Omit<GlobalTheme, "name">>) {
 // DOM via the underlying setter, then persists the new value back into the
 // active theme record.
 
-export function setActiveColorTheme(id: ThemeId) {
-  setTheme(id);
-  patchActive({ colorTheme: id });
+/** Switch the active GlobalTheme's color reference. Accepts either a
+ *  built-in ThemeId or a CustomColorTheme name — the apply pipeline
+ *  resolves both via `resolveColorTheme`. */
+export function setActiveColorTheme(ref: string) {
+  themes = themes.map((t) =>
+    t.name === activeName ? { ...t, colorTheme: ref } : t,
+  );
+  const active = find(activeName);
+  if (active) applyToDom(active);
+  persist();
   notify();
 }
 
@@ -342,6 +381,110 @@ export function setActiveLetterSpacing(v: number) {
   patchActive({
     letterSpacing: clamp(v, LETTER_SPACING.min, LETTER_SPACING.max),
   });
+  notify();
+}
+
+// ---- Custom color theme management ----------------------------------------
+
+/** Read the active GlobalTheme's resolved color theme — either a
+ *  built-in (custom === null) or a CustomColorTheme record. Used by
+ *  the Preferences UI to show "Editing custom theme X" + populate the
+ *  color pickers. */
+export function getActiveColorThemeResolved(): {
+  ref: string;
+  custom: CustomColorTheme | null;
+} {
+  const g = find(activeName);
+  const ref = g?.colorTheme ?? "dark";
+  const custom = customColorThemes.find((c) => c.name === ref) ?? null;
+  return { ref, custom };
+}
+
+export function listCustomColorThemes(): CustomColorTheme[] {
+  return customColorThemes.slice();
+}
+
+/** Fork the currently active GlobalTheme's color theme into a new
+ *  CustomColorTheme record. If the current color theme is a built-in,
+ *  the new custom theme uses that as its `base` and starts with empty
+ *  overrides (visually identical to the built-in until edited). If the
+ *  current is already custom, the new one is a copy with a new name.
+ *  Returns the created theme or null on conflict. */
+export function createCustomColorTheme(name: string): CustomColorTheme | null {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  if (customColorThemes.some((c) => c.name === trimmed)) return null;
+  // Don't allow collision with a built-in id either.
+  // (Resolution would prefer the custom, masking the built-in.)
+  const BUILTIN_IDS = new Set(["dark", "light", "red", "amber", "green", "cyan", "blue", "magenta"]);
+  if (BUILTIN_IDS.has(trimmed)) return null;
+
+  const active = find(activeName);
+  const fromRef = active?.colorTheme ?? "dark";
+  const fromCustom = customColorThemes.find((c) => c.name === fromRef);
+  const created: CustomColorTheme = fromCustom
+    ? { name: trimmed, base: fromCustom.base, overrides: { ...fromCustom.overrides } }
+    : { name: trimmed, base: fromRef, overrides: {} };
+
+  customColorThemes = [...customColorThemes, created];
+  // Switch the active GlobalTheme to point at the new custom theme so
+  // the user lands editing what they just created.
+  themes = themes.map((t) =>
+    t.name === activeName ? { ...t, colorTheme: trimmed } : t,
+  );
+  const refreshed = find(activeName);
+  if (refreshed) applyToDom(refreshed);
+  persist();
+  notify();
+  return created;
+}
+
+/** Delete a custom color theme by name. Any GlobalTheme that referenced
+ *  it falls back to that custom theme's `base` built-in. */
+export function deleteCustomColorTheme(name: string): void {
+  const target = customColorThemes.find((c) => c.name === name);
+  if (!target) return;
+  customColorThemes = customColorThemes.filter((c) => c.name !== name);
+  themes = themes.map((t) =>
+    t.colorTheme === name ? { ...t, colorTheme: target.base } : t,
+  );
+  const active = find(activeName);
+  if (active) applyToDom(active);
+  persist();
+  notify();
+}
+
+/** Set one override field on the named custom color theme. Passing
+ *  `undefined` clears that field. */
+export function setCustomColorOverride(
+  name: string,
+  key: keyof ColorOverrides,
+  value: string | undefined,
+): void {
+  customColorThemes = customColorThemes.map((c) => {
+    if (c.name !== name) return c;
+    const next: ColorOverrides = { ...c.overrides, [key]: value };
+    for (const k of Object.keys(next) as Array<keyof ColorOverrides>) {
+      if (next[k] === undefined || next[k] === "") delete next[k];
+    }
+    return { ...c, overrides: next };
+  });
+  // If the active GlobalTheme references this custom theme, re-apply.
+  const active = find(activeName);
+  if (active && active.colorTheme === name) applyToDom(active);
+  persist();
+  notify();
+}
+
+/** Clear every override on the named custom color theme — back to the
+ *  pure `base` built-in. */
+export function clearCustomColorOverrides(name: string): void {
+  customColorThemes = customColorThemes.map((c) =>
+    c.name === name ? { ...c, overrides: {} } : c,
+  );
+  const active = find(activeName);
+  if (active && active.colorTheme === name) applyToDom(active);
+  persist();
   notify();
 }
 
@@ -377,6 +520,31 @@ export function useGodotProjectRoot(): {
 }
 
 // ---- React hook -------------------------------------------------------------
+
+/** Subscribe to the custom-color-themes list + the active GlobalTheme's
+ *  resolved color reference. Returns the active custom theme record when
+ *  the active GlobalTheme points at a custom; null otherwise (= built-in
+ *  is selected, no edit affordances should be shown). */
+export function useCustomColorThemes(): {
+  custom: CustomColorTheme[];
+  activeRef: string;
+  activeCustom: CustomColorTheme | null;
+} {
+  const [, force] = useState(0);
+  useEffect(() => {
+    const sub = () => force((x) => x + 1);
+    subs.add(sub);
+    return () => {
+      subs.delete(sub);
+    };
+  }, []);
+  const { ref, custom } = getActiveColorThemeResolved();
+  return {
+    custom: customColorThemes.slice(),
+    activeRef: ref,
+    activeCustom: custom,
+  };
+}
 
 export function useGlobalThemes(): {
   themes: GlobalTheme[];
