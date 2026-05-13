@@ -66,6 +66,15 @@ export function ShaderEdit() {
   const [externalChange, setExternalChange] = useState<
     null | { kind: "changed" | "removed" }
   >(null);
+  // Active tab — Code or Live preview. Persisted to localStorage so
+  // the choice survives a reload. Default "code" on first visit.
+  const [activeTab, setActiveTabState] = useState<TabId>(() => readSavedTab());
+  const setActiveTab = (id: TabId) => {
+    setActiveTabState(id);
+    try {
+      window.localStorage.setItem(TAB_KEY, id);
+    } catch {}
+  };
 
   const dirty = saved !== editing;
 
@@ -466,7 +475,18 @@ export function ShaderEdit() {
         />
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_24rem]">
+      <TabStrip
+        active={activeTab}
+        onChange={setActiveTab}
+        codeDirty={dirty}
+        previewHasErrors={compileErrors.length > 0 || parseError !== null}
+      />
+
+      {/* Both tabs stay mounted via `hidden` so the WebGL context, editor
+          scroll position, uniform values, and time-control state survive
+          tab switches. Unmounting would tear down the GL context (lose
+          textures + recompile lag on every flip) and reset every slider. */}
+      <div hidden={activeTab !== "code"} className="space-y-4">
         <section className="overflow-hidden border-2 border-neutral-800 bg-neutral-950">
           <header className="flex items-center justify-between border-b-2 border-neutral-800 px-3 py-2">
             <h2 className="font-display text-xs uppercase tracking-wider text-neutral-300">
@@ -486,14 +506,9 @@ export function ShaderEdit() {
             />
           </div>
         </section>
-        <div className="space-y-4">
-          <PreviewPane
-            emit={emit}
-            uniforms={uniforms}
-            parseError={parseError}
-            compileErrors={compileErrors}
-            onCompileResult={handleCompileResult}
-          />
+
+        <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
+          <ShaderUsagesPanel usages={usages} error={usagesError} />
           <section className="border-2 border-neutral-800 bg-neutral-950">
             <header className="border-b-2 border-neutral-800 px-3 py-2">
               <h2 className="font-display text-xs uppercase tracking-wider text-neutral-300">
@@ -526,10 +541,113 @@ export function ShaderEdit() {
               </p>
             </div>
           </section>
-          <ShaderUsagesPanel usages={usages} error={usagesError} />
         </div>
       </div>
+
+      <div hidden={activeTab !== "preview"}>
+        <PreviewPane
+          emit={emit}
+          uniforms={uniforms}
+          parseError={parseError}
+          compileErrors={compileErrors}
+          onCompileResult={handleCompileResult}
+        />
+      </div>
     </div>
+  );
+}
+
+// Persisted across sessions so the user lands on the same tab they
+// left from. Per-app (not per-shader) — the user's working mode is
+// "I'm editing code" or "I'm tuning preview", not a per-file choice.
+const TAB_KEY = "bleepforge:shaderEditTab";
+type TabId = "code" | "preview";
+
+function readSavedTab(): TabId {
+  if (typeof window === "undefined") return "code";
+  try {
+    const raw = window.localStorage.getItem(TAB_KEY);
+    if (raw === "code" || raw === "preview") return raw;
+  } catch {}
+  return "code";
+}
+
+function TabStrip({
+  active,
+  onChange,
+  codeDirty,
+  previewHasErrors,
+}: {
+  active: TabId;
+  onChange: (id: TabId) => void;
+  codeDirty: boolean;
+  previewHasErrors: boolean;
+}) {
+  return (
+    <div role="tablist" className="flex gap-0 border-b-2 border-neutral-800">
+      <TabButton
+        id="code"
+        label="Code"
+        active={active === "code"}
+        onClick={() => onChange("code")}
+        badgeColor={codeDirty ? "amber" : null}
+        badgeTitle={codeDirty ? "Unsaved changes" : undefined}
+      />
+      <TabButton
+        id="preview"
+        label="Live preview"
+        active={active === "preview"}
+        onClick={() => onChange("preview")}
+        badgeColor={previewHasErrors ? "red" : null}
+        badgeTitle={previewHasErrors ? "Compile errors" : undefined}
+      />
+    </div>
+  );
+}
+
+function TabButton({
+  id,
+  label,
+  active,
+  onClick,
+  badgeColor,
+  badgeTitle,
+}: {
+  id: string;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+  badgeColor: "amber" | "red" | null;
+  badgeTitle?: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="tab"
+      aria-selected={active}
+      onClick={onClick}
+      // Active tab gets a 2px emerald bottom edge that sits flush with
+      // the parent's border-b-2 (effectively replacing it in the active
+      // column), plus emerald text. Inactive stays neutral with a 2px
+      // transparent bottom so label position doesn't shift on switch.
+      className={`relative -mb-0.5 flex items-center gap-2 border-b-2 px-4 py-2 font-display text-xs uppercase tracking-wider transition-colors ${
+        active
+          ? "border-emerald-500 text-emerald-300"
+          : "border-transparent text-neutral-500 hover:text-neutral-300"
+      }`}
+      data-tab={id}
+    >
+      <span>{label}</span>
+      {badgeColor && (
+        <span
+          className={`inline-block size-2 ${
+            badgeColor === "amber" ? "bg-amber-400" : "bg-red-500"
+          }`}
+          title={badgeTitle}
+          aria-label={badgeTitle}
+        />
+      )}
+    </button>
   );
 }
 

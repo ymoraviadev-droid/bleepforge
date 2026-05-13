@@ -44,6 +44,19 @@ interface Props {
   /** Called with the result of every compile so the edit page can
    *  surface errors / clear the error banner on success. */
   onCompileResult?: (result: CompileResult) => void;
+  /** CSS aspect-ratio string (e.g. "1 / 1", "16 / 9", "4 / 3"). The
+   *  canvas wrapper carries this so the wrapper's intrinsic height
+   *  follows its width. */
+  aspectRatio?: string;
+  /** "playing" = u_time auto-advances on every frame.
+   *  "paused" = u_time is frozen at `manualTime`. */
+  timeMode?: "playing" | "paused";
+  /** Frozen-time value when timeMode is "paused". Ignored otherwise. */
+  manualTime?: number;
+  /** Called once per animation frame with the live u_time the runtime
+   *  is about to use. Lets the edit-page UI show "current time" without
+   *  every render going through React state. */
+  onTimeTick?: (seconds: number) => void;
 }
 
 export function PreviewCanvas({
@@ -52,6 +65,10 @@ export function PreviewCanvas({
   mainTextureSource,
   samplerSources,
   onCompileResult,
+  aspectRatio = "1 / 1",
+  timeMode = "playing",
+  manualTime = 0,
+  onTimeTick,
 }: Props) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const runtimeRef = useRef<ShaderRuntime | null>(null);
@@ -59,6 +76,8 @@ export function PreviewCanvas({
   // memoize the callback doesn't trigger a recompile every render.
   const onCompileResultRef = useRef(onCompileResult);
   onCompileResultRef.current = onCompileResult;
+  const onTimeTickRef = useRef(onTimeTick);
+  onTimeTickRef.current = onTimeTick;
 
   // Mount the runtime once. Recreating on every emit change would lose
   // the texture state (and the GL context churn would be wasteful).
@@ -139,10 +158,43 @@ export function PreviewCanvas({
     }
   }, [uniformValues]);
 
+  // Wire time mode + manual time to the runtime. timeMode is the
+  // load-bearing input — "paused" tells the runtime to read manualTime
+  // every frame instead of computing elapsed-from-startTime; "playing"
+  // resumes auto-advance from manualTime (no jump on the user's eye).
+  useEffect(() => {
+    const runtime = runtimeRef.current;
+    if (!runtime) return;
+    if (timeMode === "paused") {
+      runtime.setManualTime(manualTime);
+    } else {
+      runtime.resumeTime();
+    }
+  }, [timeMode, manualTime]);
+
+  // Poll the runtime's u_time every animation frame and bubble it up to
+  // the parent. The "Current time" indicator under the canvas reads from
+  // this — keeping the polling here means we run on the same rAF
+  // schedule as the renderer instead of spawning a separate ticker. The
+  // parent's setState throttles the React-side update; we just hand off
+  // the latest value.
+  useEffect(() => {
+    let frame = 0;
+    const tick = () => {
+      const runtime = runtimeRef.current;
+      if (runtime && onTimeTickRef.current) {
+        onTimeTickRef.current(runtime.getCurrentTime());
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, []);
+
   return (
     <div
-      className="relative w-full overflow-hidden border-2 border-neutral-800 bg-black"
-      style={{ aspectRatio: "1 / 1" }}
+      className="relative mx-auto w-full max-w-3xl overflow-hidden border-2 border-neutral-800 bg-black"
+      style={{ aspectRatio }}
     >
       <canvas
         ref={canvasRef}

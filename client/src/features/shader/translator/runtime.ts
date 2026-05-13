@@ -133,6 +133,13 @@ export class ShaderRuntime {
   private currentEmit: EmitResult | null = null;
   private rafId: number | null = null;
   private startTime: number = performance.now();
+  // Time-control mode: "running" auto-advances via performance.now() and
+  // the elapsed-from-startTime calc; "paused" reads manualTime instead,
+  // so scrubbing + freezing both flow through the same field. Switching
+  // back to running re-anchors startTime so the resumed clock picks up
+  // where the user paused, with no visual jump.
+  private timeMode: "running" | "paused" = "running";
+  private manualTime: number = 0;
   private running = false;
   private destroyed = false;
 
@@ -273,9 +280,52 @@ export class ShaderRuntime {
   }
 
   /** Reset the per-frame uniform tick — useful for "restart from t=0"
-   *  affordance on the preview. */
+   *  affordance on the preview. Re-anchors startTime so running mode
+   *  reads u_time as ~0 on the next frame; also clears any manual
+   *  override so the shader resumes auto-ticking from zero. */
   resetTime(): void {
     this.startTime = performance.now();
+    this.timeMode = "running";
+    this.manualTime = 0;
+  }
+
+  /** Pause time at its current value. Subsequent draws keep firing —
+   *  the canvas stays interactive — but u_time stops advancing. */
+  pauseTime(): void {
+    if (this.timeMode === "running") {
+      this.manualTime = (performance.now() - this.startTime) / 1000;
+    }
+    this.timeMode = "paused";
+  }
+
+  /** Resume real-time auto-advance from the currently-displayed time.
+   *  startTime is re-anchored so the next frame reads u_time as the
+   *  same value the user just saw (no jump). */
+  resumeTime(): void {
+    if (this.timeMode === "running") return;
+    this.startTime = performance.now() - this.manualTime * 1000;
+    this.timeMode = "running";
+  }
+
+  /** Set u_time manually (scrubbing). Implicitly pauses — auto-advance
+   *  resumes when the caller invokes resumeTime(). */
+  setManualTime(seconds: number): void {
+    this.manualTime = Math.max(0, seconds);
+    this.timeMode = "paused";
+  }
+
+  /** Current u_time the next draw will use. Useful for the UI's
+   *  always-up-to-date scrub display when in running mode. */
+  getCurrentTime(): number {
+    if (this.timeMode === "paused") return this.manualTime;
+    return (performance.now() - this.startTime) / 1000;
+  }
+
+  /** Whether time is currently auto-advancing (running) or frozen
+   *  (paused). UI uses this to decide which icon to show on the
+   *  pause/play button. */
+  isTimePaused(): boolean {
+    return this.timeMode === "paused";
   }
 
   /** Reconcile the user-declared sampler2D uniforms (anything beyond
@@ -597,7 +647,7 @@ export class ShaderRuntime {
       gl.useProgram(this.program);
 
       // Built-in uniforms.
-      this.bindFloat("u_time", (performance.now() - this.startTime) / 1000);
+      this.bindFloat("u_time", this.getCurrentTime());
       this.bindVec2("u_resolution", w, h);
       this.bindVec2(
         "u_texture_pixel_size",
