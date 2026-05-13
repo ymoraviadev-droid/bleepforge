@@ -72,4 +72,5 @@ export const folderAbs = {
   balloon: path.join(dataRoot, "balloons"),
   codex: path.join(dataRoot, "codex"),
   help: path.join(dataRoot, "help"),
+  shader: path.join(dataRoot, "shaders"),
 };

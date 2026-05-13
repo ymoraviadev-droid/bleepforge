@@ -7,6 +7,7 @@ import {
   shaderTypeLabel,
   shaderTypeStyle,
 } from "./format";
+import { PatternBackdrop, SHADER_PATTERN_DEFS, DEFAULT_SHADER_PATTERN } from "./patterns";
 
 // Compact row equivalent of ShaderCard. Same affordances (click to view,
 // "used by N" pill); narrower viewports hide softer columns (parentRel
@@ -39,6 +40,20 @@ export function ShaderRow({ asset, usageCount, onShowUsages, onContextMenu }: Pr
       title={`${asset.basename} — click to open · right-click for more`}
       className="group flex cursor-pointer items-center gap-3 border-2 border-neutral-800 bg-neutral-900 px-2 py-1.5 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
+      {/* Pattern swatch — small visual identity cue alongside the type
+          label, so the user can spot a specific shader at a glance even
+          in compact row view. */}
+      <span
+        className={`relative shrink-0 overflow-hidden border ${style.border} ${style.text} bg-neutral-950 size-5`}
+        title={`pattern: ${SHADER_PATTERN_DEFS[asset.pattern ?? DEFAULT_SHADER_PATTERN].label}`}
+        aria-hidden
+      >
+        <PatternBackdrop
+          pattern={asset.pattern}
+          opacity={0.55}
+          className="absolute inset-0 size-full"
+        />
+      </span>
       <span
         className={`shrink-0 border px-1.5 font-mono text-[9px] uppercase tracking-wider ${style.border} ${style.text} bg-neutral-950`}
         title={`shader_type ${shaderTypeLabel(asset.shaderType)}`}

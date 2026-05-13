@@ -4,10 +4,10 @@ import type { ShaderAsset } from "../../lib/api";
 import {
   buildShaderEditUrl,
   fmtBytes,
-  SCANLINE_OVERLAY_STYLE,
   shaderTypeLabel,
   shaderTypeStyle,
 } from "./format";
+import { PatternBackdrop } from "./patterns";
 
 // Card view for one shader. Top area is a tinted backdrop (color comes
 // from shader_type) with a scanline overlay — sells "this is a shader,
@@ -51,9 +51,13 @@ export function ShaderCard({ asset, usageCount, onShowUsages, onContextMenu }: P
       className="group flex cursor-pointer flex-col border-2 border-neutral-800 bg-neutral-900 transition-colors hover:border-emerald-700 focus-visible:border-emerald-500 focus-visible:outline-none"
     >
       <div
-        className={`relative flex h-24 items-center justify-center overflow-hidden border-b border-neutral-800 ${style.bg}`}
+        className={`relative flex h-24 items-center justify-center overflow-hidden border-b border-neutral-800 ${style.bg} ${style.text}`}
       >
-        <div className="absolute inset-0" style={SCANLINE_OVERLAY_STYLE} />
+        {/* Per-shader card pattern (Bleepforge-only visual identity).
+            currentColor on the SVG pattern resolves to the shader_type
+            text class on the parent — keeps the type-tint cue while
+            varying the shape per shader. */}
+        <PatternBackdrop pattern={asset.pattern} className="absolute inset-0 size-full" />
         <span
           className={`relative z-10 font-display text-[11px] uppercase tracking-wider ${style.text}`}
         >

@@ -6,6 +6,8 @@
 // learns about each unsupported feature. Until then every shader is just
 // "viewable + has usages".
 
+import type { ShaderPattern } from "@bleepforge/shared";
+
 export type ShaderType =
   | "canvas_item"
   | "spatial"
@@ -34,6 +36,10 @@ export interface ShaderAsset {
   sizeBytes: number;
   /** Modified-at timestamp (ms since epoch). */
   mtimeMs: number;
+  /** Bleepforge-only card pattern picked by the user. Null when no
+   *  pattern is set (client falls back to a default). Stored in
+   *  data/shaders/_meta.json keyed by project-relative path. */
+  pattern: ShaderPattern | null;
 }
 
 /** Live event published when a .gdshader file changes on disk. Phase 2

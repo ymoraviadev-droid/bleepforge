@@ -873,6 +873,9 @@ export interface ShaderAsset {
   uniformCount: number;
   sizeBytes: number;
   mtimeMs: number;
+  /** Bleepforge-only card pattern. Null when not yet set; client falls
+   *  back to "scanlines" as the default at render time. */
+  pattern: import("@bleepforge/shared").ShaderPattern | null;
 }
 
 export interface ShadersResponse {
@@ -986,6 +989,22 @@ export const shadersApi = {
     const result: ShaderCreateResult = await r.json();
     noteLocalShaderSave(result.path);
     return result;
+  },
+  setPattern: async (
+    path: string,
+    pattern: import("@bleepforge/shared").ShaderPattern,
+  ): Promise<{ ok: boolean; asset: ShaderAsset | null }> => {
+    const r = await fetch("/api/shaders/meta", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ path, pattern }),
+    });
+    if (!r.ok) {
+      const body = await r.text();
+      throw new Error(`set shader pattern failed: ${r.status} ${body}`);
+    }
+    noteLocalShaderSave(path);
+    return r.json();
   },
   deleteFile: async (path: string): Promise<ShaderDeleteResult> => {
     const r = await fetch(

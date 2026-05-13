@@ -24,11 +24,17 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Router } from "express";
 
+import { ShaderPatternSchema, type ShaderPattern } from "@bleepforge/shared";
 import { config } from "../../config.js";
 import { recordSave } from "../saves/buffer.js";
-import { listShaders, rebuildShaderCache } from "./cache.js";
+import { listShaders, rebuildShaderCache, upsertShader } from "./cache.js";
 import { discoverShaders, summarizeShader } from "./discover.js";
-import { subscribeShaderEvents } from "./eventBus.js";
+import { subscribeShaderEvents, publishShaderEvent } from "./eventBus.js";
+import {
+  randomShaderPattern,
+  removeShaderMeta,
+  setShaderPattern,
+} from "./meta.js";
 import { noteShaderSelfWrite, shaderSaveKey } from "./selfWrite.js";
 import { countAllShaderUsages, findShaderUsages } from "./usages.js";
 import type { ShaderAsset } from "./types.js";
@@ -127,6 +133,7 @@ shadersRouter.get("/usages", async (req, res) => {
       uniformCount: 0,
       sizeBytes: 0,
       mtimeMs: 0,
+      pattern: null,
     };
     const usages = await findShaderUsages(fallback);
     res.json({ asset: null, usages });
@@ -388,6 +395,14 @@ shadersRouter.post("/new", async (req, res) => {
     return;
   }
 
+  // Assign a random card pattern so new shaders are visually distinguishable
+  // from each other out of the box — user can override via the picker in
+  // Edit. Persisted to data/shaders/_meta.json keyed by project-relative
+  // path; summarizeShader picks it up automatically.
+  const newPattern = randomShaderPattern();
+  const relPath = path.relative(config.godotProjectRoot, targetPath);
+  setShaderPattern(relPath, newPattern);
+
   const asset = await summarizeShader(targetPath, config.godotProjectRoot);
   recordSave({
     ts: new Date().toISOString(),
@@ -398,8 +413,44 @@ shadersRouter.post("/new", async (req, res) => {
     outcome: "ok",
     path: targetPath,
   });
-  console.log(`[shaders/new] created ${targetPath} (${shaderType})`);
+  console.log(`[shaders/new] created ${targetPath} (${shaderType}, pattern=${newPattern})`);
   res.json({ ok: true, path: targetPath, asset, source: template });
+});
+
+// PUT /api/shaders/meta — update the user-picked card pattern for one
+// shader. Body: { path: <absolute>, pattern: ShaderPattern }. Triggers
+// a cache upsert + ShaderEvent so other open windows refresh.
+shadersRouter.put("/meta", async (req, res) => {
+  if (!config.godotProjectRoot) {
+    res.status(503).json({ error: "godotProjectRoot not configured" });
+    return;
+  }
+  const body = req.body as { path?: unknown; pattern?: unknown } | undefined;
+  if (!body || typeof body !== "object") {
+    res.status(400).json({ error: "JSON body required" });
+    return;
+  }
+  if (typeof body.path !== "string") {
+    res.status(400).json({ error: "path (absolute) is required" });
+    return;
+  }
+  const parsedPattern = ShaderPatternSchema.safeParse(body.pattern);
+  if (!parsedPattern.success) {
+    res.status(400).json({ error: `invalid pattern: ${parsedPattern.error.message}` });
+    return;
+  }
+  const pattern: ShaderPattern = parsedPattern.data;
+  const resolved = path.resolve(body.path);
+  const rel = path.relative(config.godotProjectRoot, resolved);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) {
+    res.status(403).json({ error: "path must be inside the Godot project root" });
+    return;
+  }
+  setShaderPattern(rel, pattern);
+  // Refresh the in-memory descriptor + tell other windows.
+  const updated = await upsertShader(resolved);
+  publishShaderEvent({ kind: "changed", path: resolved });
+  res.json({ ok: true, asset: updated });
 });
 
 shadersRouter.delete("/file", async (req, res) => {
@@ -450,6 +501,9 @@ shadersRouter.delete("/file", async (req, res) => {
       .json({ error: `delete failed: ${(err as Error).message}` });
     return;
   }
+  // Drop the Bleepforge-only meta entry (card pattern) so a fresh
+  // shader at the same path doesn't inherit the dead one's pattern.
+  removeShaderMeta(rel);
   // Best-effort sidecar removal. `.gdshader` → `.gdshader.uid`. If the
   // sidecar isn't there (shader was just created by Bleepforge before
   // Godot processed it), that's fine — we don't error.

@@ -10,3 +10,4 @@ export * from "./pickup";
 export * from "./balloon";
 export * from "./codex";
 export * from "./help";
+export * from "./shader";

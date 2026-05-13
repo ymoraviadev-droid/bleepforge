@@ -8,12 +8,15 @@ import { pushToast } from "../../components/Toast";
 import type { ShaderAsset, ShaderUsage } from "../../lib/api";
 import { shadersApi } from "../../lib/api";
 import { useShaderRefresh } from "../../lib/shaders/useShaderRefresh";
+import type { ShaderPattern } from "@bleepforge/shared";
+
 import { CodeEditor } from "./CodeEditor";
 import {
   fmtBytes,
   shaderTypeLabel,
   shaderTypeStyle,
 } from "./format";
+import { PatternPicker } from "./PatternPicker";
 import { PreviewPane } from "./PreviewPane";
 import { ShaderUsagesPanel } from "./UsagesPanel";
 import { emitGlsl, parseGdshader } from "./translator";
@@ -162,6 +165,28 @@ export function ShaderEdit() {
     const timer = setTimeout(() => setSaveState({ kind: "idle" }), 2000);
     return () => clearTimeout(timer);
   }, [saveState]);
+
+  // Card pattern picker — saves immediately on selection. Independent
+  // of the source-text save flow; updating the pattern doesn't touch
+  // the .gdshader file (Bleepforge-only metadata lives in
+  // data/shaders/_meta.json).
+  const handlePatternChange = useCallback(
+    async (next: ShaderPattern) => {
+      if (!path) return;
+      try {
+        const r = await shadersApi.setPattern(path, next);
+        if (r.asset) setAsset(r.asset);
+      } catch (e) {
+        pushToast({
+          id: `shader-pattern-error:${path}`,
+          variant: "error",
+          title: "Pattern save failed",
+          body: String(e),
+        });
+      }
+    },
+    [path],
+  );
 
   const handleDelete = useCallback(async () => {
     if (!path || !asset) return;
@@ -436,6 +461,22 @@ export function ShaderEdit() {
             compileErrors={compileErrors}
             onCompileResult={handleCompileResult}
           />
+          <section className="border-2 border-neutral-800 bg-neutral-950">
+            <header className="border-b-2 border-neutral-800 px-3 py-2">
+              <h2 className="font-display text-xs uppercase tracking-wider text-neutral-300">
+                Card pattern
+              </h2>
+            </header>
+            <div className="p-3">
+              <PatternPicker
+                value={asset.pattern}
+                onChange={handlePatternChange}
+              />
+              <p className="mt-2 font-mono text-[9px] uppercase tracking-wider text-neutral-600">
+                Bleepforge-only visual identity. Not saved to the .gdshader.
+              </p>
+            </div>
+          </section>
           <ShaderUsagesPanel usages={usages} error={usagesError} />
         </div>
       </div>

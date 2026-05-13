@@ -1,5 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import {
+  SHADER_PATTERN_IDS,
+  type ShaderPattern,
+} from "@bleepforge/shared";
 import { Button } from "../../components/Button";
 import { pushToast } from "../../components/Toast";
 import type { ShaderType } from "../../lib/api";
@@ -7,6 +11,7 @@ import { shadersApi } from "../../lib/api";
 import { fieldLabel, textInput } from "../../styles/classes";
 import { FolderPicker } from "../asset/FolderPicker";
 import { shaderTypeLabel } from "./format";
+import { PatternPicker } from "./PatternPicker";
 
 // Self-contained modal for shader creation. Lighter shape than the
 // imperative Modal.tsx singleton (which only supports confirm + single-
@@ -36,6 +41,15 @@ export function NewShaderModal({ onClose, onCreated }: Props) {
   const [targetDir, setTargetDir] = useState<string>("");
   const [filename, setFilename] = useState<string>("");
   const [shaderType, setShaderType] = useState<ShaderType>("canvas_item");
+  // Random initial pattern — same shape the server uses for its default,
+  // but picking client-side too means the picker shows something other
+  // than "scanlines" most of the time so the user sees the variety up
+  // front. `useMemo` so the pick is stable across re-renders.
+  const initialPattern = useMemo<ShaderPattern>(() => {
+    const idx = Math.floor(Math.random() * SHADER_PATTERN_IDS.length);
+    return SHADER_PATTERN_IDS[idx]!;
+  }, []);
+  const [pattern, setPattern] = useState<ShaderPattern>(initialPattern);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +73,15 @@ export function NewShaderModal({ onClose, onCreated }: Props) {
         filename: filename.trim(),
         shaderType,
       });
+      // Apply the user-picked pattern (server seeded a random one; the
+      // user may have changed it before submitting — push that choice
+      // through immediately so the card paints with the right pattern).
+      try {
+        await shadersApi.setPattern(r.path, pattern);
+      } catch {
+        // Non-fatal — the random default from the server remains. Don't
+        // block the success toast.
+      }
       pushToast({
         id: `shader-created:${r.path}`,
         variant: "success",
@@ -152,6 +175,15 @@ export function NewShaderModal({ onClose, onCreated }: Props) {
                 Sets the template's first line. Change later in the editor.
               </p>
             </div>
+          </div>
+
+          <div>
+            <label className={fieldLabel}>Card pattern</label>
+            <p className="mb-2 font-mono text-[10px] text-neutral-600">
+              Bleepforge-only visual identity for the card. A random one
+              is pre-selected; change anytime in Edit.
+            </p>
+            <PatternPicker value={pattern} onChange={setPattern} />
           </div>
 
           {error && (

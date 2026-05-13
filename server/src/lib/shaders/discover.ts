@@ -13,6 +13,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import { getShaderPattern } from "./meta.js";
 import { parseShaderHeader } from "./parseHeader.js";
 import type { ShaderAsset } from "./types.js";
 
@@ -66,6 +67,7 @@ export async function summarizeShader(
   const header = source ? parseShaderHeader(source) : { shaderType: null, uniformCount: 0 };
   const parentDir = path.dirname(absPath);
   const parentRel = path.relative(godotRoot, parentDir);
+  const relPath = path.relative(godotRoot, absPath);
   return {
     path: absPath,
     basename: path.basename(absPath),
@@ -76,6 +78,7 @@ export async function summarizeShader(
     uniformCount: header.uniformCount,
     sizeBytes: stat.size,
     mtimeMs: stat.mtimeMs,
+    pattern: getShaderPattern(relPath),
   };
 }
 
