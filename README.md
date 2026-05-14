@@ -119,9 +119,9 @@ Same dev servers + an Electron window. Maximized, no menu bar, hot reload preser
 ### Build (packaged installers)
 
 ```bash
-pnpm dist        # host platform (Linux when running on Linux)
-pnpm dist:linux  # Linux AppImage
-pnpm dist:win    # Windows NSIS installer (cross-build from Linux supported)
+pnpm dist        # both platforms: Linux AppImage + Windows NSIS installer
+pnpm dist:linux  # Linux AppImage only
+pnpm dist:win    # Windows NSIS installer only (cross-build from Linux supported)
 ```
 
 **Linux** produces `electron/release/Bleepforge-<version>-x86_64.AppImage` (~115MB, single file, no install). Double-click to run; user state persists at `~/.config/Bleepforge/data/`. Run `pnpm install:desktop` once to register the app in the KDE / GNOME application menu with pre-cached thumbnails.
@@ -195,7 +195,7 @@ Run from the repo root:
 |---|---|
 | `pnpm dev` | Start server (`tsx watch`) + client (`vite`) in parallel - browser workflow |
 | `pnpm dev:desktop` | Same as `pnpm dev` plus the Electron window |
-| `pnpm dist` | Build the packaged Linux AppImage (Vite + esbuild + tsc + electron-builder) |
+| `pnpm dist` | Build packaged binaries for both platforms — Linux AppImage + Windows NSIS installer (Vite + esbuild + tsc + electron-builder) |
 | `pnpm build` | Build all workspaces (`tsc` for shared/server/electron, `vite build` for client) |
 | `pnpm typecheck` | Run `tsc --noEmit` across all workspaces |
 | `pnpm sync:from-userdata` | Pull AppImage edits back into the repo (`~/.config/Bleepforge/data/` → `./data/`). Dry-run + confirm by default; `-y` to skip prompt. |

@@ -1,6 +1,6 @@
 {
   "name": "@bleepforge/electron",
-  "version": "0.2.4-dev",
+  "version": "0.2.4",
   "private": true,
   "description": "Bleepforge desktop wrapper",
   "author": "Yehonatan Moravia",
@@ -10,7 +10,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "electron dist/main.js",
-    "dist": "node ./scripts/dist.mjs",
+    "dist": "node ./scripts/dist.mjs --linux --win",
     "dist:win": "node ./scripts/dist.mjs --win",
     "dist:linux": "node ./scripts/dist.mjs --linux"
   },
