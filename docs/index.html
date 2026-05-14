@@ -8,11 +8,29 @@
   <meta name="description" content="Bleepforge is a schema-driven content authoring studio for Godot 4 / .NET projects — dialogues, quests, items, NPCs, factions, karma, balloons, shaders. Round-trips losslessly to and from .tres files via a live watcher.">
   <meta name="theme-color" content="#0a0a0a">
 
-  <!-- Open Graph / social preview -->
-  <meta property="og:title" content="Bleepforge">
-  <meta property="og:description" content="Schema-driven content authoring studio for Godot 4 / .NET projects.">
+  <!-- Open Graph / social preview. Image URLs MUST be absolute — social
+       crawlers (Twitter/X, Discord, Slack, Facebook, LinkedIn) fetch them
+       directly without inheriting the page's base URL. SVG also doesn't
+       preview on most platforms; we ship a 1200×630 PNG instead. -->
+  <meta property="og:title" content="Bleepforge — content authoring for Godot 4 / .NET">
+  <meta property="og:description" content="Schema-driven content authoring studio for Godot 4 / .NET projects. Dialogues, quests, items, NPCs, factions, karma, balloons, shaders. Round-trips losslessly to and from .tres files.">
   <meta property="og:type" content="website">
-  <meta property="og:image" content="icon.svg">
+  <meta property="og:url" content="https://ymoraviadev-droid.github.io/bleepforge/">
+  <meta property="og:site_name" content="Bleepforge">
+  <meta property="og:image" content="https://ymoraviadev-droid.github.io/bleepforge/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Bleepforge — pixel-art emerald speech bubble icon with the BLEEPFORGE wordmark on a dark background">
+
+  <!-- Twitter / X uses its own card meta (most fall back to og:* but the
+       card type has to be declared). summary_large_image is the wide
+       1200×630 layout matching our og:image. -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Bleepforge — content authoring for Godot 4 / .NET">
+  <meta name="twitter:description" content="Schema-driven content authoring studio for Godot 4 / .NET projects.">
+  <meta name="twitter:image" content="https://ymoraviadev-droid.github.io/bleepforge/og-image.png">
+  <meta name="twitter:image:alt" content="Bleepforge — pixel-art emerald speech bubble icon with the BLEEPFORGE wordmark on a dark background">
 
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
