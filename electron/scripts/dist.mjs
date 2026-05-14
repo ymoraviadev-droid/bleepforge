@@ -17,6 +17,7 @@
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
+import os from "node:os";
 import fs from "node:fs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -28,18 +29,21 @@ const repoRoot = path.resolve(electronRoot, "..");
 // allowed — e.g. `--linux --win` cross-builds both in one run.
 const TARGET_FLAGS = new Set(["--linux", "--win", "--mac"]);
 const targetArgs = process.argv.slice(2).filter((a) => TARGET_FLAGS.has(a));
+// "Are we producing a Linux artifact in this run?" — true when --linux was
+// explicit OR we're using host defaults on a Linux box. NOT true on a Linux
+// box building --win: that's a Windows artifact, and the Linux-only sidecar
+// icon copy at the end should be skipped.
 const buildingLinux =
-  targetArgs.length === 0 ||
   targetArgs.includes("--linux") ||
-  process.platform === "linux";
+  (targetArgs.length === 0 && process.platform === "linux");
 const buildingWin = targetArgs.includes("--win");
 
-function run(cmd, args, cwd) {
+function run(cmd, args, cwd, extraEnv = {}) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
       cwd,
       stdio: "inherit",
-      env: process.env,
+      env: { ...process.env, ...extraEnv },
       shell: false,
     });
     child.on("error", reject);
@@ -48,6 +52,18 @@ function run(cmd, args, cwd) {
       else reject(new Error(`${cmd} ${args.join(" ")} exited with ${code}`));
     });
   });
+}
+
+// Resolve the Wine prefix for Windows cross-builds from Linux. electron-
+// builder shells out to `wine rcedit-*.exe` to embed metadata + icon into
+// the produced .exe; rcedit can be 32-bit (ia32) or 64-bit, but operating
+// on a 64-bit target .exe (which is what we ship) requires a 64-bit Wine
+// prefix. The default ~/.wine prefix on most distros is win32, so we set
+// WINEPREFIX to a dedicated 64-bit prefix we initialize separately. The
+// user can override by setting WINEPREFIX before invoking dist:win.
+function resolveWinePrefix() {
+  if (process.env.WINEPREFIX) return process.env.WINEPREFIX;
+  return path.join(os.homedir(), ".wine64-bleepforge");
 }
 
 async function main() {
@@ -62,6 +78,17 @@ async function main() {
 
   const targetLabel = targetArgs.length > 0 ? targetArgs.join(" ") : "host platform";
   console.log(`[bleepforge/dist] 4/4 running electron-builder (${targetLabel})…`);
+
+  // For Windows builds from Linux, point Wine at a 64-bit prefix so rcedit
+  // can manipulate the 64-bit target .exe. See resolveWinePrefix for the
+  // rationale + override knob.
+  const winEnv = buildingWin
+    ? { WINEPREFIX: resolveWinePrefix() }
+    : {};
+  if (buildingWin) {
+    console.log(`[bleepforge/dist] using WINEPREFIX=${winEnv.WINEPREFIX}`);
+  }
+
   // Config lives in electron-builder.json (not in package.json) so
   // electron-builder's extraMetadata.* can't accidentally rewrite the
   // source package.json — observed once: setting extraMetadata.name in
@@ -78,6 +105,7 @@ async function main() {
       ...targetArgs,
     ],
     electronRoot,
+    winEnv,
   );
 
   // Sidecar icon next to the AppImage. KDE Dolphin / GNOME Files don't
