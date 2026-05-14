@@ -20,6 +20,7 @@
 // Bleeps corpus use AtlasTexture icons. Factions (Icon + Banner) all use
 // Texture2D, so the simple swap path is the common one there.
 
+import path from "node:path";
 import {
   addExtResource,
   getAttrValue,
@@ -133,7 +134,13 @@ export function reconcileTextureField(
 }
 
 function absToResPath(godotRoot: string, absPath: string): string | null {
-  const root = godotRoot.replace(/\/$/, "");
-  if (!absPath.startsWith(root + "/")) return null;
-  return "res://" + absPath.substring(root.length + 1);
+  // Use path.relative + replaceAll(path.sep, "/") so the conversion works
+  // on Windows: the previous root.replace + string.substring + concat impl
+  // produced "res://foo\\bar.png" with backslashes (invalid res://) and
+  // also failed the startsWith check entirely because Windows roots have
+  // backslashes while the original code appended "/". Godot res:// paths
+  // are always forward-slashed regardless of host OS.
+  const rel = path.relative(godotRoot, absPath);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return `res://${rel.replaceAll(path.sep, "/")}`;
 }

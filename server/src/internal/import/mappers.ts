@@ -1,3 +1,4 @@
+import path from "node:path";
 import type {
   Faction,
   FactionData,
@@ -482,7 +483,11 @@ export function resPathToAbs(resPath: string, godotRoot?: string): string {
   if (!resPath.startsWith("res://")) return resPath;
   const root = godotRoot ?? process.env.GODOT_PROJECT_ROOT ?? "";
   if (!root) return resPath; // graceful fallback
-  return root.replace(/\/$/, "") + "/" + resPath.substring("res://".length);
+  // path.join normalizes mixed separators — produces backslashes on Windows
+  // from a forward-slash res:// path. The previous string-concat impl
+  // produced "C:\\root/foo/bar.png" with mixed separators which broke
+  // downstream startsWith/string comparisons.
+  return path.join(root, resPath.substring("res://".length));
 }
 
 export const ENUM_MAPS = {

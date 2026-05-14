@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { showImageEditor } from "../features/asset/imageEditorHost";
 import { makeAssetContextMenuHandler } from "../features/asset/useAssetMenu";
 import { assetUrl } from "../lib/api";
+import { lastPathSegment } from "../lib/clientPath";
 
 interface Props {
   path: string;
@@ -84,7 +85,7 @@ export function AssetThumb({
     : undefined;
   const onContextMenu = enabled
     ? makeAssetContextMenuHandler({
-        asset: { path, basename: path.split("/").pop() ?? path },
+        asset: { path, basename: lastPathSegment(path) },
         openEditor: showImageEditor,
         canEdit,
         canManage,

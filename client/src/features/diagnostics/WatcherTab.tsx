@@ -144,7 +144,8 @@ function EventRow({ ev }: { ev: WatcherEvent }) {
 }
 
 function shorten(absPath: string): string {
-  const parts = absPath.split("/").filter(Boolean);
+  // Split on either separator so Windows backslash paths shorten correctly.
+  const parts = absPath.split(/[/\\]/).filter(Boolean);
   if (parts.length <= 2) return absPath;
   return ".../" + parts.slice(-2).join("/");
 }

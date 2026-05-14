@@ -4,6 +4,7 @@ import { Button } from "../../components/Button";
 import { showConfirm } from "../../components/Modal";
 import { SliderField } from "../../components/SliderField";
 import { assetsApi, assetUrl } from "../../lib/api";
+import { dirOf, lastPathSegment } from "../../lib/clientPath";
 import { fieldLabel, textInput } from "../../styles/classes";
 import { CropCanvas } from "./CropCanvas";
 import { CropControls } from "./CropControls";
@@ -132,7 +133,7 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
         const canvas = imageToCanvas(img, img.naturalWidth, img.naturalHeight);
         originalRef.current = snapshotCanvas(canvas);
         setWorking(canvas);
-        const baseName = mode.assetPath.split("/").pop() ?? "image.png";
+        const baseName = lastPathSegment(mode.assetPath) || "image.png";
         const suggested =
           mode.kind === "duplicate"
             ? withSuffix(baseName, "-copy")
@@ -145,8 +146,7 @@ export function ImageEditor({ mode, onClose, onSaved }: Props) {
         setFilename(suggested);
         // For duplicate, default the folder to the existing file's dir.
         if (mode.kind === "duplicate") {
-          const dir = mode.assetPath.slice(0, mode.assetPath.lastIndexOf("/"));
-          setTargetDir(dir);
+          setTargetDir(dirOf(mode.assetPath));
         } else {
           // Edit: target dir is the existing dir; filename matches; save
           // overwrites. No folder picker shown in the UI but we still

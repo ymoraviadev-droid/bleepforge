@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { Doc, Section } from "../types.js";
 import {
   addExtResource,
@@ -490,9 +491,12 @@ function findScriptExtResource(
 }
 
 function absToResPath(godotRoot: string, absPath: string): string | null {
-  const root = godotRoot.replace(/\/$/, "");
-  if (!absPath.startsWith(root + "/")) return null;
-  return "res://" + absPath.substring(root.length + 1);
+  // Use path.relative + replaceAll(path.sep, "/") so the conversion works
+  // on Windows — see textureRef.ts for the rationale (same fix, same bug).
+  // Godot res:// paths are always forward-slashed regardless of host OS.
+  const rel = path.relative(godotRoot, absPath);
+  if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
+  return `res://${rel.replaceAll(path.sep, "/")}`;
 }
 
 // Local copy of mintSubResourceId for use inside buildLineWithChoices, where
