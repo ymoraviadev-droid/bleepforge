@@ -31,8 +31,18 @@ export interface ToastOptions {
   title: string;
   body?: string;
   to?: string;
+  // Imperative click callback. Mutually exclusive with `to` (route takes
+  // priority if both are set). Used for actions that aren't navigation —
+  // e.g. the auto-update "ready to install" toast that triggers
+  // quitAndInstall() rather than opening a page.
+  onClick?: () => void;
   variant?: ToastVariant;
   durationMs?: number;
+  // Skip the auto-dismiss timer entirely. The toast survives until the user
+  // clicks the × or activates it via `to` / `onClick`. Used sparingly for
+  // genuinely action-required notifications (e.g. update-ready). When
+  // persistent, the progress bar isn't rendered (no countdown to show).
+  persistent?: boolean;
   id?: string;
 }
 
@@ -41,10 +51,13 @@ export interface Toast {
   title: string;
   body?: string;
   to?: string;
+  onClick?: () => void;
   variant: ToastVariant;
   durationMs: number;
+  persistent: boolean;
   // Wall-clock time when this toast should auto-dismiss. Pushed forward on
   // every animation frame the user is hovering — that's how we "pause" it.
+  // Set to Infinity for persistent toasts so the comparison never fires.
   expiresAt: number;
 }
 
@@ -63,14 +76,17 @@ export function pushToast(opts: ToastOptions): string {
   const id = opts.id ?? `t${nextAutoId++}`;
   const variant: ToastVariant = opts.variant ?? "info";
   const durationMs = opts.durationMs ?? DEFAULT_DURATION_MS;
+  const persistent = opts.persistent ?? false;
   const next: Toast = {
     id,
     title: opts.title,
     body: opts.body,
     to: opts.to,
+    onClick: opts.onClick,
     variant,
     durationMs,
-    expiresAt: Date.now() + durationMs,
+    persistent,
+    expiresAt: persistent ? Number.POSITIVE_INFINITY : Date.now() + durationMs,
   };
 
   // Replace by id if it already exists; otherwise append.
@@ -171,7 +187,10 @@ function ToastItem({ toast }: { toast: Toast }) {
 
   // Auto-dismiss timer + ticker for the progress bar. Pauses on hover by
   // pushing expiresAt forward each frame the user is still over the toast.
+  // Persistent toasts skip the timer entirely — they survive until the user
+  // clicks the × or activates them via `to` / `onClick`.
   useEffect(() => {
+    if (toast.persistent) return;
     let raf = 0;
     let lastTick = Date.now();
     const tick = () => {
@@ -194,7 +213,9 @@ function ToastItem({ toast }: { toast: Toast }) {
 
   const accent = ACCENT[toast.variant];
   const remaining = Math.max(0, toast.expiresAt - Date.now());
-  const progress = Math.max(0, Math.min(1, remaining / toast.durationMs));
+  const progress = toast.persistent
+    ? 1
+    : Math.max(0, Math.min(1, remaining / toast.durationMs));
 
   const onClose = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -225,12 +246,14 @@ function ToastItem({ toast }: { toast: Toast }) {
           ×
         </button>
       </div>
-      <div className="h-1 w-full bg-neutral-800/60">
-        <div
-          className={`h-full ${accent.bar} transition-[width] duration-100 ease-linear`}
-          style={{ width: `${progress * 100}%` }}
-        />
-      </div>
+      {!toast.persistent && (
+        <div className="h-1 w-full bg-neutral-800/60">
+          <div
+            className={`h-full ${accent.bar} transition-[width] duration-100 ease-linear`}
+            style={{ width: `${progress * 100}%` }}
+          />
+        </div>
+      )}
     </>
   );
 
@@ -253,6 +276,24 @@ function ToastItem({ toast }: { toast: Toast }) {
       >
         {inner}
       </Link>
+    );
+  }
+
+  if (toast.onClick) {
+    const cb = toast.onClick;
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          cb();
+          dismissToast(toast.id);
+        }}
+        className={shellClass}
+        style={shellStyle}
+        {...handlers}
+      >
+        {inner}
+      </button>
     );
   }
 

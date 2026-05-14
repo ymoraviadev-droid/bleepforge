@@ -397,6 +397,14 @@ ipcMain.handle("app:reveal", () => {
   revealMainWindow();
 });
 
+// Trigger the auto-update install. Closes the app, runs the installer
+// (NSIS on Windows, AppImage replacement on Linux), then relaunches the
+// new version. Fired from the renderer's "Update ready — click to install"
+// toast. No-op when no update has been downloaded.
+ipcMain.handle("updater:install", () => {
+  autoUpdater.quitAndInstall();
+});
+
 // Native folder picker for the first-run welcome screen. Returns the
 // picked absolute path or null on cancel. Modal to whichever window
 // invoked it (so the picker tracks with the main window on click).
@@ -414,7 +422,7 @@ app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
 
-// Auto-update wiring (v0.2.4, Phase 1 — events only, no UI yet).
+// Auto-update wiring (v0.2.4).
 //
 // electron-updater pulls release metadata from GitHub Releases via the
 // `publish` config in electron-builder.json. electron-builder generates
@@ -428,6 +436,29 @@ app.on("window-all-closed", () => {
 // Windows binaries are unsigned. Auto-update still works, but each update
 // install triggers a fresh SmartScreen warning the user has to click
 // through — accepted UX cost per the no-paid-services constraint.
+//
+// Renderer integration: every event also pushes a structured "updater:status"
+// IPC to all open windows. The renderer's `useUpdaterToasts` hook subscribes
+// via the preload bridge and renders toasts for the user-actionable states
+// (available, downloaded). checking / not-available / progress / error stay
+// silent on the UI — the bootLog has the full trace if something needs
+// debugging.
+
+type UpdaterStatusPayload =
+  | { kind: "checking" }
+  | { kind: "available"; version: string }
+  | { kind: "not-available"; version: string }
+  | { kind: "download-progress"; percent: number }
+  | { kind: "downloaded"; version: string }
+  | { kind: "error"; message: string };
+
+function broadcastUpdaterStatus(status: UpdaterStatusPayload): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (win.isDestroyed()) continue;
+    win.webContents.send("updater:status", status);
+  }
+}
+
 function wireAutoUpdater(): void {
   if (isDev || !app.isPackaged) return;
 
@@ -454,26 +485,35 @@ function wireAutoUpdater(): void {
 
   autoUpdater.on("checking-for-update", () => {
     bootLog("updater: checking for update");
+    broadcastUpdaterStatus({ kind: "checking" });
   });
   autoUpdater.on("update-available", (info) => {
     bootLog(`updater: update available — v${info.version}`);
+    broadcastUpdaterStatus({ kind: "available", version: info.version });
   });
   autoUpdater.on("update-not-available", (info) => {
     bootLog(`updater: no update available (current v${info.version})`);
+    broadcastUpdaterStatus({ kind: "not-available", version: info.version });
   });
   autoUpdater.on("error", (err) => {
     bootLog(`updater: ERROR — ${err.message}`);
+    broadcastUpdaterStatus({ kind: "error", message: err.message });
   });
   autoUpdater.on("download-progress", (progress) => {
     bootLog(
       `updater: downloading ${progress.percent.toFixed(1)}% ` +
         `(${Math.round(progress.bytesPerSecond / 1024)} KB/s)`,
     );
+    broadcastUpdaterStatus({
+      kind: "download-progress",
+      percent: progress.percent,
+    });
   });
   autoUpdater.on("update-downloaded", (info) => {
     bootLog(
       `updater: update downloaded — v${info.version}, ready to install on quit`,
     );
+    broadcastUpdaterStatus({ kind: "downloaded", version: info.version });
   });
 
   // Defer the initial check so it doesn't race with the server boot or

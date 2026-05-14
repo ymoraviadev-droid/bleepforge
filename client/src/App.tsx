@@ -14,6 +14,7 @@ import { isPopout } from "./lib/electron";
 import { useOutgoingSaveToasts } from "./lib/saves/outgoingSaveToasts";
 import { useShaderToasts } from "./lib/shaders/shaderToasts";
 import { useSyncToasts } from "./lib/sync/syncToasts";
+import { useUpdaterToasts } from "./lib/updater/useUpdaterToasts";
 import { useGodotProjectRoot } from "./styles/GlobalTheme";
 
 // App is the *layout* element of the data router (v0.2.2) — the route
@@ -73,9 +74,12 @@ export function App() {
   //     every domain via the saves SSE stream. Cyan "saved" variant,
   //     title "Saved X". Distinguishes at-a-glance from the incoming
   //     toasts (color + title both carry direction).
+  // Plus useUpdaterToasts (v0.2.4) — bridges electron-updater events
+  // into the same toast surface. No-op in browser mode.
   useSyncToasts();
   useShaderToasts();
   useOutgoingSaveToasts();
+  useUpdaterToasts();
 
   if (showSplash) {
     return <SplashScreen onDone={() => setShowSplash(false)} />;

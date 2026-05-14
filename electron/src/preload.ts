@@ -17,8 +17,22 @@
 //   - `reveal()`: flip the splash-sized main window into a maximized
 //     real app window. Called by the SplashScreen on CONTINUE click,
 //     in parallel with the splash fade-out animation.
+//   - `onUpdaterStatus(cb)` / `installUpdate()`: auto-update wiring.
+//     Main process emits "updater:status" events on every electron-updater
+//     callback (checking / available / downloaded / error / progress);
+//     the renderer subscribes via onUpdaterStatus and renders toasts.
+//     installUpdate triggers `quitAndInstall()` which closes the app,
+//     runs the installer, and relaunches the new version.
 
 import { contextBridge, ipcRenderer } from "electron";
+
+type UpdaterStatus =
+  | { kind: "checking" }
+  | { kind: "available"; version: string }
+  | { kind: "not-available"; version: string }
+  | { kind: "download-progress"; percent: number }
+  | { kind: "downloaded"; version: string }
+  | { kind: "error"; message: string };
 
 const bridge = {
   popout: (routePath: string): Promise<void> =>
@@ -27,6 +41,19 @@ const bridge = {
   reveal: (): Promise<void> => ipcRenderer.invoke("app:reveal"),
   pickGodotFolder: (): Promise<string | null> =>
     ipcRenderer.invoke("dialog:pick-godot-folder"),
+  // Returns an unsubscribe function the caller MUST invoke on cleanup —
+  // ipcRenderer.on accumulates listeners forever otherwise. The closure
+  // captures `handler` so removeListener gets the exact reference it
+  // registered, not a re-bound one.
+  onUpdaterStatus: (callback: (status: UpdaterStatus) => void): (() => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, payload: UpdaterStatus) =>
+      callback(payload);
+    ipcRenderer.on("updater:status", handler);
+    return () => {
+      ipcRenderer.removeListener("updater:status", handler);
+    };
+  },
+  installUpdate: (): Promise<void> => ipcRenderer.invoke("updater:install"),
 };
 
 contextBridge.exposeInMainWorld("bleepforge", bridge);
