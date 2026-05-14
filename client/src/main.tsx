@@ -28,6 +28,7 @@ import { NpcEdit } from "./features/npc/Edit";
 import { FactionList } from "./features/faction/List";
 import { FactionEdit } from "./features/faction/Edit";
 import { PreferencesPage } from "./features/preferences/PreferencesPage";
+import { Workbench } from "./features/workbench/Workbench";
 import { CategoryView as HelpCategoryView } from "./features/help/CategoryView";
 import { EntryView as HelpEntryView } from "./features/help/EntryView";
 import { HelpLayout } from "./features/help/HelpLayout";
@@ -128,7 +129,8 @@ const router = createBrowserRouter([
   {
     element: <App />,
     children: [
-      { index: true, element: <Navigate to="/concept" replace /> },
+      { index: true, element: <Navigate to="/workbench" replace /> },
+      { path: "workbench", element: <Workbench /> },
       { path: "concept", element: <ConceptView /> },
       { path: "concept/edit", element: <ConceptEdit /> },
       { path: "dialogs", element: <DialogGraph /> },

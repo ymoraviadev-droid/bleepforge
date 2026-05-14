@@ -272,6 +272,28 @@ export function BookIcon(props: IconProps) {
   );
 }
 
+// ---- Workbench: flat bench surface + a hammer on top + two legs below ----
+
+export function WorkbenchIcon(props: IconProps) {
+  return (
+    <Wrap {...props}>
+      {/* Hammer head, sitting on top-left of the bench. */}
+      <rect x="2" y="1" width="3" height="2" />
+      {/* Hammer handle — single column down to the bench top. */}
+      <rect x="3" y="3" width="1" height="1" />
+      {/* A second item on the bench top-right — a small block / peg. */}
+      <rect x="7" y="2" width="2" height="2" />
+      {/* Bench top — full width, two pixels thick. */}
+      <rect x="0" y="4" width="12" height="2" />
+      {/* Two leg pairs. */}
+      <rect x="1" y="6" width="2" height="4" />
+      <rect x="9" y="6" width="2" height="4" />
+      {/* Floor bar — tiny strip at the base for grounding. */}
+      <rect x="0" y="10" width="12" height="1" />
+    </Wrap>
+  );
+}
+
 // ---- Assets: framed picture with sun cross + mountain peak silhouette ----
 
 export function FrameIcon(props: IconProps) {

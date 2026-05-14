@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { NavLink } from "react-router";
+import { Link, NavLink } from "react-router";
 
 import { AppSearch } from "./AppSearch";
 import { showConfirm } from "./Modal";
@@ -15,6 +15,7 @@ import {
   ScrollIcon,
   ShaderIcon,
   ShieldIcon,
+  WorkbenchIcon,
 } from "./NavIcons";
 import { RestartIcon } from "./RestartIcon";
 import { DiagnosticsIcon } from "../features/diagnostics/DiagnosticsIcon";
@@ -132,6 +133,7 @@ interface NavEntry {
 // up currentColor from the row's active/inactive text class without
 // any per-icon wiring.
 const NAV_ITEMS: NavEntry[] = [
+  { to: "/workbench", label: "Workbench", icon: <WorkbenchIcon /> },
   { to: "/concept", label: "Game concept", icon: <HouseIcon /> },
   { to: "/factions", label: "Factions", icon: <ShieldIcon /> },
   { to: "/npcs", label: "NPCs", icon: <RobotIcon /> },
@@ -151,16 +153,19 @@ export function Sidebar() {
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r-2 border-neutral-800 bg-neutral-950">
-      {/* Branding: app name + build version. Both static; version is
-          baked at build time via Vite's __APP_VERSION__ define so a
-          single bump in electron/package.json propagates here. */}
+      {/* Branding: app name + build version. The wordmark is a Link to
+          the Workbench (the new overview/home page) — matches the
+          "click the brand to go home" web convention without changing
+          the visual treatment. Version is baked at build time via
+          Vite's __APP_VERSION__ define. */}
       <div className="shrink-0 px-4 pt-4 pb-3">
-        <div
-          className="font-display text-base tracking-wider text-emerald-400 select-none"
-          aria-label="Bleepforge"
+        <Link
+          to="/workbench"
+          aria-label="Bleepforge — open Workbench"
+          className="block font-display text-base tracking-wider text-emerald-400 transition-colors select-none hover:text-emerald-300"
         >
           BLEEPFORGE
-        </div>
+        </Link>
         <VersionLabel />
       </div>
 

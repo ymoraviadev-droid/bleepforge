@@ -44,6 +44,7 @@ const FUSE_OPTIONS: IFuseOptions<SearchItem> = {
 };
 
 const STATIC_PAGES: SearchItem[] = [
+  { kind: "page", key: "page:workbench", label: "Workbench", href: "/workbench" },
   { kind: "page", key: "page:concept", label: "Game concept", href: "/concept" },
   { kind: "page", key: "page:shaders", label: "Shaders", href: "/shaders" },
   { kind: "page", key: "page:assets", label: "Assets", href: "/assets" },
