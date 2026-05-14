@@ -82,6 +82,11 @@ function renderReleaseNotes(release) {
   });
 
   section.hidden = false;
+  // The release-notes section is `hidden` at page load, so the
+  // IntersectionObserver may not have a useful initial reading. Add
+  // .in-view explicitly here so the fade-in always plays once we have
+  // content to show.
+  section.classList.add("in-view");
 }
 
 function formatDate(iso) {
@@ -106,4 +111,40 @@ function renderMarkdown(src) {
   return `<pre>${escaped}</pre>`;
 }
 
+// Scroll-fade for sections. Each <section> starts hidden (opacity 0,
+// translateY 14px in CSS) and flips to .in-view when at least 15% of
+// its bounding box enters the viewport. Once visible it stays visible —
+// we unobserve the element so re-scrolling past doesn't re-trigger.
+//
+// Honors `prefers-reduced-motion`: the CSS rule kills all transitions
+// for those users, so the static end-state shows immediately regardless
+// of the observer. We still flip the class so the layout matches the
+// reduced-motion path.
+function setupScrollFade() {
+  const sections = document.querySelectorAll("section:not(.hero)");
+  if (!("IntersectionObserver" in window) || sections.length === 0) {
+    // Old browser or no sections — reveal everything immediately.
+    sections.forEach((el) => el.classList.add("in-view"));
+    return;
+  }
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in-view");
+          observer.unobserve(entry.target);
+        }
+      }
+    },
+    { threshold: 0.15, rootMargin: "0px 0px -50px 0px" },
+  );
+  sections.forEach((el) => observer.observe(el));
+}
+
+// Mark the page as JS-active so the CSS knows to run the scroll-fade.
+// Without this class, sections render visible from frame 1 — guarantees
+// no blank page if the script fails to load for any reason.
+document.documentElement.classList.add("js-ready");
+
 updateDownloads();
+setupScrollFade();

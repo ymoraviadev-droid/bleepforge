@@ -79,18 +79,47 @@
       <h2 class="display">Get it</h2>
       <div class="download-grid">
         <a class="download-btn" id="download-windows" href="https://github.com/ymoraviadev-droid/bleepforge/releases">
+          <svg class="platform-icon" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true">
+            <rect x="2" y="2" width="9" height="9" fill="currentColor"/>
+            <rect x="13" y="2" width="9" height="9" fill="currentColor"/>
+            <rect x="2" y="13" width="9" height="9" fill="currentColor"/>
+            <rect x="13" y="13" width="9" height="9" fill="currentColor"/>
+          </svg>
           <span class="display">Windows</span>
           <span class="meta meta-size">.exe installer</span>
           <span class="meta">10 / 11 · x64</span>
         </a>
         <a class="download-btn" id="download-linux" href="https://github.com/ymoraviadev-droid/bleepforge/releases">
+          <svg class="platform-icon platform-icon-tux" viewBox="0 0 24 24" shape-rendering="crispEdges" aria-hidden="true">
+            <!-- Head -->
+            <rect x="10" y="2" width="4" height="2" fill="currentColor"/>
+            <rect x="9" y="4" width="6" height="4" fill="currentColor"/>
+            <!-- Eyes (dark punch-outs) -->
+            <rect x="10" y="5" width="1" height="2" fill="#0a0a0a"/>
+            <rect x="13" y="5" width="1" height="2" fill="#0a0a0a"/>
+            <!-- Beak -->
+            <rect x="11" y="7" width="2" height="1" fill="#fbbf24"/>
+            <!-- Neck -->
+            <rect x="8" y="8" width="8" height="2" fill="currentColor"/>
+            <!-- Body -->
+            <rect x="6" y="10" width="12" height="8" fill="currentColor"/>
+            <!-- Belly (lighter highlight) -->
+            <rect x="9" y="12" width="6" height="6" fill="#a7f3d0"/>
+            <!-- Lower body -->
+            <rect x="7" y="18" width="10" height="2" fill="currentColor"/>
+            <!-- Feet -->
+            <rect x="7" y="20" width="4" height="2" fill="#fbbf24"/>
+            <rect x="13" y="20" width="4" height="2" fill="#fbbf24"/>
+          </svg>
           <span class="display">Linux</span>
           <span class="meta meta-size">AppImage</span>
-          <span class="meta">x64 · glibc</span>
+          <span class="meta">any modern x64 · glibc</span>
         </a>
       </div>
-      <p class="caveat">Both binaries are <strong>unsigned</strong>. Windows shows one SmartScreen warning on first install (click <em>More info → Run anyway</em>); Linux just runs after <code>chmod +x</code>. macOS build pending. See the <a href="https://github.com/ymoraviadev-droid/bleepforge/releases">releases page</a> for older versions and changelogs.</p>
+      <p class="caveat">Both binaries are <strong>unsigned</strong>. Windows shows one SmartScreen warning on first install (click <em>More info → Run anyway</em>); Linux just runs after <code>chmod +x</code>. The AppImage works on any modern glibc-based Linux distro — Fedora / Ubuntu / Debian / Arch / Mint / openSUSE / etc. — not just where it was built. macOS build pending. See the <a href="https://github.com/ymoraviadev-droid/bleepforge/releases">releases page</a> for older versions and changelogs.</p>
     </section>
+
+    <div class="pixel-divider" aria-hidden="true"><span></span><span></span><span></span></div>
 
     <section class="release-notes" id="release-notes" hidden>
       <h2 class="display">What's new</h2>
@@ -104,6 +133,8 @@
       <div class="release-body" id="release-body"></div>
     </section>
 
+    <div class="pixel-divider" aria-hidden="true"><span></span><span></span><span></span></div>
+
     <section class="features">
       <h2 class="display">What's inside</h2>
       <ul class="feature-list">
@@ -115,6 +146,8 @@
         <li><strong>App-wide Ctrl+K search</strong> across every authored entity by id and display name. Plus a six-tab Diagnostics page covering integrity / reconcile / logs / save activity / process / watcher.</li>
       </ul>
     </section>
+
+    <div class="pixel-divider" aria-hidden="true"><span></span><span></span><span></span></div>
 
     <section class="context">
       <h2 class="display">A note on scope</h2>

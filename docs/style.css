@@ -33,6 +33,35 @@ body {
   font-size: 16px;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
+  position: relative;
+}
+
+/* CRT scanline overlay — matches the in-app Terminal source-type styling
+   from the dialog graph nodes. Very subtle (alpha 0.04) so it reads as
+   atmosphere, not visual noise. pointer-events: none lets clicks fall
+   through to the content beneath. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(16, 185, 129, 0.04) 0 1px,
+    transparent 1px 3px
+  );
+  z-index: 100;
+}
+
+/* Honor users who prefer reduced motion — kills the bob, breath, and
+   scroll fade-in animations. Static, no-frills layout. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 .display {
@@ -82,12 +111,66 @@ em {
 
 section {
   margin-bottom: 5rem;
+  transition: opacity 0.7s ease-out, transform 0.7s ease-out;
+}
+
+/* Fade-in is gated on `.js-ready` (set by script.js at boot). Without
+   JS, sections render visible immediately — no blank page if the
+   script fails to load (CDN blocked, file://, JS disabled). */
+.js-ready section {
+  opacity: 0;
+  transform: translateY(14px);
+}
+
+.js-ready section.in-view,
+.js-ready section.hero,
+section.hero {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 section h2 {
   font-size: 1.125rem;
   color: var(--accent);
   margin-bottom: 2rem;
+  /* Small pixel-glyph prefix for each section header — a chunky 4×4
+     square in accent-bright with a 1px right gap. Reads as a section
+     marker, matches the in-app sidebar-active accent bar. */
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6em;
+}
+
+section h2::before {
+  content: "";
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  background: var(--accent-bright);
+  flex-shrink: 0;
+}
+
+/* Pixel-art divider between sections — three small emerald squares
+   centered with breathing-room margins. Sits AFTER each section so
+   sections own their own trailing rhythm. Not rendered on the footer-
+   adjacent last section to avoid a divider then a border-top. */
+.pixel-divider {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  margin: 0 auto 5rem;
+  opacity: 0.45;
+}
+
+.pixel-divider span {
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  display: inline-block;
+}
+
+.pixel-divider span:nth-child(2) {
+  background: var(--accent-bright);
 }
 
 /* ---- Hero ---------------------------------------------------------------- */
@@ -103,6 +186,15 @@ section h2 {
   margin: 0 auto 1.75rem;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
+  /* Slow vertical bob — the bleep is alive, gently. transform-only so
+     it's compositor-cheap (no repaints). 4s cycle is slow enough to read
+     as ambient, not distracting. */
+  animation: hero-bob 4s ease-in-out infinite;
+}
+
+@keyframes hero-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
 }
 
 .hero h1 {
@@ -124,6 +216,7 @@ section h2 {
 
 .version-chip {
   display: inline-block;
+  position: relative;
   font-family: "VT323", monospace;
   font-size: 1.2rem;
   color: var(--accent-bright);
@@ -131,6 +224,29 @@ section h2 {
   border: 1px solid var(--accent-dim);
   padding: 0.25rem 1rem;
   letter-spacing: 0.05em;
+  z-index: 1;
+}
+
+/* Slow emerald breath behind the chip. Same trick as the splash CONTINUE
+   button glow in the app: opacity-animated ::after with a blur — never
+   animate box-shadow (Chromium repaints the blur every frame and the
+   dithering reads as flicker). z-index: -1 keeps it behind the chip's
+   border + text. */
+.version-chip::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  z-index: -1;
+  background: var(--accent);
+  filter: blur(14px);
+  opacity: 0.18;
+  animation: chip-breathe 3.6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes chip-breathe {
+  0%, 100% { opacity: 0.14; }
+  50% { opacity: 0.36; }
 }
 
 /* ---- Downloads ----------------------------------------------------------- */
@@ -148,21 +264,73 @@ section h2 {
 
 .download-btn {
   display: block;
+  position: relative;
   background: var(--bg-elevated);
   border: 2px solid var(--border-strong);
   padding: 1.75rem 1.5rem;
   text-align: center;
-  transition: border-color 0.15s ease, transform 0.15s ease, color 0.15s ease;
+  overflow: hidden;
+  transition: border-color 0.15s ease, transform 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .download-btn:hover {
   border-color: var(--accent);
   transform: translateY(-2px);
   text-decoration: none;
+  /* Pixel-bevel shadow on hover — light from top-left, dark from
+     bottom-right. Static (no animation here), just the lift cue. */
+  box-shadow: 4px 4px 0 0 rgba(0, 0, 0, 0.5),
+              inset 1px 1px 0 0 rgba(110, 231, 183, 0.25),
+              inset -1px -1px 0 0 rgba(5, 150, 105, 0.4);
 }
 
-.download-btn:hover .display {
+.download-btn:hover .display,
+.download-btn:hover .platform-icon {
   color: var(--accent-bright);
+}
+
+/* Scanline shimmer that sweeps across the button on hover. A thin
+   emerald gradient bar slides from left to right via transform —
+   compositor-only animation, fires once on enter then settles. */
+.download-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(110, 231, 183, 0.08) 50%,
+    transparent 100%
+  );
+  pointer-events: none;
+  transition: transform 0.6s ease;
+}
+
+.download-btn:hover::before {
+  transform: translateX(400%);
+}
+
+.platform-icon {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 0.85rem;
+  color: var(--accent);
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  transition: color 0.15s ease;
+}
+
+/* Tux's yellow beak + feet are explicit fills inside the SVG; the body
+   fills inherit currentColor and tint with the button's text color on
+   hover. The dark-pixel eye punch-outs stay var(--bg)-equivalent so they
+   read as cut-outs against whichever body color is active. */
+.platform-icon-tux {
+  width: 44px;
+  height: 44px;
 }
 
 .download-btn .display {
