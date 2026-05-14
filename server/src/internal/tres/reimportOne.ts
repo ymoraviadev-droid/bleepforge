@@ -6,7 +6,7 @@
 import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { dirname, sep } from "node:path";
 
-import { folderAbs } from "../../config.js";
+import { config, folderAbs } from "../../config.js";
 import { projectIndex } from "../../lib/projectIndex/index.js";
 import {
   mapBalloon,
@@ -16,6 +16,7 @@ import {
   mapKarma,
   mapNpc,
   mapQuest,
+  resPathToAbs,
 } from "../import/mappers.js";
 import type { ParsedTres } from "../import/tresParser.js";
 // Import the lossy parser used by the import path. We use it because the
@@ -72,10 +73,25 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
     return { ok: false, error: `parse failed: ${(err as Error).message}` };
   }
 
+  // Each mapper internally calls resPathToAbs() WITHOUT a root, which falls
+  // back to process.env.GODOT_PROJECT_ROOT. When the actual root came from
+  // preferences.json (the common case), that env var is unset and the
+  // texture paths stay as raw "res://..." strings — invalid as filesystem
+  // paths, so the asset router rejects them as "outside allowed roots."
+  // Boot reconcile works around this by post-processing the same fields
+  // here with the real config.godotProjectRoot; we mirror that pass for
+  // every domain that ships a texture path. The fix surfaced after the
+  // Maor / Windows test: dialog edits in Godot → watcher reimport → JSON
+  // portraits became "res://characters/art/eddie.png" → broken thumbs
+  // until restart (because boot reconcile would re-run and overwrite).
+  const root = config.godotProjectRoot;
   switch (detected.domain) {
     case "item": {
       const item = mapItem(parsed);
       if (!item) return { ok: false, error: "mapItem returned null (no Slug?)" };
+      if (root && item.Icon && item.Icon.startsWith("res://")) {
+        item.Icon = resPathToAbs(item.Icon, root);
+      }
       const jsonPath = `${folderAbs.item}${sep}${item.Slug}.json`;
       await writeJson(jsonPath, item);
       return { ok: true, domain: "item", key: item.Slug, jsonPath };
@@ -91,6 +107,14 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
       const faction = mapFaction(parsed);
       if (!faction) {
         return { ok: false, error: "mapFaction returned null (script_class mismatch?)" };
+      }
+      if (root) {
+        if (faction.Icon && faction.Icon.startsWith("res://")) {
+          faction.Icon = resPathToAbs(faction.Icon, root);
+        }
+        if (faction.Banner && faction.Banner.startsWith("res://")) {
+          faction.Banner = resPathToAbs(faction.Banner, root);
+        }
       }
       const jsonPath = `${folderAbs.faction}${sep}${faction.Faction}.json`;
       await writeJson(jsonPath, faction);
@@ -110,6 +134,9 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
         },
       });
       if (!npc) return { ok: false, error: "mapNpc returned null" };
+      if (root && npc.Portrait && npc.Portrait.startsWith("res://")) {
+        npc.Portrait = resPathToAbs(npc.Portrait, root);
+      }
       const jsonPath = `${folderAbs.npc}${sep}${npc.NpcId}.json`;
       await writeJson(jsonPath, npc);
       return { ok: true, domain: "npc", key: npc.NpcId, jsonPath };
@@ -132,6 +159,13 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
     case "dialog": {
       const dialog = mapDialogSequence(parsed);
       if (!dialog) return { ok: false, error: "mapDialogSequence returned null" };
+      if (root) {
+        for (const line of dialog.Lines) {
+          if (line.Portrait && line.Portrait.startsWith("res://")) {
+            line.Portrait = resPathToAbs(line.Portrait, root);
+          }
+        }
+      }
       const [folder] = detected.key.split("/");
       const jsonPath = `${folderAbs.dialog}${sep}${folder}${sep}${dialog.Id}.json`;
       await writeJson(jsonPath, dialog);
