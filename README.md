@@ -94,7 +94,7 @@ DATA_ROOT=data      # optional, default ./data
 ASSET_ROOT=/home/you  # optional, defaults to $HOME
 ```
 
-The Godot project root is **required** - Bleepforge fails fast at boot without it. You can also set the path in-app via the Preferences page once the server has started; preferences win over the env var on subsequent runs.
+The Godot project root is required for the server to read or write `.tres` files. In dev (`pnpm dev`), missing it is a fail-fast boot error. In packaged builds (AppImage / Windows installer), missing it triggers a first-run welcome screen that prompts you to pick a folder via a native dialog. Either way, the chosen path is saved to `data/preferences.json` and takes priority over the env var on subsequent runs.
 
 ### Run (browser)
 
@@ -115,17 +115,32 @@ Same dev servers + an Electron window. Maximized, no menu bar, hot reload preser
 
 > **Note:** the Electron launcher hardcodes `http://localhost:5173`. Kill any other `pnpm dev` running before `pnpm dev:desktop` or the desktop window may load the wrong dev session. Override with `VITE_DEV_URL=http://localhost:5174 pnpm dev:desktop` if needed.
 
-### Build (Linux AppImage)
+### Build (packaged installers)
 
 ```bash
-pnpm dist
+pnpm dist        # host platform (Linux when running on Linux)
+pnpm dist:linux  # Linux AppImage
+pnpm dist:win    # Windows NSIS installer (cross-build from Linux supported)
 ```
 
-Produces `electron/release/Bleepforge-<version>-x86_64.AppImage` (~115MB, single file, no install). Double-click to run; user state persists at `~/.config/Bleepforge/data/`. The Help library ships inside the AppImage and seeds into userData on first launch when missing; on subsequent upgrades, only *new* help entries from the bundled seed are merged in — your edits to existing entries are never overwritten. Concept, Codex, and the `.tres`-derived domain JSONs are user-authored and start empty — point Bleepforge at your Godot project via Preferences, then restart, and the cache rebuilds from `.tres`.
+**Linux** produces `electron/release/Bleepforge-<version>-x86_64.AppImage` (~115MB, single file, no install). Double-click to run; user state persists at `~/.config/Bleepforge/data/`. Run `pnpm install:desktop` once to register the app in the KDE / GNOME application menu with pre-cached thumbnails.
 
-The `pnpm dist` pipeline runs in four steps: client build (Vite) → server bundle (esbuild — workspace deps inlined, npm deps external) → electron main (tsc) → electron-builder (asar packaging + AppImage assembly). The build output lives in `electron/release/` and is gitignored (~400MB per build).
+**Windows** produces `electron/release/Bleepforge-Setup-<version>-x64.exe` (~86MB), an NSIS installer with the full wizard (welcome → install location → install), per-user install (no admin prompt), desktop + start menu shortcuts, and a working uninstaller. Unsigned — first install shows one SmartScreen warning the user clicks through with **More info → Run anyway**. User state persists at `%APPDATA%\Bleepforge\data\`.
 
-macOS / Windows targets are a config-only follow-up — add the relevant entries to [electron/electron-builder.json](electron/electron-builder.json). Auto-update + code signing are deferred until distribution is something other than "the user runs the AppImage from disk."
+**Cross-building Windows from Linux** requires a dedicated 64-bit Wine prefix at `~/.wine64-bleepforge` — electron-builder's `rcedit` step (sets `.exe` metadata + embeds the icon) needs to operate on a 64-bit target, and a 32-bit Wine prefix can't manipulate it. First-time setup:
+
+```bash
+WINEPREFIX=~/.wine64-bleepforge WINEARCH=win64 \
+  WINEDLLOVERRIDES='mscoree=;mshtml=' wineboot --init
+```
+
+`pnpm dist:win` defaults `WINEPREFIX` to that path automatically; override via env var if you want a different prefix.
+
+The Help library ships inside both builds and seeds into userData on first launch when missing; on subsequent upgrades, only *new* help entries from the bundled seed are merged in — your edits to existing entries are never overwritten. Concept, Codex, and the `.tres`-derived domain JSONs are user-authored and start empty — point Bleepforge at your Godot project via the first-run welcome screen (or Preferences after first run), restart, and the cache rebuilds from `.tres`.
+
+The build pipeline runs in four steps: client build (Vite) → server bundle (esbuild — workspace deps inlined, npm deps external) → electron main (tsc) → electron-builder (asar packaging + AppImage / NSIS assembly). Build output lives in `electron/release/` and is gitignored (~400MB per build).
+
+macOS (.dmg) is a config-only follow-up. Auto-update + code signing are deferred until distribution is something other than "the user runs the installer from disk."
 
 ---
 
@@ -221,11 +236,12 @@ Server-side dev tools (run via `pnpm --filter @bleepforge/server <name>`):
 - Game Codex (user-defined category schemas)
 - Shaders surface with CodeMirror editor (+ GDShader syntax + gutter diagnostics) + WebGL2 live preview + GDShader → GLSL ES subset translator with multi-texture + helper-function support + sampler hints + `hint_screen_texture` + ping-pong framebuffers for `hint_previous_frame` (trails / iterative effects). Full sync parity with the `.tres` domains — catalog refresh, Saves tab integration, cross-window toasts.
 - In-app Help library
-- Electron desktop wrap (dev + Linux AppImage packaging via `pnpm dist`)
+- Electron desktop wrap (dev + Linux AppImage + Windows NSIS installer via `pnpm dist` / `pnpm dist:win`)
+- **First-run welcome flow** for packaged builds (v0.2.3) — when no `preferences.json` exists yet, the renderer shows a native folder picker instead of a broken-looking shell.
 
 **Next:**
 
-- **Multi-platform packaging.** macOS (.dmg) + Windows (NSIS) targets are a config-only follow-up to the existing electron-builder pipeline; auto-update + code signing land alongside whichever distribution channel ships first.
+- **macOS packaging + auto-update + code signing.** Deferred until distribution is something other than "the user runs the installer from disk." macOS (.dmg) is a config-only follow-up to the existing electron-builder pipeline. Windows NSIS shipped unsigned in v0.2.3.
 - **Genericize for any Godot project.** Currently the seven game-domain schemas + their per-domain edit forms + per-domain `.tres` mappers are hardcoded to Flock of Bleeps. The `.tres` parser/emitter/writer/watcher, JSON CRUD machinery, asset surface, diagnostics shell, theming, and the three SSE infrastructure channels are all project-agnostic - only the schema layer is project-specific. The path is to make that layer runtime-configurable, ideally by reading the user's project's `[GlobalClass]` resource types directly to auto-generate forms / integrity checks / a configurable graph view.
 
 ---
