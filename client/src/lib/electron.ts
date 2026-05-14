@@ -15,6 +15,7 @@ export type BleepforgeBridge = {
   popout: (routePath: string) => Promise<void>;
   restart: () => Promise<void>;
   reveal: () => Promise<void>;
+  pickGodotFolder: () => Promise<string | null>;
 };
 
 declare global {
@@ -69,4 +70,13 @@ export async function revealMainWindow(): Promise<boolean> {
   if (!bf) return false;
   await bf.reveal();
   return true;
+}
+
+// Open the OS native folder picker. Returns the picked absolute path,
+// or null if the user cancelled OR we're in browser mode (no Electron
+// bridge). Browser-mode callers should fall back to a text input.
+export async function pickGodotFolder(): Promise<string | null> {
+  const bf = typeof window !== "undefined" ? window.bleepforge : undefined;
+  if (!bf) return null;
+  return await bf.pickGodotFolder();
 }

@@ -22,7 +22,7 @@
 // The OS menu is removed entirely (Menu.setApplicationMenu(null)) so all
 // windows show only the WM's native title bar / close-min-max controls.
 
-import { BrowserWindow, Menu, app, ipcMain, shell } from "electron";
+import { BrowserWindow, Menu, app, dialog, ipcMain, shell } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -392,6 +392,19 @@ ipcMain.handle("app:restart", () => {
 // opens DevTools in dev.
 ipcMain.handle("app:reveal", () => {
   revealMainWindow();
+});
+
+// Native folder picker for the first-run welcome screen. Returns the
+// picked absolute path or null on cancel. Modal to whichever window
+// invoked it (so the picker tracks with the main window on click).
+ipcMain.handle("dialog:pick-godot-folder", async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const result = await dialog.showOpenDialog(win ?? new BrowserWindow({ show: false }), {
+    title: "Pick your Godot project folder",
+    properties: ["openDirectory"],
+  });
+  if (result.canceled || result.filePaths.length === 0) return null;
+  return result.filePaths[0];
 });
 
 app.on("window-all-closed", () => {

@@ -25,6 +25,8 @@ const bridge = {
     ipcRenderer.invoke("popout:open", routePath),
   restart: (): Promise<void> => ipcRenderer.invoke("app:restart"),
   reveal: (): Promise<void> => ipcRenderer.invoke("app:reveal"),
+  pickGodotFolder: (): Promise<string | null> =>
+    ipcRenderer.invoke("dialog:pick-godot-folder"),
 };
 
 contextBridge.exposeInMainWorld("bleepforge", bridge);

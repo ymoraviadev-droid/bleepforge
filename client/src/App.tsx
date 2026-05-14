@@ -8,11 +8,13 @@ import { ModalHost } from "./components/Modal";
 import { Sidebar } from "./components/Sidebar";
 import { SplashScreen } from "./components/SplashScreen";
 import { ToastHost } from "./components/Toast";
+import { WelcomeScreen } from "./components/WelcomeScreen";
 import { ImageEditorHost } from "./features/asset/imageEditorHost";
 import { isPopout } from "./lib/electron";
 import { useOutgoingSaveToasts } from "./lib/saves/outgoingSaveToasts";
 import { useShaderToasts } from "./lib/shaders/shaderToasts";
 import { useSyncToasts } from "./lib/sync/syncToasts";
+import { useGodotProjectRoot } from "./styles/GlobalTheme";
 
 // App is the *layout* element of the data router (v0.2.2) — the route
 // table moved to main.tsx as a `createBrowserRouter` config, and this
@@ -38,6 +40,15 @@ export function App() {
   // location.href = "/" which both reloads AND lands on /concept.
   // Popouts skip the splash — they're focused subviews, not full sessions.
   const [showSplash, setShowSplash] = useState(!popout);
+
+  // Welcome screen gate. When godotProjectRoot is empty (fresh install,
+  // no preferences.json yet), the server is in limp mode and most app
+  // features render empty. Show WelcomeScreen instead until the user
+  // picks a folder + restarts. Popouts skip this — they can only be
+  // opened from the main window, so if main is on welcome, no popouts
+  // exist anyway. Hook subscribes to changes so the screen unmounts
+  // automatically once the value is set.
+  const { saved: godotProjectRoot } = useGodotProjectRoot();
 
   // Browsers restore a previously-rendered page from the back-forward cache
   // when you navigate back to it (e.g. Google → click → app, then back ←
@@ -68,6 +79,10 @@ export function App() {
 
   if (showSplash) {
     return <SplashScreen onDone={() => setShowSplash(false)} />;
+  }
+
+  if (!popout && !godotProjectRoot) {
+    return <WelcomeScreen />;
   }
 
   // Shell: Sidebar on the left (carries branding, version, meta icons,
