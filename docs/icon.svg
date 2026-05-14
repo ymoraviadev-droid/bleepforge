@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Bleepforge</title>
+  <desc>Pixel-art emerald speech bubble with a single bright blip at its center — the bleep.</desc>
+
+  <defs>
+    <radialGradient id="bg-halo" cx="50%" cy="44%" r="50%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.22"/>
+      <stop offset="60%" stop-color="#10b981" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="64" height="64" fill="#0a0a0a"/>
+  <rect width="64" height="64" fill="url(#bg-halo)"/>
+
+  <g shape-rendering="crispEdges">
+    <!-- Speech bubble outline: 48×32 outer rect, 4px stroke thickness.
+         Drawn as four edge rects so corner pixels land cleanly at 4px
+         multiples. The 4px stroke survives nearest-neighbor downscale
+         to 16px as a clean 1-pixel line, which is the whole point of
+         the pixel-grid alignment. -->
+    <rect x="8" y="12" width="48" height="4" fill="#34d399"/>
+    <rect x="8" y="40" width="48" height="4" fill="#34d399"/>
+    <rect x="8" y="16" width="4" height="24" fill="#34d399"/>
+    <rect x="52" y="16" width="4" height="24" fill="#34d399"/>
+
+    <!-- Top-left highlight pixel: bright emerald-200. Sells "lit from
+         above-left" without requiring an actual gradient — a single
+         4×4 corner block survives every scale. -->
+    <rect x="8" y="12" width="4" height="4" fill="#6ee7b7"/>
+
+    <!-- Bottom-right shadow pixel: deep emerald-600 on the opposing
+         corner for depth. -->
+    <rect x="52" y="40" width="4" height="4" fill="#059669"/>
+
+    <!-- Tail: 5-rung pixel stair hanging from bottom-left of bubble,
+         narrowing 20→16→12→8→4 in 4px-tall rungs. Direction matches
+         the BalloonCard's speech-bubble tail (bottom-left) so the
+         app icon feels native to the rest of the app's visual
+         language. Ends flush with the canvas bottom. -->
+    <rect x="12" y="44" width="20" height="4" fill="#34d399"/>
+    <rect x="12" y="48" width="16" height="4" fill="#34d399"/>
+    <rect x="12" y="52" width="12" height="4" fill="#34d399"/>
+    <rect x="12" y="56" width="8" height="4" fill="#34d399"/>
+    <rect x="12" y="60" width="4" height="4" fill="#34d399"/>
+
+    <!-- THE bleep: single 4×4 emerald-200 block at the visual center
+         of the bubble interior. At 16px output this is one pixel; at
+         1024px it's a small but deliberate accent. The 1:64 ratio
+         (one source pixel of the canvas's 4096) is what makes the
+         blip feel small and precise at every size — a tiny perfect
+         signal, housed in the bubble. -->
+    <rect x="30" y="26" width="4" height="4" fill="#6ee7b7"/>
+  </g>
+</svg>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Bleepforge — Schema-driven content authoring for Godot</title>
+<meta name="description" content="Bleepforge is a schema-driven content authoring studio for Godot 4 / .NET projects — dialogues, quests, items, NPCs, factions, karma, balloons, shaders. Round-trips losslessly to and from .tres files via a live watcher.">
+<meta name="theme-color" content="#0a0a0a">
+
+<!-- Open Graph / social preview -->
+<meta property="og:title" content="Bleepforge">
+<meta property="og:description" content="Schema-driven content authoring studio for Godot 4 / .NET projects.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="icon.svg">
+
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Pixelify+Sans:wght@400;500;600;700&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="shell">
+
+  <section class="hero">
+    <div class="hero-icon" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+        <defs>
+          <radialGradient id="bg-halo" cx="50%" cy="44%" r="50%">
+            <stop offset="0%" stop-color="#10b981" stop-opacity="0.22"/>
+            <stop offset="60%" stop-color="#10b981" stop-opacity="0.05"/>
+            <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="64" height="64" fill="#0a0a0a"/>
+        <rect width="64" height="64" fill="url(#bg-halo)"/>
+        <g shape-rendering="crispEdges">
+          <rect x="8" y="12" width="48" height="4" fill="#34d399"/>
+          <rect x="8" y="40" width="48" height="4" fill="#34d399"/>
+          <rect x="8" y="16" width="4" height="24" fill="#34d399"/>
+          <rect x="52" y="16" width="4" height="24" fill="#34d399"/>
+          <rect x="8" y="12" width="4" height="4" fill="#6ee7b7"/>
+          <rect x="52" y="40" width="4" height="4" fill="#059669"/>
+          <rect x="12" y="44" width="20" height="4" fill="#34d399"/>
+          <rect x="12" y="48" width="16" height="4" fill="#34d399"/>
+          <rect x="12" y="52" width="12" height="4" fill="#34d399"/>
+          <rect x="12" y="56" width="8" height="4" fill="#34d399"/>
+          <rect x="12" y="60" width="4" height="4" fill="#34d399"/>
+          <rect x="30" y="26" width="4" height="4" fill="#6ee7b7"/>
+        </g>
+      </svg>
+    </div>
+    <h1 class="display">BLEEPFORGE</h1>
+    <p class="tagline">Schema-driven content authoring studio for <span class="accent">Godot 4 / .NET</span> projects.</p>
+    <div class="version-chip" id="version-chip">v0.2.3-dev · preview</div>
+  </section>
+
+  <section class="downloads">
+    <h2 class="display">Get it</h2>
+    <div class="download-grid">
+      <a class="download-btn" id="download-windows" href="https://github.com/ymoraviadev-droid/bleepforge/releases/download/v0.2.3-dev/Bleepforge-Setup-0.2.3-dev-x64.exe">
+        <span class="display">Windows</span>
+        <span class="meta meta-size">.exe installer · ~86 MB</span>
+        <span class="meta">10 / 11 · x64</span>
+      </a>
+      <a class="download-btn" id="download-linux" href="https://github.com/ymoraviadev-droid/bleepforge/releases/download/v0.2.3-dev/Bleepforge-0.2.3-dev-x86_64.AppImage">
+        <span class="display">Linux</span>
+        <span class="meta meta-size">AppImage · ~115 MB</span>
+        <span class="meta">x64 · glibc</span>
+      </a>
+    </div>
+    <p class="caveat">Both binaries are <strong>unsigned</strong>. Windows shows one SmartScreen warning on first install (click <em>More info → Run anyway</em>); Linux just runs after <code>chmod +x</code>. macOS build pending. See the <a href="https://github.com/ymoraviadev-droid/bleepforge/releases">releases page</a> for older versions and changelogs.</p>
+  </section>
+
+  <section class="features">
+    <h2 class="display">What's inside</h2>
+    <ul class="feature-list">
+      <li><strong>Twelve authoring surfaces</strong> — dialogues (graph + list views), quests, items, NPCs, factions, karma impacts, balloons, project concept, codex, assets gallery + image editor, shaders, in-app help.</li>
+      <li><strong>Two-way .tres sync</strong> — atomic writes, live chokidar watcher, boot-time reconcile. No "click reimport" step.</li>
+      <li><strong>Live WebGL2 shader preview</strong> — re-translates GDShader → GLSL ES on every keystroke, auto-generated uniform controls, ping-pong framebuffers for trails &amp; iterative effects.</li>
+      <li><strong>Assets gallery + image editor</strong> — crop, tint, ML + heuristic background removal, "Magic crop" subject detection, cross-system reference scanning.</li>
+      <li><strong>Eight color themes + tunable fonts</strong> bundled into named "global themes," with same-origin cross-window sync across popouts.</li>
+      <li><strong>App-wide Ctrl+K search</strong> across every authored entity by id and display name. Plus a six-tab Diagnostics page covering integrity / reconcile / logs / save activity / process / watcher.</li>
+    </ul>
+  </section>
+
+  <section class="context">
+    <h2 class="display">A note on scope</h2>
+    <p>Bleepforge is currently shaped around <a href="https://github.com/ymoraviadev-droid/bleepforge/blob/main/data/concept.json">Flock of Bleeps</a>, an in-development 2D adventure-platformer about a not-very-bright robot judged worthless and dumped in a landfill. The seven game-domain schemas are hardcoded to that project today; <a href="https://github.com/ymoraviadev-droid/bleepforge#roadmap">generic-for-any-Godot-project</a> is the long-term direction.</p>
+    <p>You need a Godot 4 <strong>.NET (C#)</strong> project to point at — the standard non-.NET Godot won't open Bleepforge's target. See the <a href="https://github.com/ymoraviadev-droid/bleepforge#readme">README</a> for the architecture sketch and the <a href="https://github.com/ymoraviadev-droid/bleepforge/blob/main/CLAUDE.md">project bible</a> for the design rationale behind everything.</p>
+  </section>
+
+  <footer>
+    <p>
+      Source on <a href="https://github.com/ymoraviadev-droid/bleepforge">GitHub</a> ·
+      Authored by <strong>Yehonatan Moravia</strong> &amp; <strong>Archie</strong> ·
+      <a href="mailto:ymoravia.dev@gmail.com">ymoravia.dev@gmail.com</a>
+    </p>
+  </footer>
+
+</main>
+<script src="script.js"></script>
+</body>
+</html>

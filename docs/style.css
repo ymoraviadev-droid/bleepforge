@@ -1,0 +1,264 @@
+/* Bleepforge landing page — pixel-themed to match the app's visual identity.
+   Same emerald accent ladder, Press Start 2P display font, Pixelify Sans body,
+   VT323 for monospace, 2px borders + no border-radius + crispEdges SVG.
+   Mobile-first, single column on narrow viewports. */
+
+:root {
+  --bg: #0a0a0a;
+  --bg-elevated: #171717;
+  --border: #404040;
+  --border-strong: #525252;
+  --text: #e5e5e5;
+  --text-dim: #a3a3a3;
+  --text-faint: #737373;
+  --accent: #10b981;
+  --accent-dim: #059669;
+  --accent-bright: #6ee7b7;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background: var(--bg);
+  min-height: 100vh;
+}
+
+body {
+  color: var(--text);
+  font-family: "Pixelify Sans", sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+
+.display {
+  font-family: "Press Start 2P", monospace;
+  letter-spacing: 0.05em;
+  font-weight: normal;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: var(--accent-bright);
+  text-decoration: underline;
+}
+
+strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+code {
+  font-family: "VT323", monospace;
+  font-size: 1.05em;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  padding: 0 0.4em;
+  color: var(--accent-bright);
+}
+
+em {
+  color: var(--accent-bright);
+  font-style: normal;
+  font-weight: 600;
+}
+
+/* ---- Shell --------------------------------------------------------------- */
+
+.shell {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem 3rem;
+}
+
+section {
+  margin-bottom: 5rem;
+}
+
+section h2 {
+  font-size: 1.125rem;
+  color: var(--accent);
+  margin-bottom: 2rem;
+}
+
+/* ---- Hero ---------------------------------------------------------------- */
+
+.hero {
+  text-align: center;
+}
+
+.hero-icon svg {
+  width: 96px;
+  height: 96px;
+  display: block;
+  margin: 0 auto 1.75rem;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+.hero h1 {
+  font-size: clamp(1.5rem, 5vw, 2.5rem);
+  color: var(--accent);
+  margin-bottom: 1.25rem;
+}
+
+.tagline {
+  font-size: 1.125rem;
+  color: var(--text);
+  max-width: 36rem;
+  margin: 0 auto 1.75rem;
+}
+
+.accent {
+  color: var(--accent);
+}
+
+.version-chip {
+  display: inline-block;
+  font-family: "VT323", monospace;
+  font-size: 1.2rem;
+  color: var(--accent-bright);
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid var(--accent-dim);
+  padding: 0.25rem 1rem;
+  letter-spacing: 0.05em;
+}
+
+/* ---- Downloads ----------------------------------------------------------- */
+
+.downloads h2 {
+  text-align: center;
+}
+
+.download-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.download-btn {
+  display: block;
+  background: var(--bg-elevated);
+  border: 2px solid var(--border-strong);
+  padding: 1.75rem 1.5rem;
+  text-align: center;
+  transition: border-color 0.15s ease, transform 0.15s ease, color 0.15s ease;
+}
+
+.download-btn:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  text-decoration: none;
+}
+
+.download-btn:hover .display {
+  color: var(--accent-bright);
+}
+
+.download-btn .display {
+  display: block;
+  font-size: 1.125rem;
+  color: var(--accent);
+  margin-bottom: 0.85rem;
+}
+
+.download-btn .meta {
+  display: block;
+  font-family: "VT323", monospace;
+  font-size: 1.15rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.caveat {
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  text-align: center;
+  max-width: 38rem;
+  margin: 0 auto;
+}
+
+/* ---- Features ------------------------------------------------------------ */
+
+.feature-list {
+  list-style: none;
+  display: grid;
+  gap: 1.25rem;
+}
+
+.feature-list li {
+  background: var(--bg-elevated);
+  border-left: 4px solid var(--accent-dim);
+  padding: 1rem 1.25rem;
+  color: var(--text-dim);
+}
+
+.feature-list strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* ---- Context ------------------------------------------------------------- */
+
+.context p {
+  margin-bottom: 1rem;
+  color: var(--text-dim);
+}
+
+.context p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---- Footer -------------------------------------------------------------- */
+
+footer {
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--border);
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--text-faint);
+  margin-bottom: 0;
+}
+
+footer a {
+  color: var(--text-dim);
+}
+
+footer a:hover {
+  color: var(--accent-bright);
+}
+
+/* ---- Responsive ---------------------------------------------------------- */
+
+@media (max-width: 600px) {
+  .shell {
+    padding: 2.5rem 1rem 2rem;
+  }
+
+  section {
+    margin-bottom: 3.5rem;
+  }
+
+  .hero-icon svg {
+    width: 72px;
+    height: 72px;
+  }
+
+  .tagline {
+    font-size: 1rem;
+  }
+
+  .download-btn {
+    padding: 1.25rem 1rem;
+  }
+}
