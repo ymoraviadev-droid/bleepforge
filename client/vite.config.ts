@@ -7,19 +7,13 @@ import fs from "node:fs";
 // the file that ends up packaged inside app.asar and read by Electron's
 // `app.getVersion()`. Mirror it into the renderer via a Vite `define` so
 // the splash + document.title stay in lockstep with the main process.
-//
-// `lastStable` is a custom field on electron/package.json (v0.2.2): it
-// records the last released stable version so a `-dev` build can show
-// "this is dev work, last stable was vX" without needing a second
-// source of truth. Bump lastStable only when cutting a stable release.
 const electronPkg = JSON.parse(
   fs.readFileSync(new URL("../electron/package.json", import.meta.url), "utf8"),
-) as { version: string; lastStable?: string };
+) as { version: string };
 
 export default defineConfig({
   define: {
     __APP_VERSION__: JSON.stringify(electronPkg.version),
-    __LAST_STABLE_VERSION__: JSON.stringify(electronPkg.lastStable ?? ""),
   },
   plugins: [react(), tailwindcss()],
   server: {
