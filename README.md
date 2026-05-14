@@ -27,11 +27,12 @@ Bleepforge is what you reach for when the project gets big enough that "open the
 
 ### Authoring surfaces
 
-Twelve distinct surfaces, each tailored to one slice of the work:
+Thirteen distinct surfaces, each tailored to one slice of the work:
 
 | Surface | What it is |
 |---|---|
-| **Game concept** | The project's pitch / acts / faction roles, the app homepage. Bleepforge-only. |
+| **Workbench** | The app's overview / homepage (v0.2.4). Project header strip, stats grid per domain, recent activity feed, integrity strip. Bleepforge-only. |
+| **Game concept** | The project's pitch / acts / faction roles. Bleepforge-only. Was the homepage pre-v0.2.4; now a regular surface. |
 | **Dialogues** | Multi-folder graph view + list view. Drag nodes, draw edges, double-click edges to rename, per-edge dashed/curved/waypoint style. Per-folder layout persistence. |
 | **Quests** | Objectives + rewards as discriminated unions, auto-managed flag strips, link-out to giver NPC. |
 | **Items** | `ItemData` + `QuestItemData` polymorphism. Card/list views grouped by category. |
