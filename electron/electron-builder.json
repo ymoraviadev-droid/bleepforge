@@ -28,7 +28,7 @@
     {
       "from": "build-resources",
       "to": "build-resources",
-      "filter": ["icon.png", "icon.svg"]
+      "filter": ["icon.png", "icon.svg", "icon.ico"]
     }
   ],
   "linux": {
@@ -36,5 +36,21 @@
     "category": "Development",
     "artifactName": "${productName}-${version}-${arch}.${ext}",
     "icon": "build-resources/icons"
+  },
+  "win": {
+    "target": [
+      { "target": "nsis", "arch": ["x64"] }
+    ],
+    "icon": "build-resources/icon.ico",
+    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Bleepforge",
+    "uninstallDisplayName": "Bleepforge ${version}"
   }
 }

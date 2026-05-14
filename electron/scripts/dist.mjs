@@ -23,6 +23,17 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const electronRoot = path.resolve(here, "..");
 const repoRoot = path.resolve(electronRoot, "..");
 
+// Target args we forward to electron-builder. Passing none lets it pick the
+// host platform's defaults (Linux → AppImage on a Linux box). Multiple are
+// allowed — e.g. `--linux --win` cross-builds both in one run.
+const TARGET_FLAGS = new Set(["--linux", "--win", "--mac"]);
+const targetArgs = process.argv.slice(2).filter((a) => TARGET_FLAGS.has(a));
+const buildingLinux =
+  targetArgs.length === 0 ||
+  targetArgs.includes("--linux") ||
+  process.platform === "linux";
+const buildingWin = targetArgs.includes("--win");
+
 function run(cmd, args, cwd) {
   return new Promise((resolve, reject) => {
     const child = spawn(cmd, args, {
@@ -49,7 +60,8 @@ async function main() {
   console.log("[bleepforge/dist] 3/4 building electron main (tsc)…");
   await run("pnpm", ["--filter", "@bleepforge/electron", "run", "build"], repoRoot);
 
-  console.log("[bleepforge/dist] 4/4 running electron-builder…");
+  const targetLabel = targetArgs.length > 0 ? targetArgs.join(" ") : "host platform";
+  console.log(`[bleepforge/dist] 4/4 running electron-builder (${targetLabel})…`);
   // Config lives in electron-builder.json (not in package.json) so
   // electron-builder's extraMetadata.* can't accidentally rewrite the
   // source package.json — observed once: setting extraMetadata.name in
@@ -58,7 +70,13 @@ async function main() {
   // ambiguity about which file is the source.
   await run(
     "pnpm",
-    ["exec", "electron-builder", "--config", "electron-builder.json"],
+    [
+      "exec",
+      "electron-builder",
+      "--config",
+      "electron-builder.json",
+      ...targetArgs,
+    ],
     electronRoot,
   );
 
@@ -69,16 +87,24 @@ async function main() {
   // PNG to release/Bleepforge.png gives the user an immediately-
   // visible icon in their file manager right next to the AppImage —
   // no thumbnailer required. Tiny (~4KB) compared to the 115MB
-  // binary, free win.
-  console.log("[bleepforge/dist] copying sidecar icon to release/Bleepforge.png…");
-  fs.copyFileSync(
-    path.join(electronRoot, "build-resources", "icons", "512x512.png"),
-    path.join(electronRoot, "release", "Bleepforge.png"),
-  );
+  // binary, free win. Skipped on Windows-only builds — the .ico is
+  // embedded in the .exe and Explorer renders it natively.
+  if (buildingLinux && fs.existsSync(path.join(electronRoot, "release"))) {
+    console.log("[bleepforge/dist] copying sidecar icon to release/Bleepforge.png…");
+    fs.copyFileSync(
+      path.join(electronRoot, "build-resources", "icons", "512x512.png"),
+      path.join(electronRoot, "release", "Bleepforge.png"),
+    );
+  }
 
   console.log("[bleepforge/dist] done. Artifacts in electron/release/");
-  console.log("[bleepforge/dist] tip: run `pnpm install:desktop` once to");
-  console.log("[bleepforge/dist] register Bleepforge in the KDE/GNOME app menu.");
+  if (buildingLinux) {
+    console.log("[bleepforge/dist] tip: run `pnpm install:desktop` once to");
+    console.log("[bleepforge/dist] register Bleepforge in the KDE/GNOME app menu.");
+  }
+  if (buildingWin) {
+    console.log("[bleepforge/dist] windows installer: Bleepforge-Setup-*.exe in electron/release/");
+  }
 }
 
 main().catch((err) => {

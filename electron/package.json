@@ -11,7 +11,9 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "electron dist/main.js",
-    "dist": "node ./scripts/dist.mjs"
+    "dist": "node ./scripts/dist.mjs",
+    "dist:win": "node ./scripts/dist.mjs --win",
+    "dist:linux": "node ./scripts/dist.mjs --linux"
   },
   "dependencies": {
     "chokidar": "^5.0.0",

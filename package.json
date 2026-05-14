@@ -6,6 +6,8 @@
     "dev": "pnpm --parallel --filter @bleepforge/server --filter @bleepforge/client run dev",
     "dev:desktop": "pnpm --parallel --filter @bleepforge/server --filter @bleepforge/client --filter @bleepforge/electron run dev",
     "dist": "pnpm --filter @bleepforge/electron run dist",
+    "dist:win": "pnpm --filter @bleepforge/electron run dist:win",
+    "dist:linux": "pnpm --filter @bleepforge/electron run dist:linux",
     "install:desktop": "node electron/scripts/install-desktop.mjs",
     "build": "pnpm -r run build",
     "typecheck": "pnpm -r run typecheck",
