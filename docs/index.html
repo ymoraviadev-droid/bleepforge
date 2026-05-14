@@ -149,6 +149,78 @@
 
     <div class="pixel-divider" aria-hidden="true"><span></span><span></span><span></span></div>
 
+    <section class="tour">
+      <h2 class="display">Tour</h2>
+      <p class="tour-intro">Real screenshots of Bleepforge editing <a href="https://github.com/ymoraviadev-droid/bleepforge/blob/main/data/concept.json">Flock of Bleeps</a>. Click any tile to open the full-size image.</p>
+      <div class="tour-grid">
+        <a class="tour-tile" href="images/tour-workbench.png" target="_blank" rel="noopener">
+          <img src="images/tour-workbench.png" alt="Workbench overview page — project header, per-domain count tiles, recent activity feed, integrity strip" loading="lazy">
+          <div class="tour-caption">
+            <h3 class="display">Workbench</h3>
+            <p>The overview. Project header, per-domain counts, recent saves activity, integrity status — all at a glance.</p>
+          </div>
+        </a>
+        <a class="tour-tile" href="images/tour-dialog-graph.png" target="_blank" rel="noopener">
+          <img src="images/tour-dialog-graph.png" alt="Dialog graph view — multiple sequence nodes connected by branching choice edges" loading="lazy">
+          <div class="tour-caption">
+            <h3 class="display">Dialog graph</h3>
+            <p>Branching dialogue as a graph. Drag nodes, draw edges between choices, per-folder layout persists. Per-source-type mood styling (Terminal scanlines, NPC warm overlay).</p>
+          </div>
+        </a>
+        <a class="tour-tile" href="images/tour-npc-edit.png" target="_blank" rel="noopener">
+          <img src="images/tour-npc-edit.png" alt="NPC edit form — portrait, identity fields, dialog references, karma impacts, casual remarks" loading="lazy">
+          <div class="tour-caption">
+            <h3 class="display">NPC edit</h3>
+            <p>Full NPC authoring — identity, dialog refs, loot tables, casual remarks, karma impacts. One form, everything connected.</p>
+          </div>
+        </a>
+        <a class="tour-tile" href="images/tour-karma.png" target="_blank" rel="noopener">
+          <img src="images/tour-karma.png" alt="Karma impacts list — cards with per-faction delta badges and faction icons" loading="lazy">
+          <div class="tour-caption">
+            <h3 class="display">Karma impacts</h3>
+            <p>Per-faction karma deltas with badges and faction icons. Same cards / list / group-by pattern across NPCs, Quests, Items, Balloons, and more.</p>
+          </div>
+        </a>
+        <a class="tour-tile" href="images/tour-shader-preview.png" target="_blank" rel="noopener">
+          <img src="images/tour-shader-preview.png" alt="Shader edit page Live preview tab — WebGL canvas rendering output plus auto-generated uniform sliders" loading="lazy">
+          <div class="tour-caption">
+            <h3 class="display">Live shader preview</h3>
+            <p>Live WebGL2 preview re-translating GDShader → GLSL ES on every keystroke. Auto-generated uniform controls, multi-texture support, ping-pong framebuffers for trails.</p>
+          </div>
+        </a>
+        <a class="tour-tile" href="images/tour-shader-code.png" target="_blank" rel="noopener">
+          <img src="images/tour-shader-code.png" alt="Shader edit page Code tab — CodeMirror with GDShader syntax highlighting, line numbers, and usages panel" loading="lazy">
+          <div class="tour-caption">
+            <h3 class="display">Shader source</h3>
+            <p>CodeMirror with GDShader syntax highlighting and gutter diagnostics. Cross-system "used by" panel shows every scene + resource that references the shader.</p>
+          </div>
+        </a>
+        <a class="tour-tile" href="images/tour-image-importer.png" target="_blank" rel="noopener">
+          <img src="images/tour-image-importer.png" alt="Image importer modal — crop tool, Magic crop button, ML background removal, output preview" loading="lazy">
+          <div class="tour-caption">
+            <h3 class="display">Image editor</h3>
+            <p>In-app editor — crop, ML background removal, heuristic "Magic crop" subject detection, tint, flip. Writes PNG straight back to your Godot project.</p>
+          </div>
+        </a>
+        <a class="tour-tile" href="images/tour-assets-gallery.png" target="_blank" rel="noopener">
+          <img src="images/tour-assets-gallery.png" alt="Assets gallery — cards for project images with 'used by N' pills and folder groupings" loading="lazy">
+          <div class="tour-caption">
+            <h3 class="display">Assets gallery</h3>
+            <p>Every image in the project with "used by N" reverse-lookup pills. Click any image to see exactly which scenes + resources reference it.</p>
+          </div>
+        </a>
+        <a class="tour-tile" href="images/tour-help.png" target="_blank" rel="noopener">
+          <img src="images/tour-help.png" alt="Help library — persistent sidebar with categories, hero block with bookshelf illustration, search box, and topic grid" loading="lazy">
+          <div class="tour-caption">
+            <h3 class="display">Help library</h3>
+            <p>Bleepforge documents itself. 11 categories, 78 entries, in-page search, persistent sidebar. Read about how the editor works without leaving the editor.</p>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <div class="pixel-divider" aria-hidden="true"><span></span><span></span><span></span></div>
+
     <section class="context">
       <h2 class="display">A note on scope</h2>
       <p>Bleepforge is currently shaped around <a href="https://github.com/ymoraviadev-droid/bleepforge/blob/main/data/concept.json">Flock of Bleeps</a>, an in-development 2D adventure-platformer about a not-very-bright robot judged worthless and dumped in a landfill. The seven game-domain schemas are hardcoded to that project today; <a href="https://github.com/ymoraviadev-droid/bleepforge#roadmap">generic-for-any-Godot-project</a> is the long-term direction.</p>
