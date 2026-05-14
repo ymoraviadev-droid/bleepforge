@@ -52,5 +52,12 @@
     "createStartMenuShortcut": true,
     "shortcutName": "Bleepforge",
     "uninstallDisplayName": "Bleepforge ${version}"
-  }
+  },
+  "publish": [
+    {
+      "provider": "github",
+      "owner": "ymoraviadev-droid",
+      "repo": "bleepforge"
+    }
+  ]
 }

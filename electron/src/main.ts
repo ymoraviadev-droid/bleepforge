@@ -23,6 +23,7 @@
 // windows show only the WM's native title bar / close-min-max controls.
 
 import { BrowserWindow, Menu, app, dialog, ipcMain, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -368,6 +369,8 @@ app.whenReady().then(async () => {
     throw err;
   }
 
+  wireAutoUpdater();
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
   });
@@ -410,3 +413,77 @@ ipcMain.handle("dialog:pick-godot-folder", async (event) => {
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") app.quit();
 });
+
+// Auto-update wiring (v0.2.4, Phase 1 — events only, no UI yet).
+//
+// electron-updater pulls release metadata from GitHub Releases via the
+// `publish` config in electron-builder.json. electron-builder generates
+// `latest.yml` (Windows) and `latest-linux.yml` (Linux) alongside each
+// installer; the updater reads those to decide whether to download.
+//
+// Dev mode is skipped: there's no `app-update.yml` inside an unpackaged
+// build, so the updater would just error out with "Cannot find app-update.yml".
+// Same for non-packaged runs (`pnpm start` on the built dist).
+//
+// Windows binaries are unsigned. Auto-update still works, but each update
+// install triggers a fresh SmartScreen warning the user has to click
+// through — accepted UX cost per the no-paid-services constraint.
+function wireAutoUpdater(): void {
+  if (isDev || !app.isPackaged) return;
+
+  autoUpdater.logger = {
+    info: (msg: unknown) => {
+      const s = String(msg);
+      console.log(`[bleepforge/updater] ${s}`);
+      bootLog(`updater: ${s}`);
+    },
+    warn: (msg: unknown) => {
+      const s = String(msg);
+      console.warn(`[bleepforge/updater] ${s}`);
+      bootLog(`updater warn: ${s}`);
+    },
+    error: (msg: unknown) => {
+      const s = msg instanceof Error ? `${msg.message}\n${msg.stack ?? ""}` : String(msg);
+      console.error(`[bleepforge/updater] ${s}`);
+      bootLog(`updater error: ${s}`);
+    },
+    debug: (msg: unknown) => {
+      console.debug(`[bleepforge/updater] ${String(msg)}`);
+    },
+  };
+
+  autoUpdater.on("checking-for-update", () => {
+    bootLog("updater: checking for update");
+  });
+  autoUpdater.on("update-available", (info) => {
+    bootLog(`updater: update available — v${info.version}`);
+  });
+  autoUpdater.on("update-not-available", (info) => {
+    bootLog(`updater: no update available (current v${info.version})`);
+  });
+  autoUpdater.on("error", (err) => {
+    bootLog(`updater: ERROR — ${err.message}`);
+  });
+  autoUpdater.on("download-progress", (progress) => {
+    bootLog(
+      `updater: downloading ${progress.percent.toFixed(1)}% ` +
+        `(${Math.round(progress.bytesPerSecond / 1024)} KB/s)`,
+    );
+  });
+  autoUpdater.on("update-downloaded", (info) => {
+    bootLog(
+      `updater: update downloaded — v${info.version}, ready to install on quit`,
+    );
+  });
+
+  // Defer the initial check so it doesn't race with the server boot or
+  // first-paint of the splash. The user won't notice the 5s delay — by
+  // then they're still reading the splash flavor lines.
+  setTimeout(() => {
+    autoUpdater.checkForUpdates().catch((err) => {
+      bootLog(
+        `updater: checkForUpdates threw — ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
+  }, 5_000);
+}
