@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { Router } from "express";
 import { config } from "../../config.js";
+import { resolveContentPath } from "../assets/pathScheme.js";
 
 export const assetRouter: Router = Router();
 
@@ -31,6 +32,11 @@ function isUnder(absolute: string, root: string): boolean {
   const rel = path.relative(root, absolute);
   return !rel.startsWith("..") && !path.isAbsolute(rel);
 }
+
+// Resolve via the shared pathScheme helper — supports `content://` (v0.2.6
+// phase 5) plus plain absolute paths. Returns null when a content:// path
+// is supplied but no content root is configured.
+const resolveAssetPath = resolveContentPath;
 
 assetRouter.get("/browse", async (req, res) => {
   const requestedDir = req.query.dir ? String(req.query.dir) : config.assetRoot;
@@ -88,7 +94,11 @@ assetRouter.get("/", (req, res) => {
     res.status(400).json({ error: "path query param required" });
     return;
   }
-  const resolved = path.resolve(requested);
+  const resolved = resolveAssetPath(requested);
+  if (!resolved) {
+    res.status(503).json({ error: "no content root for content:// path" });
+    return;
+  }
   if (!ensureUnderRoot(resolved)) {
     res.status(403).json({ error: `path outside allowed roots` });
     return;

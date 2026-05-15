@@ -26,6 +26,7 @@ import path from "node:path";
 import { Router } from "express";
 
 import { config } from "../../config.js";
+import { toPortablePath } from "./pathScheme.js";
 import { getImage, lastRebuiltAtIso, listImages } from "./cache.js";
 import { subscribeAssetEvents } from "./eventBus.js";
 import { countAllUsages, findUsages } from "./usages.js";
@@ -248,9 +249,17 @@ assetsRouter.post("/import", async (req, res) => {
   // The watcher will pick this up on its own and refresh the asset cache;
   // we don't need to upsert here. The client already knows to wait for the
   // SSE event before reading back.
+  //
+  // In notebook mode the returned path uses the portable content://
+  // scheme so JSON-callers store a portable reference instead of an
+  // absolute fs path. Sync mode keeps returning the absolute path —
+  // existing FoB data lives on absolute paths and the assets pipeline
+  // resolves those fine.
+  const portable = toPortablePath(targetPath);
   res.json({
     ok: true,
-    path: targetPath,
+    path: portable,
+    absolutePath: targetPath,
     sizeBytes: bytes.byteLength,
     overwritten: overwrite,
   });

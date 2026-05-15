@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
 
+import { Button } from "../../components/Button";
 import { showConfirm } from "../../components/Modal";
 import { PixelSkeleton } from "../../components/PixelSkeleton";
-import { projectsApi, type ProjectsList } from "../../lib/api";
+import {
+  projectsApi,
+  type CreateProjectResult,
+  type ProjectsList,
+} from "../../lib/api";
 import { isElectron, restartApp } from "../../lib/electron";
+import { NewProjectModal } from "./NewProjectModal";
 import { ProjectCard } from "./ProjectCard";
 
 // /projects — the multi-project management surface. Lists every
@@ -20,6 +26,7 @@ export function ProjectsPage() {
   const [error, setError] = useState<string | null>(null);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
   const [restartPending, setRestartPending] = useState<string | null>(null);
+  const [showNewModal, setShowNewModal] = useState(false);
 
   async function refresh(): Promise<void> {
     try {
@@ -79,6 +86,28 @@ export function ProjectsPage() {
     }
   }
 
+  async function handleCreated(result: CreateProjectResult): Promise<void> {
+    setShowNewModal(false);
+    await refresh();
+    if (!result.restartRequired) return;
+    const electronMode = isElectron();
+    const ok = await showConfirm({
+      title: `Created "${result.project.displayName}"`,
+      message: electronMode
+        ? `It's now the active project. Restart Bleepforge to load it?`
+        : `It's now the active project on disk. Restart your dev server (\`pnpm dev\`) to load it.`,
+      confirmLabel: electronMode ? "Restart now" : "OK",
+      cancelLabel: electronMode ? "Later" : "Cancel",
+      danger: false,
+    });
+    if (!ok) return;
+    if (electronMode) {
+      await restartApp();
+    } else {
+      setRestartPending(result.project.displayName);
+    }
+  }
+
   if (error) {
     return (
       <div className="space-y-3">
@@ -103,12 +132,21 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <h1 className="font-display text-lg tracking-wider">Projects</h1>
-        <p className="text-xs text-neutral-500">
-          One Bleepforge install can hold many projects. Switching restarts the
-          app so the new project's paths apply cleanly.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <h1 className="font-display text-lg tracking-wider">Projects</h1>
+          <p className="text-xs text-neutral-500">
+            One Bleepforge install can hold many projects. Switching restarts
+            the app so the new project's paths apply cleanly.
+          </p>
+        </div>
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => setShowNewModal(true)}
+        >
+          + New project
+        </Button>
       </div>
 
       {restartPending && (
@@ -154,6 +192,13 @@ export function ProjectsPage() {
         Bleepforge root:{" "}
         <span className="text-neutral-300">{data.bleepforgeRoot}</span>
       </div>
+
+      {showNewModal && (
+        <NewProjectModal
+          onClose={() => setShowNewModal(false)}
+          onCreated={handleCreated}
+        />
+      )}
     </div>
   );
 }

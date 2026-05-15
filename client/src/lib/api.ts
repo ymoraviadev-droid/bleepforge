@@ -212,10 +212,39 @@ export interface SetActiveResult {
   noop: boolean;
 }
 
+export interface CreateProjectBody {
+  displayName: string;
+  mode: "sync" | "notebook";
+  /** Sync-mode only (phase 6+). */
+  godotProjectRoot?: string;
+  /** Defaults to true on the server — new project becomes active. Pass
+   *  false explicitly to create without flipping the active pointer. */
+  setActive?: boolean;
+}
+
+export interface CreateProjectResult {
+  ok: boolean;
+  project: Project;
+  activeSlug: string | null;
+  restartRequired: boolean;
+}
+
 export const projectsApi = {
   list: async (): Promise<ProjectsList> => {
     const r = await fetch("/api/projects");
     if (!r.ok) throw new Error(`list projects failed: ${r.status}`);
+    return r.json();
+  },
+  create: async (body: CreateProjectBody): Promise<CreateProjectResult> => {
+    const r = await fetch("/api/projects", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      throw new Error(`create project failed: ${r.status} ${detail}`);
+    }
     return r.json();
   },
   setActive: async (slug: string): Promise<SetActiveResult> => {
