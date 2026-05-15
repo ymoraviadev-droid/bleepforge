@@ -21,7 +21,7 @@
       "filter": ["**/*"]
     },
     {
-      "from": "../data/help",
+      "from": "../projects/flock-of-bleeps/data/help",
       "to": "seed/help",
       "filter": ["**/*"]
     },
