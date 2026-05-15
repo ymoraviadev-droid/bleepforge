@@ -40,7 +40,7 @@ import {
   type DialogLayout,
   type EdgeStyle,
 } from "../../lib/api";
-import { useDialogs, useNpcs } from "../../lib/stores";
+import { dialogStore, useDialogs, useNpcs } from "../../lib/stores";
 import { AssetThumb } from "../../components/AssetThumb";
 import { ButtonLink } from "../../components/Button";
 import { showConfirm, showPrompt } from "../../components/Modal";
@@ -50,6 +50,7 @@ import { useThemeColors, type ThemeColors } from "../../styles/themeColors";
 import { GRAPH_LIST_OPTIONS, ViewToggle } from "../../components/ViewToggle";
 import { PixelSkeleton } from "../../components/PixelSkeleton";
 import { FolderTabs } from "./FolderTabs";
+import { getDialogLayout, setDialogLayout } from "./layoutCache";
 import { SourceFilter, useDialogSourceFilter } from "./SourceFilter";
 
 type SeqNodeData = {
@@ -1023,10 +1024,8 @@ function DialogGraphInner() {
     }
     return m;
   }, [dialogGroups]);
-  const [seqs, setSeqs] = useState<DialogSequence[] | null>(null);
   const { data: npcsData } = useNpcs();
   const npcs = npcsData ?? [];
-  const [layout, setLayout] = useState<DialogLayout>(emptyLayout());
   const [nodes, setNodes, onNodesChange] = useNodesState<SeqNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<ChoiceEdge>([]);
   const [error, setError] = useState<string | null>(null);
@@ -1036,13 +1035,52 @@ function DialogGraphInner() {
   const { theme } = useTheme();
   const themeColors = useThemeColors();
 
+  const folderParam = searchParams.get("folder");
+  const folder = folderParam ?? folders?.[0] ?? null;
+
+  // Sequences derive from the dialog store — instant on every revisit,
+  // no per-mount fetch. `null` only during the first catalog boot.
+  // Folder exists but empty → []; folder loaded with content → array.
+  const seqs = useMemo<DialogSequence[] | null>(() => {
+    if (!folder) return [];
+    if (!dialogGroups) return null;
+    const found = dialogGroups.find((g) => g.folder === folder);
+    return found ? found.sequences : [];
+  }, [dialogGroups, folder]);
+
   const seqsRef = useRef<DialogSequence[]>([]);
   useEffect(() => {
     seqsRef.current = seqs ?? [];
   }, [seqs]);
 
-  const folderParam = searchParams.get("folder");
-  const folder = folderParam ?? folders?.[0] ?? null;
+  // Layout lives outside the dialog store — it's authored separately
+  // (drag-stop / edge-style only touch _layout.json, never .tres). A
+  // small per-folder cache keeps revisits to the same folder instant.
+  // Initial value is seeded from the cache so revisiting a folder mid-
+  // session lands without a fetch flash.
+  const [layout, setLayoutState] = useState<DialogLayout>(
+    () => (folder ? getDialogLayout(folder) : null) ?? emptyLayout(),
+  );
+  // Tracks which folder the current `layout` actually belongs to. The
+  // graph render gates on this matching `folder` so we never render
+  // with stale-folder layout while a new folder's fetch is in flight.
+  const [loadedLayoutFolder, setLoadedLayoutFolder] = useState<string | null>(
+    () => (folder && getDialogLayout(folder) ? folder : null),
+  );
+  // Single layout setter — keeps the in-memory cache in lockstep with
+  // local state so the next mount sees the latest. Wraps every
+  // setLayout call site below.
+  const setLayout = useCallback(
+    (next: DialogLayout, forFolder?: string) => {
+      const targetFolder = forFolder ?? folder;
+      setLayoutState(next);
+      if (targetFolder) {
+        setDialogLayout(targetFolder, next);
+        setLoadedLayoutFolder(targetFolder);
+      }
+    },
+    [folder],
+  );
 
   // Restore the last-selected folder when the URL doesn't carry ?folder=
   // (e.g. arriving via the header nav). Wins only when there's no URL param
@@ -1096,18 +1134,29 @@ function DialogGraphInner() {
 
   useEffect(() => {
     if (!folder) {
-      setSeqs([]);
-      setLayout(emptyLayout());
+      setLayoutState(emptyLayout());
+      setLoadedLayoutFolder(null);
       return;
     }
-    setSeqs(null);
-    Promise.all([
-      dialogsApi.listInFolder(folder),
-      dialogsApi.getLayout(folder),
-    ])
-      .then(([s, l]) => {
-        setSeqs(s);
-        setLayout(l);
+    // Try the cache first — survives unmount-remount so revisiting a
+    // folder mid-session lands instantly.
+    const cached = getDialogLayout(folder);
+    if (cached) {
+      setLayoutState(cached);
+      setLoadedLayoutFolder(folder);
+      return;
+    }
+    // Fall through to fetch. Clear stale layout so the graph doesn't
+    // render with the prior folder's positions during the in-flight
+    // window (the render gate also catches this via loadedLayoutFolder).
+    setLayoutState(emptyLayout());
+    setLoadedLayoutFolder(null);
+    dialogsApi
+      .getLayout(folder)
+      .then((l) => {
+        setDialogLayout(folder, l);
+        setLayoutState(l);
+        setLoadedLayoutFolder(folder);
       })
       .catch((e) => setError(String(e)));
   }, [folder]);
@@ -1238,23 +1287,18 @@ function DialogGraphInner() {
     [folder],
   );
 
+  // Post-save data refresh. After local code saves a sequence
+  // (appendChoice, drag-to-empty, delete), it awaits this to make
+  // sure seqs reflects the new on-disk state before continuing.
+  // The store's auto-refresh on `refreshCatalog()` fires
+  // asynchronously, so we explicitly await the store here.
+  // External (Godot-side) changes don't need a separate listener:
+  // the dialog SSE event hits the catalog-bus, which refreshes the
+  // store, which re-runs the seqs useMemo.
   const refetch = useCallback(async () => {
     if (!folder) return;
-    const fresh = await dialogsApi.listInFolder(folder);
-    setSeqs(fresh);
+    await dialogStore.refresh();
   }, [folder]);
-
-  // Live-refresh on any dialog change in the current folder (e.g. saved
-  // in Godot while the graph is open).
-  useSyncRefresh({
-    domain: "dialog",
-    onChange: (e) => {
-      if (!folder) return;
-      const [eventFolder] = e.key.split("/");
-      if (eventFolder !== folder) return;
-      void refetch();
-    },
-  });
 
   const onNodeDragStop = useCallback(
     (_e: React.MouseEvent, node: SeqNode) => {
@@ -1718,7 +1762,12 @@ function DialogGraphInner() {
           </Link>
           .
         </div>
-      ) : seqs === null ? (
+      ) : seqs === null || loadedLayoutFolder !== folder ? (
+        // seqs is null only while the dialog store is still loading at
+        // app boot. loadedLayoutFolder !== folder catches the first
+        // visit per folder (no cached layout yet) — revisits in the
+        // same session hit the layout cache synchronously and skip
+        // this skeleton entirely.
         <div className="text-neutral-500">Loading sequences…</div>
       ) : seqs.length === 0 ? (
         <div className="rounded border border-neutral-800 p-8 text-center text-neutral-500">
