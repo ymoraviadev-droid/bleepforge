@@ -48,7 +48,7 @@ import type { ShaderAsset } from "./types.js";
 export const shadersRouter: Router = Router();
 
 shadersRouter.get("/", async (_req, res) => {
-  if (!config.godotProjectRoot) {
+  if (!config.contentRoot) {
     res.json({ shaders: [] });
     return;
   }
@@ -58,7 +58,7 @@ shadersRouter.get("/", async (_req, res) => {
     // fall-through keeps the endpoint useful during the boot window.
     let shaders = listShaders();
     if (shaders.length === 0) {
-      shaders = await discoverShaders(config.godotProjectRoot);
+      shaders = await discoverShaders(config.contentRoot);
     }
     shaders.sort(
       (a, b) =>
@@ -74,8 +74,8 @@ shadersRouter.get("/", async (_req, res) => {
 });
 
 shadersRouter.get("/file", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
   const requested = String(req.query.path ?? "");
@@ -84,13 +84,13 @@ shadersRouter.get("/file", async (req, res) => {
     return;
   }
   const resolved = path.resolve(requested);
-  const rel = path.relative(config.godotProjectRoot, resolved);
-  // Defense in depth — refuse paths outside the Godot project root. Same
+  const rel = path.relative(config.contentRoot, resolved);
+  // Defense in depth — refuse paths outside the content root. Same
   // pattern every other file-touching endpoint uses.
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
     res
       .status(403)
-      .json({ error: "path must be inside the Godot project root" });
+      .json({ error: "path must be inside the project content root" });
     return;
   }
   if (!resolved.endsWith(".gdshader")) {
@@ -109,13 +109,13 @@ shadersRouter.get("/file", async (req, res) => {
     res.status(500).json({ error: `read failed: ${(err as Error).message}` });
     return;
   }
-  const asset = await summarizeShader(resolved, config.godotProjectRoot);
+  const asset = await summarizeShader(resolved, config.contentRoot);
   res.json({ asset, source });
 });
 
 shadersRouter.get("/usages", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
   const requested = String(req.query.path ?? "");
@@ -124,7 +124,7 @@ shadersRouter.get("/usages", async (req, res) => {
     return;
   }
   const resolved = path.resolve(requested);
-  const asset = await summarizeShader(resolved, config.godotProjectRoot);
+  const asset = await summarizeShader(resolved, config.contentRoot);
   if (!asset) {
     // Fall back to a synthetic descriptor so the request still completes
     // for a path we couldn't summarize (file gone, malformed, etc.).
@@ -151,7 +151,7 @@ shadersRouter.get("/usages", async (req, res) => {
 });
 
 shadersRouter.get("/usage-counts", async (_req, res) => {
-  if (!config.godotProjectRoot) {
+  if (!config.contentRoot) {
     res.json({ counts: {} });
     return;
   }
@@ -159,7 +159,7 @@ shadersRouter.get("/usage-counts", async (_req, res) => {
     // Same cache-first / walk-fallback pattern as the list endpoint.
     let shaders = listShaders();
     if (shaders.length === 0) {
-      shaders = await discoverShaders(config.godotProjectRoot);
+      shaders = await discoverShaders(config.contentRoot);
     }
     const counts = await countAllShaderUsages(
       shaders.map((s) => ({ path: s.path, uid: s.uid })),
@@ -205,7 +205,7 @@ shadersRouter.get("/events", (req, res) => {
 
 interface SaveBody {
   /** Absolute filesystem path to the .gdshader being saved. Must be inside
-   *  the Godot project root and end in .gdshader. */
+   *  the content root and end in .gdshader. */
   path: string;
   /** New source text. Stored verbatim — no syntax validation server-side;
    *  Godot reports compile errors when it reloads the shader. */
@@ -217,8 +217,8 @@ interface SaveBody {
 // the fresh descriptor so the client can update its local copy without a
 // round-trip GET.
 shadersRouter.put("/file", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
   const body = req.body as Partial<SaveBody> | undefined;
@@ -233,11 +233,11 @@ shadersRouter.put("/file", async (req, res) => {
     return;
   }
   const resolved = path.resolve(requested);
-  const rel = path.relative(config.godotProjectRoot, resolved);
+  const rel = path.relative(config.contentRoot, resolved);
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
     res
       .status(403)
-      .json({ error: "path must be inside the Godot project root" });
+      .json({ error: "path must be inside the project content root" });
     return;
   }
   if (!resolved.endsWith(".gdshader")) {
@@ -282,7 +282,7 @@ shadersRouter.put("/file", async (req, res) => {
     return;
   }
 
-  const asset = await summarizeShader(resolved, config.godotProjectRoot);
+  const asset = await summarizeShader(resolved, config.contentRoot);
   recordSave({
     ts: new Date().toISOString(),
     direction: "outgoing",
@@ -297,8 +297,8 @@ shadersRouter.put("/file", async (req, res) => {
 });
 
 interface NewBody {
-  /** Target directory (absolute or godot-root-relative). Must be inside
-   *  the Godot project root. */
+  /** Target directory (absolute or content-root-relative). Must be inside
+   *  the content root. */
   targetDir: string;
   /** Filename — basename only. `.gdshader` extension is appended if
    *  missing so the user doesn't have to type it. */
@@ -318,8 +318,8 @@ const NEW_SHADER_TEMPLATES: Record<NonNullable<NewBody["shaderType"]>, string> =
 };
 
 shadersRouter.post("/new", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
   const body = req.body as Partial<NewBody> | undefined;
@@ -343,12 +343,12 @@ shadersRouter.post("/new", async (req, res) => {
     res.status(400).json({ error: `unsupported shaderType: ${shaderType}` });
     return;
   }
-  const resolvedDir = path.resolve(config.godotProjectRoot, targetDir);
-  const relDir = path.relative(config.godotProjectRoot, resolvedDir);
+  const resolvedDir = path.resolve(config.contentRoot, targetDir);
+  const relDir = path.relative(config.contentRoot, resolvedDir);
   if (relDir.startsWith("..") || path.isAbsolute(relDir)) {
     res
       .status(403)
-      .json({ error: "targetDir must be inside the Godot project root" });
+      .json({ error: "targetDir must be inside the project content root" });
     return;
   }
   let stat;
@@ -407,10 +407,10 @@ shadersRouter.post("/new", async (req, res) => {
   // Edit. Persisted to data/shaders/_meta.json keyed by project-relative
   // path; summarizeShader picks it up automatically.
   const newPattern = randomShaderPattern();
-  const relPath = path.relative(config.godotProjectRoot, targetPath);
+  const relPath = path.relative(config.contentRoot, targetPath);
   setShaderPattern(relPath, newPattern);
 
-  const asset = await summarizeShader(targetPath, config.godotProjectRoot);
+  const asset = await summarizeShader(targetPath, config.contentRoot);
   recordSave({
     ts: new Date().toISOString(),
     direction: "outgoing",
@@ -431,8 +431,8 @@ shadersRouter.post("/new", async (req, res) => {
 // the shader_type tint). Triggers a cache upsert + ShaderEvent so other
 // open windows refresh.
 shadersRouter.put("/meta", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
   const body = req.body as
@@ -482,9 +482,9 @@ shadersRouter.put("/meta", async (req, res) => {
     return;
   }
   const resolved = path.resolve(body.path);
-  const rel = path.relative(config.godotProjectRoot, resolved);
+  const rel = path.relative(config.contentRoot, resolved);
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
-    res.status(403).json({ error: "path must be inside the Godot project root" });
+    res.status(403).json({ error: "path must be inside the project content root" });
     return;
   }
   if (pattern !== undefined) setShaderPattern(rel, pattern);
@@ -496,8 +496,8 @@ shadersRouter.put("/meta", async (req, res) => {
 });
 
 shadersRouter.delete("/file", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
   const requested = String(req.query.path ?? "");
@@ -506,11 +506,11 @@ shadersRouter.delete("/file", async (req, res) => {
     return;
   }
   const resolved = path.resolve(requested);
-  const rel = path.relative(config.godotProjectRoot, resolved);
+  const rel = path.relative(config.contentRoot, resolved);
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
     res
       .status(403)
-      .json({ error: "path must be inside the Godot project root" });
+      .json({ error: "path must be inside the project content root" });
     return;
   }
   if (!resolved.endsWith(".gdshader")) {

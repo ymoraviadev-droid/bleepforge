@@ -22,8 +22,8 @@ const recent = new Map<string, number>();
  *  travels alongside it in SaveEvent.path; the route builder uses the
  *  latter to construct the /shaders/edit?path=... link. */
 export function shaderSaveKey(absPath: string): string {
-  if (!config.godotProjectRoot) return path.basename(absPath);
-  const rel = path.relative(config.godotProjectRoot, absPath);
+  if (!config.contentRoot) return path.basename(absPath);
+  const rel = path.relative(config.contentRoot, absPath);
   if (rel.startsWith("..") || path.isAbsolute(rel)) return path.basename(absPath);
   return rel;
 }

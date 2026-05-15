@@ -41,6 +41,7 @@ export interface ProcessInfo {
   uptimeMs: number;
   dataRoot: string;
   assetRoot: string;
+  contentRoot: string | null;
   godotProjectRoot: string | null;
   godotProjectRootSource: "project" | "env" | null;
   bleepforgeRoot: string;
@@ -60,6 +61,7 @@ processRouter.get("/", async (_req, res) => {
     uptimeMs: Date.now() - startedAtMs,
     dataRoot: config.dataRoot,
     assetRoot: config.assetRoot,
+    contentRoot: config.contentRoot,
     godotProjectRoot: config.godotProjectRoot,
     godotProjectRootSource: config.godotProjectRootSource,
     bleepforgeRoot: config.bleepforgeRoot,

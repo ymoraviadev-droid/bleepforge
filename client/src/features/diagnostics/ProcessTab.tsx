@@ -56,6 +56,7 @@ export function ProcessTab() {
         />
         <Row label="Data root" value={info.dataRoot} mono />
         <Row label="Asset root" value={info.assetRoot} mono />
+        <Row label="Content root" value={info.contentRoot ?? "(none)"} mono />
         <Row
           label="Godot root"
           value={

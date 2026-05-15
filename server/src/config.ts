@@ -98,6 +98,19 @@ export const config = {
    *  project is active (limp mode). */
   dataRoot,
   assetRoot,
+  /** Where the active project's raw asset + shader files live —
+   *  anchor for the image gallery, shader gallery, AssetPicker browse,
+   *  and any path-safety check on user-authored file writes.
+   *
+   *  Sync mode: equals godotProjectRoot (the Godot project tree IS the
+   *  content root — assets and shaders live among the .tres files).
+   *
+   *  Notebook mode (phase 5+): the project's own content/ dir, decoupled
+   *  from any Godot tree. Phase 2 introduces this alias; phase 5 makes
+   *  it diverge from godotProjectRoot.
+   *
+   *  Null when no project is configured (truly-fresh install, limp mode). */
+  contentRoot: resolved.path,
   godotProjectRoot: resolved.path,
   godotProjectRootSource: resolved.source,
   port: Number(process.env.PORT ?? 4000),

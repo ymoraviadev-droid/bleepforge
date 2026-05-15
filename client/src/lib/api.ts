@@ -267,6 +267,7 @@ export interface ProcessInfo {
   uptimeMs: number;
   dataRoot: string;
   assetRoot: string;
+  contentRoot: string | null;
   godotProjectRoot: string | null;
   godotProjectRootSource: "project" | "env" | null;
   bleepforgeRoot: string;

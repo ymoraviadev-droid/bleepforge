@@ -17,9 +17,11 @@ const IMAGE_EXTS = new Set([
 
 function ensureUnderRoot(absolute: string): string | null {
   if (isUnder(absolute, config.assetRoot)) return absolute;
-  // Also allow paths under the configured Godot project root so atlas
-  // textures referenced by item .tres files can be served.
-  if (config.godotProjectRoot && isUnder(absolute, config.godotProjectRoot)) {
+  // Also allow paths under the active project's content root so images
+  // and atlas textures referenced by .tres files are servable. In sync
+  // mode this is the Godot project tree; in notebook mode (phase 5+)
+  // it's the Bleepforge project's own content/ dir.
+  if (config.contentRoot && isUnder(absolute, config.contentRoot)) {
     return absolute;
   }
   return null;

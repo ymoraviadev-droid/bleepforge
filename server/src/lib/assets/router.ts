@@ -4,10 +4,15 @@
 //   GET    /api/assets/usages?path=...  reverse-lookup references for one image
 //   GET    /api/assets/usage-counts     per-image "used by N" map for the gallery
 //   GET    /api/assets/events           SSE stream of asset add/change/remove
-//   POST   /api/assets/import           write a new image into the Godot project
-//   GET    /api/assets/folders          list directories inside the Godot project
-//   POST   /api/assets/folders          create a directory under godot project root
+//   POST   /api/assets/import           write a new image into the project
+//   GET    /api/assets/folders          list directories inside the content root
+//   POST   /api/assets/folders          create a directory under the content root
 //   DELETE /api/assets/file?path=...    remove a .png + its .png.import sidecar
+//
+// Anchored on config.contentRoot — the project's raw asset tree. In sync
+// mode that's the Godot project (assets live among the .tres files); in
+// notebook mode (phase 5+) it's the project's own content/ dir. Path
+// safety checks all run through path.relative + relative-escape detect.
 //
 // The gallery refetches the full image list on entry and listens to the
 // SSE stream for live deltas. Usages are computed on demand (per-asset
@@ -121,7 +126,7 @@ const IMPORT_EXTS = new Set([
 ]);
 
 interface ImportBody {
-  /** Absolute or godot-root-relative target directory under godotProjectRoot. */
+  /** Absolute or content-root-relative target directory under contentRoot. */
   targetDir: string;
   /** Filename including extension. Must be a basename (no slashes). */
   filename: string;
@@ -132,8 +137,8 @@ interface ImportBody {
 }
 
 assetsRouter.post("/import", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
   const body = req.body as Partial<ImportBody> | undefined;
@@ -165,15 +170,15 @@ assetsRouter.post("/import", async (req, res) => {
     return;
   }
 
-  // Resolve the target directory and confirm it sits under godotProjectRoot.
+  // Resolve the target directory and confirm it sits under contentRoot.
   // Defense in depth — even if a caller crafts a path containing `..`,
   // path.resolve normalizes it and the relative check below catches escape.
-  const resolvedDir = path.resolve(config.godotProjectRoot, targetDir);
-  const rel = path.relative(config.godotProjectRoot, resolvedDir);
+  const resolvedDir = path.resolve(config.contentRoot, targetDir);
+  const rel = path.relative(config.contentRoot, resolvedDir);
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
     res
       .status(403)
-      .json({ error: "targetDir must be inside the Godot project root" });
+      .json({ error: "targetDir must be inside the project content root" });
     return;
   }
 
@@ -254,12 +259,12 @@ assetsRouter.post("/import", async (req, res) => {
 // Delete an image file plus its .png.import (or equivalent) sidecar.
 // Without removing the sidecar Godot errors on next focus saying the
 // imported source is missing, so we always pair the two. Refuses any
-// path outside godotProjectRoot — defense in depth against a malicious
-// or buggy client. Returns a list of paths actually removed so the UI
-// can show what happened.
+// path outside contentRoot — defense in depth against a malicious or
+// buggy client. Returns a list of paths actually removed so the UI can
+// show what happened.
 assetsRouter.delete("/file", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
   const requested = String(req.query.path ?? "");
@@ -268,11 +273,11 @@ assetsRouter.delete("/file", async (req, res) => {
     return;
   }
   const resolved = path.resolve(requested);
-  const rel = path.relative(config.godotProjectRoot, resolved);
+  const rel = path.relative(config.contentRoot, resolved);
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
     res
       .status(403)
-      .json({ error: "path must be inside the Godot project root" });
+      .json({ error: "path must be inside the project content root" });
     return;
   }
   const removed: string[] = [];
@@ -310,17 +315,16 @@ assetsRouter.delete("/file", async (req, res) => {
   res.json({ ok: true, removed });
 });
 
-// Create a new directory inside the Godot project root. Used by the
-// folder picker's "+ New folder" affordance so the user can save into
-// a fresh subfolder without leaving the editor.
+// Create a new directory inside the content root. Used by the folder
+// picker's "+ New folder" affordance so the user can save into a fresh
+// subfolder without leaving the editor.
 //
 // Defense in depth same as the rest: parentDir resolved + checked
-// against godotProjectRoot; name must be a basename (no slashes, no
-// "..", no leading dots) so callers can't traverse up via the name
-// argument.
+// against contentRoot; name must be a basename (no slashes, no "..",
+// no leading dots) so callers can't traverse up via the name argument.
 assetsRouter.post("/folders", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
   const body = req.body as
@@ -348,12 +352,12 @@ assetsRouter.post("/folders", async (req, res) => {
     });
     return;
   }
-  const resolvedParent = path.resolve(config.godotProjectRoot, parentDir);
-  const rel = path.relative(config.godotProjectRoot, resolvedParent);
+  const resolvedParent = path.resolve(config.contentRoot, parentDir);
+  const rel = path.relative(config.contentRoot, resolvedParent);
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
     res
       .status(403)
-      .json({ error: "parentDir must be inside the Godot project root" });
+      .json({ error: "parentDir must be inside the project content root" });
     return;
   }
   // Parent must already exist + be a directory.
@@ -389,20 +393,20 @@ assetsRouter.post("/folders", async (req, res) => {
 });
 
 // Folder picker — used by the importer to pick a destination inside the
-// Godot project. Lists subdirectories of a given dir; refuses anything
-// outside godotProjectRoot. The .godot cache and dot-dirs are filtered
-// since they're never valid drop targets.
+// project. Lists subdirectories of a given dir; refuses anything outside
+// contentRoot. The .godot cache and dot-dirs are filtered since they're
+// never valid drop targets.
 assetsRouter.get("/folders", async (req, res) => {
-  if (!config.godotProjectRoot) {
-    res.status(503).json({ error: "godotProjectRoot not configured" });
+  if (!config.contentRoot) {
+    res.status(503).json({ error: "no project content root configured" });
     return;
   }
-  const root = config.godotProjectRoot;
+  const root = config.contentRoot;
   const requestedDir = req.query.dir ? String(req.query.dir) : root;
   const resolved = path.resolve(requestedDir);
   const rel = path.relative(root, resolved);
   if (rel.startsWith("..") || path.isAbsolute(rel)) {
-    res.status(403).json({ error: "dir must be inside the Godot project root" });
+    res.status(403).json({ error: "dir must be inside the project content root" });
     return;
   }
   let entries;

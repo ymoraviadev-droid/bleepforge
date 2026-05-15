@@ -1,8 +1,11 @@
-// In-memory cache of every discovered .gdshader under the Godot project.
-// Built once at server boot via `rebuildShaderCache()`, kept fresh by the
-// watcher (single-file upsert / remove). Lookups go through here so the
-// list endpoint stays sub-millisecond once the cache is warm and the
-// SSE stream has a stable source to compare against.
+// In-memory cache of every discovered .gdshader under the active project's
+// content root. Built once at server boot via `rebuildShaderCache()`, kept
+// fresh by the watcher (single-file upsert / remove). Lookups go through
+// here so the list endpoint stays sub-millisecond once the cache is warm
+// and the SSE stream has a stable source to compare against.
+//
+// In sync mode contentRoot is the Godot project tree; in notebook mode
+// (phase 5+) it's the Bleepforge project's own content/ dir.
 //
 // Same shape as lib/assets/cache.ts; corpus today is tiny (single-digit
 // shaders) so the full-rewalk fallback is essentially free, but the cache
@@ -19,12 +22,12 @@ let rebuildPromise: Promise<void> | null = null;
 
 export async function rebuildShaderCache(): Promise<void> {
   if (rebuildPromise) return rebuildPromise;
-  if (!config.godotProjectRoot) {
+  if (!config.contentRoot) {
     cache.clear();
     return;
   }
   rebuildPromise = (async () => {
-    const root = config.godotProjectRoot!;
+    const root = config.contentRoot!;
     const t0 = Date.now();
     try {
       const all = await discoverShaders(root);
@@ -58,9 +61,9 @@ export function lastRebuiltAtIso(): string | null {
 }
 
 export async function upsertShader(absPath: string): Promise<ShaderAsset | null> {
-  if (!config.godotProjectRoot) return null;
+  if (!config.contentRoot) return null;
   if (!absPath.endsWith(".gdshader")) return null;
-  const summary = await summarizeShader(absPath, config.godotProjectRoot);
+  const summary = await summarizeShader(absPath, config.contentRoot);
   if (summary) cache.set(absPath, summary);
   return summary;
 }
