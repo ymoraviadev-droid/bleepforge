@@ -37,6 +37,7 @@ import "./styles/Theme"; // applies saved theme on load (sets data-theme on <htm
 import "./styles/Font"; // applies saved font + UI scale + letter spacing
 import "./styles/GlobalTheme"; // reconciles legacy keys → server-backed preferences
 import "./styles/index.css";
+import { prefetchAssetMtimes, wireAssetMtimeCache } from "./lib/assets/mtimeCache";
 import { closeAssetStream, startAssetStream } from "./lib/assets/stream";
 import { closeSavesStream, startSavesStream } from "./lib/saves/stream";
 import { closeShaderStream, startShaderStream } from "./lib/shaders/stream";
@@ -93,6 +94,18 @@ startAssetStream();
 // Fourth channel — .gdshader add/change/remove for the shader gallery
 // + edit page (external-edit banner).
 startShaderStream();
+
+// Subscribe the asset-mtime cache to image add/change/remove events so
+// the `?v=<mtime>` cache-buster URLs flip whenever a file changes.
+// Must wire before the prefetch resolves so we don't drop events
+// arriving during the brief window.
+wireAssetMtimeCache();
+// Populate the mtime cache from the asset descriptor list so every
+// asset URL rendered after this resolves gets the cache-buster param
+// and the browser's HTTP cache kicks in. Fire-and-forget — the
+// listImages call is ~one fetch of ~20KB; if it fails the URL helpers
+// fall back to the legacy no-cache shape.
+void prefetchAssetMtimes();
 
 // Wire the domain stores to their three update channels:
 //   - catalog-bus (manual all-refresh)

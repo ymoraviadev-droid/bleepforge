@@ -91,7 +91,23 @@ assetRouter.get("/", (req, res) => {
     res.status(403).json({ error: `path outside allowed roots` });
     return;
   }
-  res.set("Cache-Control", "no-cache, must-revalidate");
+  // Cache strategy: when the URL carries a `v` query param (any value),
+  // the client has staked a claim that this URL maps to a specific
+  // snapshot of bytes — by convention, the file's mtime. The server
+  // doesn't validate `v`; it just trusts the URL is unique-per-version
+  // and ships aggressive cache headers. When `v` is absent (older call
+  // sites that haven't been wired through the mtime cache), fall back
+  // to the previous no-cache behavior so edits always show up.
+  //
+  // Invalidation flows: on every image change the watcher publishes an
+  // AssetEvent → the client's mtimeCache updates → next render of
+  // AssetThumb generates a URL with the new `v=` value → browser
+  // treats it as a new resource and fetches fresh.
+  if (req.query.v !== undefined) {
+    res.set("Cache-Control", "public, max-age=2592000, immutable");
+  } else {
+    res.set("Cache-Control", "no-cache, must-revalidate");
+  }
   res.sendFile(resolved, (err) => {
     if (err && !res.headersSent) {
       const code = (err as NodeJS.ErrnoException).code;

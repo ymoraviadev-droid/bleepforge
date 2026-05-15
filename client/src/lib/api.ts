@@ -16,6 +16,7 @@ import type {
   Preferences,
   Quest,
 } from "@bleepforge/shared";
+import { bumpAssetMtime, getAssetMtime } from "./assets/mtimeCache";
 import { noteLocalShaderSave } from "./shaders/localSaves";
 import type { Store } from "./stores/createStore";
 import type { FolderedStore } from "./stores/createFolderedStore";
@@ -117,8 +118,17 @@ const crud = <T>(opts: {
   };
 };
 
-export const assetUrl = (path: string): string =>
-  `/api/asset?path=${encodeURIComponent(path)}`;
+export const assetUrl = (path: string): string => {
+  const base = `/api/asset?path=${encodeURIComponent(path)}`;
+  // When mtime is known, append it as a cache-buster. The server
+  // ships immutable-cache headers for URLs that carry `v` — see
+  // server/src/lib/asset/router.ts. Unknown paths fall back to the
+  // bare URL which keeps the legacy no-cache behavior. First-time
+  // renders happen during the brief window before the boot prefetch
+  // completes; subsequent renders hit the cache.
+  const mtime = getAssetMtime(path);
+  return mtime !== undefined ? `${base}&v=${mtime}` : base;
+};
 
 export type ItemIconResponse =
   | { kind: "atlas"; atlasPath: string; region: { x: number; y: number; w: number; h: number } }
@@ -825,7 +835,13 @@ export const assetsApi = {
       const body = await r.text();
       throw new Error(`import failed: ${r.status} ${body}`);
     }
-    return r.json();
+    const result: ImportResult = await r.json();
+    // Stamp the mtime cache immediately so AssetThumb renders for this
+    // path use a fresh URL on the very next paint. The SSE asset event
+    // arriving ~150ms later will overwrite with the watcher's mtime,
+    // but Date.now() is good enough to force the URL to change now.
+    bumpAssetMtime(result.path);
+    return result;
   },
   deleteFile: async (path: string): Promise<{ ok: boolean; removed: string[] }> => {
     const r = await fetch(
