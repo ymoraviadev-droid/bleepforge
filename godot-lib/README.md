@@ -2,24 +2,41 @@
 
 A small companion library you drop into your Godot 4 / C# project to make it Bleepforge-compatible.
 
-**Status: v0.2.6 Phase 2 — runtime registries shipped, manifest emitter pending.** The base classes work today; you can subclass and run them in your Godot project. The editor-time hot reload + manifest emit (the parts that connect to the Bleepforge editor) land in Phase 3.
+**Status: v0.2.6 Phase 3 — manifest emitter shipped.** The library now produces a manifest. A user with `BleepforgeResource` subclasses + matching registries enables the plugin and gets `bleepforge_manifest.json` at their project root on editor load. The editor-side consumer (Phase 4) hasn't shipped yet, so the manifest doesn't yet drive the Bleepforge editor.
 
 - **Phase 1** ✓ — folder structure, `plugin.cfg`, placeholder GDScript stub, Apache 2.0 LICENSE.
-- **Phase 2** ✓ — C# library tier 1: `BleepforgeResource` (marker base class), `BleepforgeRegistry<T>`, `BleepforgeFolderedRegistry<T>`, `BleepforgeDiscriminatedRegistry<TBase>`, `BleepforgeEnumRegistry<TEnum, T>`. All registries walk paths, index by key, opt into editor-time hot reload via `[Tool]` + Godot's `EditorFileSystem` filesystem-changed signal. The Phase 1 GDScript stub is replaced by `BleepforgePlugin.cs` (a `[Tool]` `EditorPlugin`) that Phase 3 hangs the manifest emitter off.
-- **Phase 3** — Manifest emitter. Library reflects over `BleepforgeResource` subclasses, builds the manifest, writes `bleepforge_manifest.json` at the Godot project root. Three triggers: editor-load auto-export (default), manual menu button, build hook.
+- **Phase 2** ✓ — C# library tier 1: `BleepforgeResource` + 4 registry base classes. Walk paths, index by key, opt-in editor hot reload.
+- **Phase 3** ✓ — Manifest emitter. `ManifestEmitter` reflects over registry subclasses + their resource types, builds a `Manifest` POCO matching the zod schema in [shared/src/manifest.ts](../shared/src/manifest.ts), writes `bleepforge_manifest.json` at the Godot project root. Triggered automatically on plugin enter-tree (editor load) and via a `Tools → Re-export Bleepforge manifest` menu item. Build hook (CI) deferred to a later release.
 - **Phase 4** — Editor-side manifest consumption (lands in the Bleepforge editor, not here).
 - **Phase 5** — Validation harness. Tiny synthetic Godot project at `godot-lib/test-project/` with 2-3 resource types covering different kinds (`domain` + `foldered` minimum). Library exports manifest, editor reads it, registry hot reload works. NOT FoB.
 - **Phase 6** — Docs + release. AssetLib publish via release artifact pointing at the `addons/bleepforge/` subfolder.
 
-## What works today (Phase 2)
+## What works today (Phase 2 + 3)
 
 - **5 registry base classes** that handle the "walk a folder of `.tres`, index by key, expose O(1) lookup" pattern. Subclass with your concrete resource type, override 2-4 hooks, register as a Godot autoload, you're done. Replaces the per-domain autoload singletons that game projects (FoB included) typically write by hand.
 - **Editor-time hot reload** opt-in via `[Tool]` on your subclass. The base class connects to `EditorInterface.Singleton.GetResourceFilesystem().FilesystemChanged`; when Bleepforge writes a `.tres` and the editor's watcher fires, the registry rebuilds + emits a `RegistryRebuilt` signal listeners can refresh on. At runtime (game running) there's no automatic reload — call `Rebuild()` manually if you need it. Polling-based runtime reload is a future concern.
-- **`BleepforgePlugin.cs`** — the C# `EditorPlugin` entry point Godot loads when you enable the plugin. Phase 2 ships it as a no-op scaffold; Phase 3 hangs the manifest emitter off it.
+- **Manifest emitter** (Phase 3). On plugin enable / editor load, `ManifestEmitter` reflects over your registry subclasses, walks their resource types' `[Export]` fields, discovers sub-resource types transitively, and writes `bleepforge_manifest.json` at your project root. The Bleepforge editor (Phase 4+) reads this manifest to drive its authoring surfaces. A `Tools → Re-export Bleepforge manifest` menu item provides a manual re-trigger.
+- **6 attributes for fields/classes the C# type system can't express on its own:** `[BleepforgeFlag]` (string vs flag), `[BleepforgeShowWhen("OtherField", value)]` (discriminated-union field gating), `[BleepforgeNullable]` (sub-resources/arrays may be absent), `[BleepforgeArrayContainer(ArrayContainerKind.Typed)]` (typed-collection literal for `Godot.Collections.Array<T>`), `[BleepforgeView(ViewKind.Graph)]` (editor surface picker on a Resource class), `[BleepforgeOverrideUi("ComponentName")]` (mount a bespoke React component instead of the generic), `[BleepforgeDomain("name")]` (override the registry-class-name → domain-name heuristic).
 
-## What's coming (Phase 3+)
+### How field types are inferred
 
-- **Emit the Bleepforge manifest** — a JSON file at the project root that describes every `BleepforgeResource` subclass: which kind of entry it is (`domain` / `discriminatedFamily` / `foldered` / `enumKeyed`), what fields it has, the editor surface it wants (`list` / `cards` / `graph`), any bespoke override UI to mount instead of the generic. The Bleepforge editor reads this manifest and drives every authoring surface from it.
+The emitter maps C# types to manifest field types as follows:
+
+| C# type | Manifest type | Notes |
+| --- | --- | --- |
+| `string` | `string` | Default for plain `[Export] string`. |
+| `string` + `[Export(PropertyHint.MultilineText)]` | `multiline` | Auto-detected from the export hint. |
+| `string` + `[BleepforgeFlag]` | `flag` | Disambiguates from string. |
+| `int` / `long` / `short` | `int` | |
+| `float` / `double` | `float` | |
+| `bool` | `bool` | |
+| Any C# `enum` | `enum` | Values from `Enum.GetNames`. |
+| `Texture2D` | `texture` | |
+| `PackedScene` | `scene` | |
+| BleepforgeResource subclass | `ref` | Target domain derived from the class. |
+| Other Resource subclass | `subresource` | Treated as inline sub-resource; recursively emitted to the manifest's `subResources` list. |
+| `T[]` / `Godot.Collections.Array<T>` of BleepforgeResource | `array` with `itemRef` | Array of refs. |
+| `T[]` / `Godot.Collections.Array<T>` of other Resource | `array` with `of` | Array of inline sub-resources. |
 
 ## Installation (post-Phase 3, when the manifest emitter lands)
 
@@ -54,20 +71,26 @@ Each base class has a worked example in its XML-doc summary covering the typical
 
 ```text
 godot-lib/
-├── addons/bleepforge/                       The Godot plugin
-│   │                                        (drops into <user-project>/addons/)
-│   ├── plugin.cfg                           Godot plugin manifest
-│   ├── BleepforgePlugin.cs                  [Tool] EditorPlugin entry point
-│   └── runtime/                             User-extensible base classes
-│       ├── BleepforgeResource.cs            Marker base for authored Resources
-│       ├── BleepforgeRegistry.cs            Generic flat registry
-│       ├── BleepforgeFolderedRegistry.cs    Composite-id grouping
-│       ├── BleepforgeDiscriminatedRegistry.cs   Variant routing
-│       └── BleepforgeEnumRegistry.cs        One-per-enum-value
-├── test-project/                            Synthetic validation project
-│                                            (lands in Phase 5)
-├── LICENSE                                  Apache 2.0
-└── README.md                                this file
+├── addons/bleepforge/                            The Godot plugin
+│   │                                             (drops into <user-project>/addons/)
+│   ├── plugin.cfg                                Godot plugin manifest
+│   ├── BleepforgePlugin.cs                       [Tool] EditorPlugin entry point
+│   ├── runtime/                                  User-extensible base classes
+│   │   ├── BleepforgeResource.cs                 Marker base for authored Resources
+│   │   ├── BleepforgeRegistry.cs                 Generic flat registry
+│   │   ├── BleepforgeFolderedRegistry.cs         Composite-id grouping
+│   │   ├── BleepforgeDiscriminatedRegistry.cs    Variant routing
+│   │   ├── BleepforgeEnumRegistry.cs             One-per-enum-value
+│   │   └── Attributes.cs                         User attributes (BleepforgeFlag,
+│   │                                             ShowWhen, View, OverrideUi,
+│   │                                             ArrayContainer, Nullable, Domain)
+│   └── editor/                                   Editor-only code (#if TOOLS)
+│       ├── ManifestModel.cs                      POCOs mirroring the manifest JSON shape
+│       └── ManifestEmitter.cs                    Reflection + JSON write
+├── test-project/                                 Synthetic validation project
+│                                                 (lands in Phase 5)
+├── LICENSE                                       Apache 2.0
+└── README.md                                     this file
 ```
 
 ## Why a separate folder, not a separate repo
