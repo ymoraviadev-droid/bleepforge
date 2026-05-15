@@ -12,3 +12,4 @@ export * from "./balloon";
 export * from "./codex";
 export * from "./help";
 export * from "./shader";
+export * from "./manifest";
