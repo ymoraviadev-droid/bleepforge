@@ -55,18 +55,21 @@ Added in v0.2.5. A single Bleepforge install holds many **projects**, exactly on
 
 **content:// URL scheme** ([lib/assets/pathScheme.ts](server/src/lib/assets/pathScheme.ts)) — project-relative reference for asset paths. `content://images/foo.png` resolves to `<contentRoot>/images/foo.png` at request time. Server's asset router decodes it via `resolveContentPath`; gallery `/api/assets/import` endpoint returns `content://`-prefixed paths in notebook mode via `toPortablePath`. Notebook + import-once projects use this scheme so the project is portable across machines (move the dir, refs still resolve). Sync mode keeps absolute paths for now — migrating existing FoB data is wider work than v0.2.5 fit.
 
-**HTTP surface** ([server/src/lib/projects/router.ts](server/src/lib/projects/router.ts)):
+**HTTP surface** ([server/src/lib/projects/router.ts](server/src/lib/projects/router.ts) + the reload route on app.ts):
 
 ```text
-GET    /api/projects                    list + activeSlug + bleepforgeRoot
+GET    /api/projects                    list + activeSlug + runtimeActiveSlug
 POST   /api/projects                    create (notebook or sync)
 POST   /api/projects/import-once        seed a notebook from a Godot tree
+POST   /api/projects/reload             hot-reload active project in-process
 PATCH  /api/projects/:slug              rename displayName (slug immutable)
 DELETE /api/projects/:slug[?wipe=true]  forget (or rm -rf with wipe)
 PUT    /api/projects/active             switch active slug
 ```
 
-Switching + creating-with-auto-active set `restartRequired: true` so the client can wire up its restart IPC. PUT `/active` returns `noop: true` when the requested slug already matches the running active project; the client skips the restart prompt. DELETE refuses two states: active project (would point active at a missing slug), last project (would leave the system with no project to load).
+GET returns two slugs: `activeSlug` (disk pointer = next-reload target) and `runtimeActiveSlug` (`config.activeProjectSlug` = what this server is currently serving). They diverge between an action that writes the pointer (create / switch / import-once / setActive) and the hot-reload (or restart) that picks it up. Surfacing both lets the chip + the page tell apart "queued" from "active right now" without lying.
+
+Switching + creating-with-auto-active set `restartRequired: true` so callers know they need to follow up with `POST /api/projects/reload` (or a full restart). PUT `/active` returns `noop: true` when the requested slug already matches the running active project; the client skips the reload entirely. DELETE refuses two states: active project (would point active at a missing slug), last project (would leave the system with no project to load).
 
 **Migration from legacy v0.2.4 layout** ([lib/projects/migrate.ts](server/src/lib/projects/migrate.ts)). First boot of v0.2.5 against a v0.2.4-or-earlier install:
 
@@ -80,7 +83,11 @@ Partial-migration recovery: if `projects/<slug>/data/` exists from an interrupte
 
 **Cross-machine bootstrap path**: if `projects.json` is missing but `projects/<slug>/data/` dirs exist (someone cloned the repo after a post-migration commit), walk the tree, register every discovered project with `godotProjectRoot: null` (the user fills in via Preferences after first boot). Either path populates the registry exactly once; subsequent boots no-op.
 
-**Switching projects requires a server restart** (paths are captured at module init; no hot-swap). Electron restart IPC is one click on the post-switch prompt; browser-dev mode surfaces an inline "restart your pnpm dev" notice. ~2 second cycle on the AppImage.
+**Switching projects hot-reloads the server in-process** — no app restart needed (since v0.2.5 phase 8.2). `POST /api/projects/reload` calls `reloadServerState()`: stops the watcher, calls `reloadActiveProject()` (re-reads the disk pointer + record and mutates `config.*` + `folderAbs.*` in place), then runs the per-active-project boot sequence (project index + reconcile in sync mode, asset + shader caches, watcher rebind, pending-import seed if any). ~15ms on FoB. Works identically in dev and packaged modes (no Electron / tsx-watch lifecycle dependency).
+
+The hot-reload demands that every reload-relevant path resolves through `config.X` / `folderAbs.X` fresh per call, not captured into a module-local `const` at load time. Storage modules (balloon, dialog, help, codex) use `const root = (): string => folderAbs.X` getter pattern instead of `const root = folderAbs.X`. `makeJsonStorage` accepts `FolderSource = string | (() => string)` so storage instances created once at server boot survive reloads — the closure resolves the folder fresh on every list/read/write/delete. New storage modules should follow the same getter pattern.
+
+The Electron app-restart IPC stays in place as a recovery action (Bleepforge upgrade, stuck state), but the sidebar's restart icon's pulse-glow + click now drive hot-reload when there's a pending project switch; full restart only fires on explicit user request via the same icon when no project reload is pending.
 
 **UI surface** ([client/src/features/projects/](client/src/features/projects/)):
 

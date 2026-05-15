@@ -1,6 +1,6 @@
 {
   "name": "@bleepforge/electron",
-  "version": "0.2.5-dev",
+  "version": "0.2.5",
   "private": true,
   "description": "Bleepforge desktop wrapper",
   "author": "Yehonatan Moravia",

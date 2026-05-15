@@ -174,7 +174,7 @@ As of v0.2.5 a single Bleepforge install holds many projects, exactly one **acti
 - **Sync to Godot** — pick a Godot folder. Two-way live sync: `.tres` files are canonical, Bleepforge mirrors them as JSON on every boot and writes edits back on save; the watcher catches Godot-side changes live.
 - **Import once from Godot** — snapshot a Godot tree into a fresh notebook. `.tres` data lands as JSON, referenced images + shaders get copied into the new project's `content/` dir, refs are rewritten to the portable `content://` URL scheme. After the snapshot the project is independent.
 
-Switching projects requires a restart (paths are captured at boot). Rename + Delete live on each card's `⋯` menu; sync-mode projects' Godot trees are never touched by delete regardless of choice — Bleepforge only deletes what it owns.
+Switching projects hot-reloads the server in-process (~15ms) — no app restart required, no window flash. `POST /api/projects/reload` re-reads the active pointer + record and rebuilds the watcher, caches, and index against the new state. Works identically in dev and packaged modes. Rename + Delete live on each card's `⋯` menu; sync-mode projects' Godot trees are never touched by delete regardless of choice — Bleepforge only deletes what it owns.
 
 The legacy `data/` layout (pre-v0.2.5) migrates automatically on first boot: contents move to `projects/<slug>/data/`, slug derived from `concept.json`'s Title, the Godot root pulled out of `preferences.json` into the new project record.
 
