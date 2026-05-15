@@ -82,14 +82,48 @@ projectsRouter.post("/", (req, res) => {
   }
   const { displayName, mode, godotProjectRoot, setActive = true } = parsed.data;
 
+  // Mode-specific validation of the godotProjectRoot field.
+  //   - sync mode: required + must point at a real Godot project on
+  //     disk (has project.godot). Captured into the project record so
+  //     boot resolves contentRoot + godotProjectRoot through it.
+  //   - notebook mode: forbidden — a notebook project has no Godot
+  //     connection by design.
+  const trimmedGodot = godotProjectRoot?.trim() ?? "";
+  let resolvedGodotRoot: string | null = null;
   if (mode === "sync") {
-    res.status(501).json({
-      error:
-        "Sync-mode creation lands in v0.2.6 phase 6 — use mode=\"notebook\" for now",
-    });
-    return;
-  }
-  if (godotProjectRoot && godotProjectRoot.trim()) {
+    if (!trimmedGodot) {
+      res.status(400).json({
+        error: "godotProjectRoot is required for sync-mode projects",
+      });
+      return;
+    }
+    const absGodot = path.resolve(trimmedGodot);
+    let isDir = false;
+    try {
+      isDir = fs.statSync(absGodot).isDirectory();
+    } catch {
+      isDir = false;
+    }
+    if (!isDir) {
+      res.status(400).json({
+        error: `godotProjectRoot does not exist or is not a directory: ${absGodot}`,
+      });
+      return;
+    }
+    let hasProjectFile = false;
+    try {
+      hasProjectFile = fs.statSync(path.join(absGodot, "project.godot")).isFile();
+    } catch {
+      hasProjectFile = false;
+    }
+    if (!hasProjectFile) {
+      res.status(400).json({
+        error: `no project.godot at ${absGodot} — doesn't look like a Godot project`,
+      });
+      return;
+    }
+    resolvedGodotRoot = absGodot;
+  } else if (trimmedGodot) {
     res.status(400).json({
       error: "godotProjectRoot is only valid for sync-mode projects",
     });
@@ -130,7 +164,7 @@ projectsRouter.post("/", (req, res) => {
     slug,
     displayName: displayName.trim(),
     mode,
-    godotProjectRoot: null,
+    godotProjectRoot: resolvedGodotRoot,
     createdAt: now,
     lastOpened: now,
   };

@@ -1,7 +1,12 @@
 import { useState } from "react";
 
 import { Button } from "../../components/Button";
-import { projectsApi, type CreateProjectResult } from "../../lib/api";
+import {
+  godotProjectApi,
+  projectsApi,
+  type CreateProjectResult,
+} from "../../lib/api";
+import { isElectron, pickGodotFolder } from "../../lib/electron";
 import { fieldLabel, textInput } from "../../styles/classes";
 
 // Two-field modal for project creation. Mode picker (notebook in phase
@@ -38,19 +43,59 @@ const MODES: ModeChoice[] = [
     id: "sync",
     label: "Sync to Godot",
     blurb:
-      "Two-way live sync with a Godot project's .tres files. Coming in v0.2.6 phase 6 — pick a Godot folder, Bleepforge tracks it.",
-    available: false,
+      "Two-way live sync with a Godot project's .tres files. Bleepforge mirrors the entity JSON from .tres on every boot and writes edits back on save; the watcher catches Godot-side changes live.",
+    available: true,
   },
 ];
+
+type GodotValidation =
+  | { kind: "idle" }
+  | { kind: "validating"; path: string }
+  | { kind: "valid"; path: string }
+  | { kind: "invalid"; path: string; message: string };
 
 export function NewProjectModal({ onClose, onCreated }: Props) {
   const [mode, setMode] = useState<ModeOption>("notebook");
   const [displayName, setDisplayName] = useState("");
+  const [godotPathInput, setGodotPathInput] = useState("");
+  const [godotState, setGodotState] = useState<GodotValidation>({
+    kind: "idle",
+  });
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const trimmedName = displayName.trim();
-  const canSubmit = !creating && trimmedName.length > 0;
+  const syncReady = mode === "sync" ? godotState.kind === "valid" : true;
+  const canSubmit = !creating && trimmedName.length > 0 && syncReady;
+
+  async function validateGodot(path: string): Promise<void> {
+    setGodotState({ kind: "validating", path });
+    try {
+      const r = await godotProjectApi.validate(path);
+      if (r.ok && r.isProject) {
+        setGodotState({ kind: "valid", path });
+      } else {
+        setGodotState({
+          kind: "invalid",
+          path,
+          message: r.message ?? "Not a valid Godot project",
+        });
+      }
+    } catch (err) {
+      setGodotState({
+        kind: "invalid",
+        path,
+        message: err instanceof Error ? err.message : "Validation failed",
+      });
+    }
+  }
+
+  async function onPickFolder(): Promise<void> {
+    const picked = await pickGodotFolder();
+    if (!picked) return;
+    setGodotPathInput(picked);
+    await validateGodot(picked);
+  }
 
   async function handleCreate(): Promise<void> {
     if (!canSubmit) return;
@@ -60,6 +105,10 @@ export function NewProjectModal({ onClose, onCreated }: Props) {
       const result = await projectsApi.create({
         displayName: trimmedName,
         mode,
+        godotProjectRoot:
+          mode === "sync" && godotState.kind === "valid"
+            ? godotState.path
+            : undefined,
       });
       onCreated(result);
     } catch (err) {
@@ -140,6 +189,70 @@ export function NewProjectModal({ onClose, onCreated }: Props) {
               })}
             </div>
           </fieldset>
+
+          {mode === "sync" && (
+            <div>
+              <label className={fieldLabel}>Godot project folder</label>
+              <div className="mt-1 flex gap-2">
+                <input
+                  type="text"
+                  value={godotPathInput}
+                  onChange={(e) => {
+                    setGodotPathInput(e.target.value);
+                    setGodotState({ kind: "idle" });
+                  }}
+                  onBlur={() => {
+                    const p = godotPathInput.trim();
+                    if (p && godotState.kind === "idle") void validateGodot(p);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && godotPathInput.trim()) {
+                      e.preventDefault();
+                      void validateGodot(godotPathInput.trim());
+                    }
+                  }}
+                  placeholder="/path/to/your/godot-project"
+                  className={`${textInput} flex-1`}
+                />
+                {isElectron() && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={onPickFolder}
+                  >
+                    Browse…
+                  </Button>
+                )}
+              </div>
+              {godotState.kind === "validating" && (
+                <p className="mt-1 font-mono text-[10px] text-neutral-500">
+                  Checking{" "}
+                  <span className="text-neutral-300">{godotState.path}</span>…
+                </p>
+              )}
+              {godotState.kind === "valid" && (
+                <p className="mt-1 font-mono text-[10px] text-emerald-300">
+                  ✓ project.godot found
+                </p>
+              )}
+              {godotState.kind === "invalid" && (
+                <p className="mt-1 font-mono text-[10px] text-red-300">
+                  ✗ {godotState.message}
+                </p>
+              )}
+              {godotState.kind === "idle" && godotPathInput.trim() && (
+                <p className="mt-1 font-mono text-[10px] text-amber-400">
+                  Press Enter or blur to validate.
+                </p>
+              )}
+              <p className="mt-1 font-mono text-[10px] text-neutral-600">
+                The folder containing{" "}
+                <code className="text-neutral-400">project.godot</code>. After
+                creation the boot reconcile will populate Bleepforge's JSON
+                cache from the project's .tres files.
+              </p>
+            </div>
+          )}
 
           <div>
             <label className={fieldLabel} htmlFor="new-project-name">
