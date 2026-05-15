@@ -290,6 +290,23 @@ Some opinions baked into Bleepforge worth knowing if you fork or contribute:
 
 ---
 
+## License
+
+Bleepforge is open source, with a deliberate split between library and editor:
+
+- **`godot-lib/`** (the Godot companion library that ships into your Godot project) — **Apache License 2.0**. Permissive: drop it in without thinking. See [godot-lib/LICENSE](godot-lib/LICENSE).
+- **The editor** (`client/`, `server/`, `shared/`, `electron/`, plus everything else in this repo) — **GNU Affero General Public License v3 or later**. Copyleft: forks must remain open, including SaaS hosts. See [LICENSE](LICENSE).
+
+Why the split: a permissive license on the library maximizes adoption (game devs drop it into their projects without worrying about license compatibility); a copyleft license on the editor prevents rebadge-and-monetize forks (any fork must also be AGPL, removing the financial incentive to take Bleepforge, slap a new name on it, and sell it). Apache 2.0 + AGPL v3 are both OSI-approved open-source licenses.
+
+The names **"Bleepforge"** and **"godot-lib for Bleepforge"** and the Bleepforge logo are unregistered trademarks of Yehonatan Moravia. Forks are welcome under the licenses above; use a different name. See [TRADEMARK.md](TRADEMARK.md) for the full policy.
+
+Premium tier-2 add-ons (DialogRunner, FlagStore, KarmaApplier, and similar opinionated runtime helpers) are deferred indefinitely. If they ever ship, they'll be separate proprietary products, not subject to AGPL — AGPL covers the editor itself, not separately-distributed add-ons you build alongside it.
+
+Copyright © 2026 Yehonatan Moravia.
+
+---
+
 ## Authors
 
 Authored by **Yehonatan Moravia** & **Archie** - `ymoravia.dev@gmail.com`

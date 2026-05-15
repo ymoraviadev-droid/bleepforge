@@ -2,6 +2,7 @@
   "name": "@bleepforge/client",
   "version": "0.2.6-dev",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "scripts": {
     "dev": "vite",

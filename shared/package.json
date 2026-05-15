@@ -2,6 +2,7 @@
   "name": "@bleepforge/shared",
   "version": "0.2.6-dev",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "type": "module",
   "main": "./src/index.ts",
   "types": "./src/index.ts",

@@ -4,7 +4,7 @@ A small companion library you drop into your Godot 4 / C# project to make it Ble
 
 **Status: v0.2.6 Phase 1 — scaffolding only.** This folder is the monorepo home for the library; nothing is functional yet. Subsequent phases ship the actual code:
 
-- **Phase 1** (this commit) — folder structure, `plugin.cfg`, placeholder GDScript stub so the plugin loads cleanly into Godot but does nothing yet, MIT LICENSE.
+- **Phase 1** (this commit) — folder structure, `plugin.cfg`, placeholder GDScript stub so the plugin loads cleanly into Godot but does nothing yet, Apache 2.0 LICENSE.
 - **Phase 2** — C# library tier 1: `BleepforgeResource` (marker base class), `BleepforgeRegistry<T>`, `BleepforgeFolderedRegistry<T>`, `BleepforgeDiscriminatedRegistry<TBase>`, `BleepforgeEnumRegistry<TEnum, T>`. All registries walk paths, index by key, hot-reload on `.tres` change.
 - **Phase 3** — Manifest emitter. Library reflects over `BleepforgeResource` subclasses, builds the manifest, writes `bleepforge_manifest.json` at the Godot project root. Three triggers: editor-load auto-export (default), manual menu button, build hook.
 - **Phase 4** — Editor-side manifest consumption (lands in the Bleepforge editor, not here).
@@ -34,7 +34,7 @@ Today none of this works yet — the scaffolded plugin loads but is a no-op.
 
 ## Layout
 
-```
+```text
 godot-lib/
 ├── addons/bleepforge/      The Godot plugin (drops into <user-project>/addons/)
 │   ├── plugin.cfg          Godot plugin manifest
@@ -52,9 +52,13 @@ When the library is ready for AssetLib distribution (post-Phase 6), AssetLib sup
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+**Apache License 2.0.** See [LICENSE](LICENSE).
 
-The Bleepforge editor itself (the rest of this monorepo) is a separate license decision — TBD.
+Apache 2.0 is the standard "permissive but not naive" choice — broad rights to use, modify, and redistribute, plus an explicit patent grant and an explicit "no trademark license is granted" clause. Pragmatic for a Godot library you want widely adopted: drop it into your project without thinking, but you can't claim "Bleepforge" as your own.
+
+The rest of the Bleepforge monorepo (the editor — `client/`, `server/`, `shared/`, `electron/`) is licensed under **GNU Affero General Public License v3 or later** — copyleft, forks must remain open. See the root [LICENSE](../LICENSE) and [TRADEMARK.md](../TRADEMARK.md) for the editor's terms and the trademark policy that protects the Bleepforge name + logo.
+
+Copyright © 2026 Yehonatan Moravia.
 
 ## See also
 

@@ -2,6 +2,7 @@
   "name": "@bleepforge/electron",
   "version": "0.2.6-dev",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "description": "Bleepforge desktop wrapper",
   "author": "Yehonatan Moravia",
   "main": "dist/main.js",
