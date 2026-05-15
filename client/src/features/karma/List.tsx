@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Faction, FactionData, KarmaImpact } from "@bleepforge/shared";
-import { factionsApi, karmaApi } from "../../lib/api";
+import { useFactions, useKarma } from "../../lib/stores";
 import { ButtonLink } from "../../components/Button";
 import { BunkerEmpty, EmptyState } from "../../components/EmptyState";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { textInput } from "../../styles/classes";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
 import { KarmaCard } from "./KarmaCard";
@@ -23,32 +22,17 @@ function magnitudeOf(k: KarmaImpact): number {
 }
 
 export function KarmaList() {
-  const [impacts, setImpacts] = useState<KarmaImpact[] | null>(null);
-  const [factions, setFactions] = useState<FactionData[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { data: impacts, error } = useKarma();
+  const { data: factions } = useFactions();
   const [search, setSearch] = useState("");
   const [factionFilter, setFactionFilter] = useState<Faction | "">("");
   const [sortBy, setSortBy] = useState<SortBy>("id");
   const [view, setView] = useViewMode("karma");
 
-  useEffect(() => {
-    karmaApi.list().then(setImpacts).catch((e) => setError(String(e)));
-    factionsApi.list().then(setFactions).catch(() => {});
-  }, []);
-
-  useSyncRefresh({
-    domain: "karma",
-    onChange: () => karmaApi.list().then(setImpacts).catch(() => {}),
-  });
-  useSyncRefresh({
-    domain: "faction",
-    onChange: () => factionsApi.list().then(setFactions).catch(() => {}),
-  });
-
   // Faction enum → FactionData map for icon lookup in cards.
   const factionsByEnum = useMemo(() => {
     const m = new Map<Faction, FactionData>();
-    for (const f of factions) m.set(f.Faction, f);
+    for (const f of factions ?? []) m.set(f.Faction, f);
     return m;
   }, [factions]);
 

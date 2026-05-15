@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
-import type { CodexCategoryGroup } from "@bleepforge/shared";
-import { codexApi } from "../../lib/api";
+import { useCodex } from "../../lib/stores";
 import { ButtonLink } from "../../components/Button";
 import { BookEmpty, EmptyState } from "../../components/EmptyState";
 import { textInput } from "../../styles/classes";
@@ -24,18 +23,13 @@ const SORT_LABEL: Record<SortBy, string> = {
 // page so users return to "their" category, not the whole list.
 
 export function List() {
-  const [groups, setGroups] = useState<CodexCategoryGroup[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data: groups, error } = useCodex();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [view, setView] = useViewMode("codex");
 
   const activeCategory = searchParams.get("category") ?? "";
-
-  useEffect(() => {
-    codexApi.listAll().then(setGroups).catch((e) => setError(String(e)));
-  }, []);
 
   const filteredGroups = useMemo(() => {
     if (!groups) return null;

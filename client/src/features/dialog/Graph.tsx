@@ -33,14 +33,14 @@ import {
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
 import "@xyflow/react/dist/style.css";
-import type { DialogSequence, DialogSourceType, Npc } from "@bleepforge/shared";
+import type { DialogSequence, DialogSourceType } from "@bleepforge/shared";
 import {
   dialogsApi,
   emptyLayout,
-  npcsApi,
   type DialogLayout,
   type EdgeStyle,
 } from "../../lib/api";
+import { useDialogs, useNpcs } from "../../lib/stores";
 import { AssetThumb } from "../../components/AssetThumb";
 import { ButtonLink } from "../../components/Button";
 import { showConfirm, showPrompt } from "../../components/Modal";
@@ -1012,13 +1012,20 @@ function writeSavedViewport(folder: string, vp: SavedViewport) {
 
 function DialogGraphInner() {
   const [folders, setFolders] = useState<string[] | null>(null);
-  // Folder → sequences mapping across the whole project. Used so the folder
-  // tabs can hide folders that don't match the current SourceType filter.
-  const [folderTypeIndex, setFolderTypeIndex] = useState<
-    Map<string, DialogSourceType[]>
-  >(new Map());
+  // Folder → sequences mapping derived from the dialog store. Used so
+  // the folder tabs can hide folders that don't match the current
+  // SourceType filter.
+  const { data: dialogGroups } = useDialogs();
+  const folderTypeIndex = useMemo(() => {
+    const m = new Map<string, DialogSourceType[]>();
+    for (const g of dialogGroups ?? []) {
+      m.set(g.folder, g.sequences.map((s) => s.SourceType));
+    }
+    return m;
+  }, [dialogGroups]);
   const [seqs, setSeqs] = useState<DialogSequence[] | null>(null);
-  const [npcs, setNpcs] = useState<Npc[]>([]);
+  const { data: npcsData } = useNpcs();
+  const npcs = npcsData ?? [];
   const [layout, setLayout] = useState<DialogLayout>(emptyLayout());
   const [nodes, setNodes, onNodesChange] = useNodesState<SeqNode>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<ChoiceEdge>([]);
@@ -1075,31 +1082,16 @@ function DialogGraphInner() {
 
   useEffect(() => {
     dialogsApi.listFolders().then(setFolders).catch((e) => setError(String(e)));
-    npcsApi.list().then(setNpcs).catch(() => {});
-    refreshFolderTypeIndex();
   }, []);
 
-  function refreshFolderTypeIndex() {
-    dialogsApi
-      .listAll()
-      .then((groups) => {
-        const m = new Map<string, DialogSourceType[]>();
-        for (const g of groups) {
-          m.set(
-            g.folder,
-            g.sequences.map((s) => s.SourceType),
-          );
-        }
-        setFolderTypeIndex(m);
-      })
-      .catch(() => {});
-  }
-
-  // Keep the folder-type index live when dialogs change externally (Godot
-  // save → watcher) or via Bleepforge edits.
+  // Keep the folders list live on external changes (folder appears or
+  // becomes empty). The store handles its own refresh for sequences +
+  // SourceType index.
   useSyncRefresh({
     domain: "dialog",
-    onChange: () => refreshFolderTypeIndex(),
+    onChange: () => {
+      dialogsApi.listFolders().then(setFolders).catch(() => {});
+    },
   });
 
   useEffect(() => {

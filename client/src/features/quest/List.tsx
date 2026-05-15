@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Npc, Quest } from "@bleepforge/shared";
-import { npcsApi, questsApi } from "../../lib/api";
+import { useNpcs, useQuests } from "../../lib/stores";
 import { ButtonLink } from "../../components/Button";
 import { EmptyState, NoticeboardEmpty } from "../../components/EmptyState";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { textInput } from "../../styles/classes";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
 import { QuestCard } from "./QuestCard";
@@ -23,28 +22,17 @@ const SORT_LABEL: Record<SortBy, string> = {
 };
 
 export function QuestList() {
-  const [quests, setQuests] = useState<Quest[] | null>(null);
-  const [npcs, setNpcs] = useState<Npc[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { data: quests, error } = useQuests();
+  const { data: npcs } = useNpcs();
   const [search, setSearch] = useState("");
   const [giverFilter, setGiverFilter] = useState<string>("");
   const [sortBy, setSortBy] = useState<SortBy>("id");
   const [view, setView] = useViewMode("quest");
 
-  useEffect(() => {
-    questsApi.list().then(setQuests).catch((e) => setError(String(e)));
-    npcsApi.list().then(setNpcs).catch(() => {});
-  }, []);
-
-  useSyncRefresh({
-    domain: "quest",
-    onChange: () => questsApi.list().then(setQuests).catch(() => {}),
-  });
-
   // NpcId → Npc lookup (used for portrait + display name in cards).
   const npcById = useMemo(() => {
     const m = new Map<string, Npc>();
-    for (const n of npcs) {
+    for (const n of npcs ?? []) {
       if (n.NpcId) m.set(n.NpcId, n);
     }
     return m;

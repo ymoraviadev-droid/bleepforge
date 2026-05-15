@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Npc } from "@bleepforge/shared";
-import { npcsApi } from "../../lib/api";
+import { useNpcs } from "../../lib/stores";
 import { ButtonLink } from "../../components/Button";
 import { BunkerEmpty, EmptyState } from "../../components/EmptyState";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { textInput } from "../../styles/classes";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
 import { NpcCard } from "./NpcCard";
@@ -22,21 +21,11 @@ const SORT_LABEL: Record<SortBy, string> = {
 };
 
 export function NpcList() {
-  const [npcs, setNpcs] = useState<Npc[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data: npcs, error } = useNpcs();
   const [search, setSearch] = useState("");
   const [modelFilter, setModelFilter] = useState<string>("");
   const [sortBy, setSortBy] = useState<SortBy>("id");
   const [view, setView] = useViewMode("npc");
-
-  useEffect(() => {
-    npcsApi.list().then(setNpcs).catch((e) => setError(String(e)));
-  }, []);
-
-  useSyncRefresh({
-    domain: "npc",
-    onChange: () => npcsApi.list().then(setNpcs).catch(() => {}),
-  });
 
   const modelOptions = useMemo(() => {
     if (!npcs) return [];

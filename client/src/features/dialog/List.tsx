@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { ButtonLink } from "../../components/Button";
-import type { DialogSequence, DialogSourceType } from "@bleepforge/shared";
+import type { DialogSourceType } from "@bleepforge/shared";
 import { dialogsApi } from "../../lib/api";
+import { useDialogs } from "../../lib/stores";
 import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { GRAPH_LIST_OPTIONS, ViewToggle } from "../../components/ViewToggle";
 import { FolderTabs } from "./FolderTabs";
@@ -10,15 +11,14 @@ import { SourceFilter, useDialogSourceFilter } from "./SourceFilter";
 
 import { PixelSkeleton } from "../../components/PixelSkeleton";
 export function DialogList() {
+  // listFolders() includes folders that exist on disk but have no
+  // sequences yet — the store only knows about folders with content,
+  // so we keep this fetch alongside the store for completeness. The
+  // heavy data (sequences + per-folder SourceType index) all comes
+  // from the store now.
   const [folders, setFolders] = useState<string[] | null>(null);
-  // Folder → sequences mapping across the whole project. Used by visibleFolders
-  // so the FolderTabs hide folders that have nothing matching the active
-  // SourceType filter — same logic the Graph view uses.
-  const [folderTypeIndex, setFolderTypeIndex] = useState<
-    Map<string, DialogSourceType[]>
-  >(new Map());
-  const [seqs, setSeqs] = useState<DialogSequence[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { data: dialogGroups, error: dialogError } = useDialogs();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -30,47 +30,36 @@ export function DialogList() {
 
   useEffect(() => {
     dialogsApi.listFolders().then(setFolders).catch((e) => setError(String(e)));
-    refreshFolderTypeIndex();
   }, []);
 
-  function refreshFolderTypeIndex() {
-    dialogsApi
-      .listAll()
-      .then((groups) => {
-        const m = new Map<string, DialogSourceType[]>();
-        for (const g of groups) {
-          m.set(
-            g.folder,
-            g.sequences.map((s) => s.SourceType),
-          );
-        }
-        setFolderTypeIndex(m);
-      })
-      .catch(() => {});
-  }
-
-  useEffect(() => {
-    if (!folder) {
-      setSeqs([]);
-      return;
-    }
-    setSeqs(null);
-    dialogsApi.listInFolder(folder).then(setSeqs).catch((e) => setError(String(e)));
-  }, [folder]);
-
-  // Live-refresh on any external dialog change. Always rebuild the type index
-  // (a SourceType change in another folder can flip visibleFolders); only
-  // refetch sequences when the event hits the current folder.
+  // Refresh the folders list on any dialog sync event — a new folder
+  // can appear, or an empty one can be deleted. The store handles its
+  // own refresh for sequences + types.
   useSyncRefresh({
     domain: "dialog",
-    onChange: (e) => {
-      refreshFolderTypeIndex();
-      if (!folder) return;
-      const [eventFolder] = e.key.split("/");
-      if (eventFolder !== folder) return;
-      dialogsApi.listInFolder(folder).then(setSeqs).catch(() => {});
+    onChange: () => {
+      dialogsApi.listFolders().then(setFolders).catch(() => {});
     },
   });
+
+  // Folder → sequence source-types, derived from the store. Used by
+  // visibleFolders to hide folders with nothing matching the active
+  // SourceType filter — same logic the Graph view uses.
+  const folderTypeIndex = useMemo(() => {
+    const m = new Map<string, DialogSourceType[]>();
+    for (const g of dialogGroups ?? []) {
+      m.set(g.folder, g.sequences.map((s) => s.SourceType));
+    }
+    return m;
+  }, [dialogGroups]);
+
+  // Sequences in the current folder, derived from the store.
+  const seqs = useMemo(() => {
+    if (!folder) return [];
+    if (!dialogGroups) return null;
+    const group = dialogGroups.find((g) => g.folder === folder);
+    return group ? group.sequences : [];
+  }, [dialogGroups, folder]);
 
   // Folders that contain at least one sequence matching the active source
   // filter. When filter is "all", every folder is visible. Folders with an
@@ -107,6 +96,7 @@ export function DialogList() {
   }, [seqs, sourceFilter]);
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
+  if (dialogError) return <div className="text-red-400">Error: {dialogError}</div>;
   if (folders === null) return <PixelSkeleton />;
 
   return (

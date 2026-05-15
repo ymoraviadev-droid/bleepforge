@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import type { Balloon, Npc } from "@bleepforge/shared";
-import { balloonsApi, npcsApi, type BalloonFolderGroup } from "../../lib/api";
+import { useMemo, useState } from "react";
+import type { Balloon } from "@bleepforge/shared";
+import { useBalloons, useNpcs } from "../../lib/stores";
 import { ButtonLink } from "../../components/Button";
 import { EmptyState, TerminalSilent } from "../../components/EmptyState";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { textInput } from "../../styles/classes";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
 import { BalloonCard } from "./BalloonCard";
@@ -49,29 +48,14 @@ interface Group {
 }
 
 export function BalloonList() {
-  const [groups, setGroups] = useState<BalloonFolderGroup[] | null>(null);
-  const [npcs, setNpcs] = useState<Npc[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const { data: groups, error } = useBalloons();
+  const { data: npcs } = useNpcs();
   const [search, setSearch] = useState("");
   const [npcFilter, setNpcFilter] = useState("");
   const [modelFilter, setModelFilter] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("model");
   const [groupBy, setGroupBy] = useState<GroupBy>("model");
   const [view, setView] = useViewMode("balloon");
-
-  useEffect(() => {
-    balloonsApi.listAll().then(setGroups).catch((e) => setError(String(e)));
-    npcsApi.list().then(setNpcs).catch(() => {});
-  }, []);
-
-  useSyncRefresh({
-    domain: "balloon",
-    onChange: () => balloonsApi.listAll().then(setGroups).catch(() => {}),
-  });
-  useSyncRefresh({
-    domain: "npc",
-    onChange: () => npcsApi.list().then(setNpcs).catch(() => {}),
-  });
 
   const flat: FlatBalloon[] | null = useMemo(() => {
     if (!groups) return null;
@@ -88,7 +72,7 @@ export function BalloonList() {
   // least one balloon. Sorted by display name.
   const npcOptions = useMemo(() => {
     const opts: { id: string; label: string; count: number }[] = [];
-    for (const n of npcs) {
+    for (const n of npcs ?? []) {
       if (n.CasualRemarks.length === 0) continue;
       opts.push({
         id: n.NpcId,
@@ -113,7 +97,7 @@ export function BalloonList() {
   // npcs change so the per-balloon filter check stays cheap.
   const refToNpcIds = useMemo(() => {
     const m = new Map<string, Set<string>>();
-    for (const n of npcs) {
+    for (const n of npcs ?? []) {
       for (const ref of n.CasualRemarks) {
         const set = m.get(ref) ?? new Set<string>();
         set.add(n.NpcId);
@@ -157,7 +141,7 @@ export function BalloonList() {
   // Quick lookup: NpcId → display label for "by NPC" group headers.
   const npcLabelById = useMemo(() => {
     const m = new Map<string, string>();
-    for (const n of npcs) m.set(n.NpcId, n.DisplayName || n.NpcId);
+    for (const n of npcs ?? []) m.set(n.NpcId, n.DisplayName || n.NpcId);
     return m;
   }, [npcs]);
 
@@ -336,14 +320,14 @@ export function BalloonList() {
                   key={`${g.id}:${fb.ref}`}
                   balloon={fb.balloon}
                   folder={fb.folder}
-                  npcs={npcs}
+                  npcs={npcs ?? []}
                 />
               ) : (
                 <BalloonRow
                   key={`${g.id}:${fb.ref}`}
                   balloon={fb.balloon}
                   folder={fb.folder}
-                  npcs={npcs}
+                  npcs={npcs ?? []}
                 />
               );
 

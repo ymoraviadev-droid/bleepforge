@@ -10,6 +10,7 @@ import {
 } from "../../components/ViewToggle";
 import type { ShaderAsset, ShaderType } from "../../lib/api";
 import { shadersApi } from "../../lib/api";
+import { useShaders } from "../../lib/stores";
 import { useShaderRefresh } from "../../lib/shaders/useShaderRefresh";
 import { textInput } from "../../styles/classes";
 import { NewShaderModal } from "./NewShaderModal";
@@ -51,8 +52,7 @@ interface Group {
 }
 
 export function ShaderList() {
-  const [shaders, setShaders] = useState<ShaderAsset[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data: shaders, error } = useShaders();
   const [search, setSearch] = useState("");
   const [folderFilter, setFolderFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState<ShaderType | "">("");
@@ -63,11 +63,11 @@ export function ShaderList() {
   const [creatingNew, setCreatingNew] = useState(false);
   const navigate = useNavigate();
 
-  const refresh = useCallback(() => {
-    shadersApi
-      .list()
-      .then((r) => setShaders(r.shaders))
-      .catch((e) => setError(String(e)));
+  // Usage counts aren't part of the shader store (separate endpoint,
+  // separate semantics). Keep the per-page fetch + refresh-on-shader-
+  // event so the pills stay live. The shader list itself comes from
+  // the store, which refreshes via the catalog-bus on the same event.
+  const refreshUsageCounts = useCallback(() => {
     shadersApi
       .usageCounts()
       .then(setUsageCounts)
@@ -77,13 +77,10 @@ export function ShaderList() {
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    refreshUsageCounts();
+  }, [refreshUsageCounts]);
 
-  // Phase 2: SSE auto-refresh. Any shader add/change/remove pushes a
-  // re-fetch of the list + usage counts. Coalescing isn't worth the
-  // complexity at this corpus size — even a burst of events is cheap.
-  useShaderRefresh(refresh);
+  useShaderRefresh(refreshUsageCounts);
 
   const folderOptions = useMemo(() => {
     if (!shaders) return [];

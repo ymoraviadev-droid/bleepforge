@@ -1,10 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Item, ItemCategory } from "@bleepforge/shared";
-import { itemsApi } from "../../lib/api";
+import { useItems } from "../../lib/stores";
 import { ButtonLink } from "../../components/Button";
 import { EmptyState, WorkshopEmpty } from "../../components/EmptyState";
 import { textInput } from "../../styles/classes";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
 import { ItemCard } from "./ItemCard";
 import { ItemRow } from "./ItemRow";
@@ -27,22 +26,11 @@ const SORT_LABEL: Record<SortBy, string> = {
 };
 
 export function ItemList() {
-  const [items, setItems] = useState<Item[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data: items, error } = useItems();
   const [search, setSearch] = useState("");
   const [enabled, setEnabled] = useState<Set<ItemCategory>>(new Set(CATEGORIES));
   const [sortBy, setSortBy] = useState<SortBy>("slug");
   const [view, setView] = useViewMode("item");
-
-  useEffect(() => {
-    itemsApi.list().then(setItems).catch((e) => setError(String(e)));
-  }, []);
-
-  // Live-refresh on any external item change (Godot save, .tres edit, etc.)
-  useSyncRefresh({
-    domain: "item",
-    onChange: () => itemsApi.list().then(setItems).catch(() => {}),
-  });
 
   const grouped = useMemo(() => {
     if (!items) return null;

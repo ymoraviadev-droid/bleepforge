@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
 import type { FactionData } from "@bleepforge/shared";
-import { factionsApi } from "../../lib/api";
+import { useFactions } from "../../lib/stores";
 import { ButtonLink } from "../../components/Button";
 import { EmptyState, WorkshopEmpty } from "../../components/EmptyState";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { CARDS_LIST_OPTIONS, useViewMode, ViewToggle } from "../../components/ViewToggle";
 import { FactionCard } from "./FactionCard";
 import { FactionRow } from "./FactionRow";
@@ -14,18 +12,8 @@ import { PixelSkeleton } from "../../components/PixelSkeleton";
 const ORDER: FactionData["Faction"][] = ["Scavengers", "FreeRobots", "RFF", "Grove"];
 
 export function FactionList() {
-  const [factions, setFactions] = useState<FactionData[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data: factions, error } = useFactions();
   const [view, setView] = useViewMode("faction");
-
-  useEffect(() => {
-    factionsApi.list().then(setFactions).catch((e) => setError(String(e)));
-  }, []);
-
-  useSyncRefresh({
-    domain: "faction",
-    onChange: () => factionsApi.list().then(setFactions).catch(() => {}),
-  });
 
   if (error) return <div className="text-red-400">Error: {error}</div>;
   if (factions === null) return <PixelSkeleton />;
