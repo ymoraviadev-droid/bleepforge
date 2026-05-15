@@ -22,7 +22,12 @@ interface Props {
   onCreated: (result: CreateProjectResult) => void;
 }
 
-type ModeOption = "notebook" | "sync";
+// Three creation flows on this modal. The first two map directly to the
+// stored Project.mode value. The third ("import-once") creates a
+// notebook project but seeds its data + content from a chosen Godot
+// tree, then disconnects — operationally identical to a notebook
+// project after the first boot completes.
+type ModeOption = "notebook" | "sync" | "import-once";
 
 interface ModeChoice {
   id: ModeOption;
@@ -46,6 +51,13 @@ const MODES: ModeChoice[] = [
       "Two-way live sync with a Godot project's .tres files. Bleepforge mirrors the entity JSON from .tres on every boot and writes edits back on save; the watcher catches Godot-side changes live.",
     available: true,
   },
+  {
+    id: "import-once",
+    label: "Import once from Godot",
+    blurb:
+      "Snapshot a Godot project's content into a fresh notebook. Copies the .tres data as JSON + referenced images + shaders into the new project. After import the project is independent — edits never touch the source Godot tree.",
+    available: true,
+  },
 ];
 
 type GodotValidation =
@@ -65,8 +77,9 @@ export function NewProjectModal({ onClose, onCreated }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const trimmedName = displayName.trim();
-  const syncReady = mode === "sync" ? godotState.kind === "valid" : true;
-  const canSubmit = !creating && trimmedName.length > 0 && syncReady;
+  const needsGodot = mode === "sync" || mode === "import-once";
+  const godotReady = needsGodot ? godotState.kind === "valid" : true;
+  const canSubmit = !creating && trimmedName.length > 0 && godotReady;
 
   async function validateGodot(path: string): Promise<void> {
     setGodotState({ kind: "validating", path });
@@ -102,14 +115,22 @@ export function NewProjectModal({ onClose, onCreated }: Props) {
     setCreating(true);
     setError(null);
     try {
-      const result = await projectsApi.create({
-        displayName: trimmedName,
-        mode,
-        godotProjectRoot:
-          mode === "sync" && godotState.kind === "valid"
-            ? godotState.path
-            : undefined,
-      });
+      let result;
+      if (mode === "import-once" && godotState.kind === "valid") {
+        result = await projectsApi.importOnce({
+          displayName: trimmedName,
+          sourceGodotRoot: godotState.path,
+        });
+      } else {
+        result = await projectsApi.create({
+          displayName: trimmedName,
+          mode: mode === "sync" ? "sync" : "notebook",
+          godotProjectRoot:
+            mode === "sync" && godotState.kind === "valid"
+              ? godotState.path
+              : undefined,
+        });
+      }
       onCreated(result);
     } catch (err) {
       setError((err as Error).message);
@@ -190,9 +211,13 @@ export function NewProjectModal({ onClose, onCreated }: Props) {
             </div>
           </fieldset>
 
-          {mode === "sync" && (
+          {needsGodot && (
             <div>
-              <label className={fieldLabel}>Godot project folder</label>
+              <label className={fieldLabel}>
+                {mode === "sync"
+                  ? "Godot project folder"
+                  : "Source Godot project folder"}
+              </label>
               <div className="mt-1 flex gap-2">
                 <input
                   type="text"
@@ -247,9 +272,10 @@ export function NewProjectModal({ onClose, onCreated }: Props) {
               )}
               <p className="mt-1 font-mono text-[10px] text-neutral-600">
                 The folder containing{" "}
-                <code className="text-neutral-400">project.godot</code>. After
-                creation the boot reconcile will populate Bleepforge's JSON
-                cache from the project's .tres files.
+                <code className="text-neutral-400">project.godot</code>.
+                {mode === "sync"
+                  ? " After creation the boot reconcile will populate Bleepforge's JSON cache from the project's .tres files."
+                  : " On first boot Bleepforge snapshots the .tres files + referenced images/shaders into the new project, then disconnects."}
               </p>
             </div>
           )}

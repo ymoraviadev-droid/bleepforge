@@ -1,9 +1,9 @@
 // HTTP surface for the multi-project layer. Endpoints:
 //
-//   GET  /api/projects           list every registered project + active slug
-//   POST /api/projects           create a new project (notebook in phase 5;
-//                                sync mode added in phase 6)
-//   PUT  /api/projects/active    set the active project (slug in body)
+//   GET  /api/projects             list every registered project + active slug
+//   POST /api/projects             create a new project (notebook or sync)
+//   POST /api/projects/import-once seed a notebook project from a Godot tree
+//   PUT  /api/projects/active      set the active project (slug in body)
 //
 // Switching or creating-with-auto-active requires a server restart —
 // the active project's paths (data root, content root, godot root,
@@ -28,6 +28,7 @@ import {
   writeActivePointer,
   writeRegistry,
 } from "./registry.js";
+import { writePendingImport } from "./importOnce.js";
 
 export const projectsRouter: Router = Router();
 
@@ -97,32 +98,12 @@ projectsRouter.post("/", (req, res) => {
       });
       return;
     }
-    const absGodot = path.resolve(trimmedGodot);
-    let isDir = false;
-    try {
-      isDir = fs.statSync(absGodot).isDirectory();
-    } catch {
-      isDir = false;
-    }
-    if (!isDir) {
-      res.status(400).json({
-        error: `godotProjectRoot does not exist or is not a directory: ${absGodot}`,
-      });
+    const gv = validateGodotRoot(trimmedGodot);
+    if ("error" in gv) {
+      res.status(400).json({ error: gv.error });
       return;
     }
-    let hasProjectFile = false;
-    try {
-      hasProjectFile = fs.statSync(path.join(absGodot, "project.godot")).isFile();
-    } catch {
-      hasProjectFile = false;
-    }
-    if (!hasProjectFile) {
-      res.status(400).json({
-        error: `no project.godot at ${absGodot} — doesn't look like a Godot project`,
-      });
-      return;
-    }
-    resolvedGodotRoot = absGodot;
+    resolvedGodotRoot = gv.abs;
   } else if (trimmedGodot) {
     res.status(400).json({
       error: "godotProjectRoot is only valid for sync-mode projects",
@@ -201,6 +182,132 @@ projectsRouter.post("/", (req, res) => {
     project,
     activeSlug: setActive ? slug : config.activeProjectSlug,
     restartRequired,
+  });
+});
+
+const ImportOnceBody = z.object({
+  displayName: z.string().min(1).max(120),
+  sourceGodotRoot: z.string().min(1),
+});
+
+// Validate a candidate Godot root: directory exists + contains
+// project.godot. Returns the resolved absolute path or null with a
+// human-readable reason. Shared between sync-mode creation and
+// import-once.
+function validateGodotRoot(candidate: string): { abs: string } | { error: string } {
+  const abs = path.resolve(candidate.trim());
+  try {
+    if (!fs.statSync(abs).isDirectory()) {
+      return { error: `${abs} is not a directory` };
+    }
+  } catch {
+    return { error: `${abs} does not exist` };
+  }
+  try {
+    if (!fs.statSync(path.join(abs, "project.godot")).isFile()) {
+      return { error: `no project.godot at ${abs}` };
+    }
+  } catch {
+    return { error: `no project.godot at ${abs}` };
+  }
+  return { abs };
+}
+
+// Import-once creates a notebook project seeded from a Godot tree. The
+// actual heavy lifting (reconcile + asset copy + ref rewrite) runs on
+// the NEXT boot: we write a manifest into the new project's data/, set
+// it active, and the client restarts. At boot, app.ts detects the
+// manifest, runs the seed against the source tree (now in the new
+// project's path context — folderAbs already points at it), copies
+// referenced files into content/, and deletes the manifest.
+projectsRouter.post("/import-once", (req, res) => {
+  const parsed = ImportOnceBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.format() });
+    return;
+  }
+  const { displayName, sourceGodotRoot } = parsed.data;
+
+  const gv = validateGodotRoot(sourceGodotRoot);
+  if ("error" in gv) {
+    res.status(400).json({ error: gv.error });
+    return;
+  }
+
+  const registry =
+    readRegistry(config.bleepforgeRoot) ?? {
+      schemaVersion: 1 as const,
+      projects: [],
+    };
+  const slug = uniqueSlug(displayName, registry.projects);
+
+  const projectDir = path.join(config.bleepforgeRoot, "projects", slug);
+  const dataDir = path.join(projectDir, "data");
+  const contentDir = path.join(projectDir, "content");
+  try {
+    fs.mkdirSync(dataDir, { recursive: true });
+    fs.mkdirSync(contentDir, { recursive: true });
+  } catch (err) {
+    res.status(500).json({
+      error: `could not create project dirs at ${projectDir}: ${(err as Error).message}`,
+    });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  const project: Project = {
+    slug,
+    displayName: displayName.trim(),
+    // After the seed completes, this is a standard notebook project —
+    // the import-once nature is creation-flow metadata, not a stored
+    // mode. Bleepforge owns the data, no link back to the Godot tree.
+    mode: "notebook",
+    godotProjectRoot: null,
+    createdAt: now,
+    lastOpened: now,
+  };
+  registry.projects.push(project);
+  try {
+    writeRegistry(config.bleepforgeRoot, registry);
+  } catch (err) {
+    res.status(500).json({
+      error: `could not write registry: ${(err as Error).message}`,
+    });
+    return;
+  }
+
+  // Stash the pending-import manifest in the new project's data/ —
+  // the boot handler picks it up on next start.
+  try {
+    writePendingImport(dataDir, {
+      schemaVersion: 1,
+      sourceGodotRoot: gv.abs,
+      createdAt: now,
+    });
+  } catch (err) {
+    res.status(500).json({
+      error: `could not stash pending-import manifest: ${(err as Error).message}`,
+    });
+    return;
+  }
+
+  // Always set active for import-once — the user just made a project
+  // specifically to fork that Godot tree; staying on the current
+  // project after creation would be a confusing UX dead-end.
+  writeActivePointer(config.bleepforgeRoot, {
+    schemaVersion: 1,
+    activeSlug: slug,
+    lastSwitched: now,
+  });
+
+  console.log(
+    `[bleepforge/projects] queued import-once for "${displayName}" (slug=${slug}, source=${gv.abs})`,
+  );
+  res.json({
+    ok: true,
+    project,
+    activeSlug: slug,
+    restartRequired: true,
   });
 });
 

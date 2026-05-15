@@ -65,10 +65,12 @@ const dataRoot = activeProject
 const assetRoot = path.resolve(process.env.ASSET_ROOT ?? os.homedir());
 
 // Resolve the Godot project root from the active project record (post-
-// v0.2.6 canonical source). Fall back to the env var for first-boot
-// scenarios where no project exists yet. Changes to the active project's
-// godotProjectRoot still require a server restart — the value is captured
-// once here at module init and never mutated in-process.
+// v0.2.6 canonical source). Sync-mode projects carry the path on their
+// record; the env var is the bootstrap fallback for first-boot scenarios
+// where no project exists yet (limp mode → user sets path via Preferences).
+// Notebook projects intentionally IGNORE the env var — they have no Godot
+// connection by design, and falling through to env would point the watcher
+// + asset router at the wrong tree.
 function resolveGodotRoot(): {
   path: string | null;
   source: "project" | "env" | null;
@@ -78,6 +80,11 @@ function resolveGodotRoot(): {
       path: path.resolve(activeProject.godotProjectRoot),
       source: "project",
     };
+  }
+  if (activeProject && activeProject.mode === "notebook") {
+    // Notebook projects own their content — no Godot tree to fall back
+    // to. Returning null here makes the env-var bootstrap skip.
+    return { path: null, source: null };
   }
   if (process.env.GODOT_PROJECT_ROOT) {
     return {
@@ -89,6 +96,19 @@ function resolveGodotRoot(): {
 }
 
 const resolved = resolveGodotRoot();
+
+// contentRoot: where the active project's raw asset + shader files live.
+//   - sync mode: the Godot project tree itself (assets + shaders live
+//     alongside .tres files there).
+//   - notebook mode: the project's own content/ dir under projects/<slug>/.
+//   - no active project: null (limp mode).
+const contentRoot: string | null = (() => {
+  if (!activeProject) return null;
+  if (activeProject.mode === "notebook") {
+    return path.join(bleepforgeRoot, "projects", activeProject.slug, "content");
+  }
+  return resolved.path;
+})();
 
 export const config = {
   /** Where projects.json, active-project.json, and projects/ live. */
@@ -115,7 +135,7 @@ export const config = {
    *  it diverge from godotProjectRoot.
    *
    *  Null when no project is configured (truly-fresh install, limp mode). */
-  contentRoot: resolved.path,
+  contentRoot,
   godotProjectRoot: resolved.path,
   godotProjectRootSource: resolved.source,
   port: Number(process.env.PORT ?? 4000),

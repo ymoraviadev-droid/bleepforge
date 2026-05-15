@@ -229,6 +229,11 @@ export interface CreateProjectResult {
   restartRequired: boolean;
 }
 
+export interface ImportOnceBody {
+  displayName: string;
+  sourceGodotRoot: string;
+}
+
 export const projectsApi = {
   list: async (): Promise<ProjectsList> => {
     const r = await fetch("/api/projects");
@@ -244,6 +249,18 @@ export const projectsApi = {
     if (!r.ok) {
       const detail = await r.text().catch(() => "");
       throw new Error(`create project failed: ${r.status} ${detail}`);
+    }
+    return r.json();
+  },
+  importOnce: async (body: ImportOnceBody): Promise<CreateProjectResult> => {
+    const r = await fetch("/api/projects/import-once", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      throw new Error(`import-once project failed: ${r.status} ${detail}`);
     }
     return r.json();
   },

@@ -10,11 +10,16 @@ import "./lib/logs/buffer.js";
 import { config } from "./config.js";
 import { startServer } from "./app.js";
 
-// CLI fail-fast: when launched from a terminal, refuse to start without a
-// Godot root so the failure mode is obvious in the dev workflow. Electron
-// main bypasses this entry and calls startServer() directly so the
-// packaged app can limp until the user sets a root via Preferences.
-if (!config.godotProjectRoot) {
+// CLI fail-fast: when launched from a terminal, refuse to start when
+// there's no useful path to work against — either a sync-mode project
+// missing its Godot root, or no project at all + no env-var bootstrap.
+// Notebook projects boot fine without a Godot root by design; they own
+// their own content under projects/<slug>/content/. Electron main
+// bypasses this entry and calls startServer() directly so the packaged
+// app can limp into the welcome flow.
+const needsGodotRoot =
+  config.activeProjectSlug === null || config.projectMode === "sync";
+if (needsGodotRoot && !config.godotProjectRoot) {
   console.error("[bleepforge/server] No Godot project root configured.");
   console.error(
     "[bleepforge/server] Set GODOT_PROJECT_ROOT in .env, or open Preferences",

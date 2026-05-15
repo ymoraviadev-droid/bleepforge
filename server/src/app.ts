@@ -37,6 +37,11 @@ import { pickupsRouter } from "./lib/pickup/router.js";
 import { preferencesRouter } from "./features/preferences/router.js";
 import { processRouter } from "./lib/process/router.js";
 import { projectsRouter } from "./lib/projects/router.js";
+import {
+  clearPendingImport,
+  readPendingImport,
+  runPendingImport,
+} from "./lib/projects/importOnce.js";
 import { runBootReconcile } from "./lib/reconcile/bootReconcile.js";
 import { reconcileRouter } from "./lib/reconcile/router.js";
 import { savesRouter } from "./lib/saves/router.js";
@@ -272,11 +277,15 @@ function copyDirRecursive(src: string, dest: string): void {
 export async function startServer(): Promise<StartedServer> {
   seedHelpLibrary();
 
-  if (!config.godotProjectRoot) {
-    // Soft-fail in packaged mode: keep listening so the Preferences UI
-    // (which doesn't need a Godot root to function) can collect one.
-    // Reconcile / asset cache / watcher all skip until a root is set + the
-    // server restarts.
+  // Limp-mode soft-fail: server still listens so the Preferences UI can
+  // collect a Godot root. Only triggers when there's no active project
+  // AT ALL (truly fresh install) OR when the active project is sync mode
+  // but missing its godotProjectRoot. Notebook projects boot cleanly
+  // without a Godot root — that's the design — so suppress the warning
+  // for them.
+  const needsGodotRoot =
+    config.activeProjectSlug === null || config.projectMode === "sync";
+  if (needsGodotRoot && !config.godotProjectRoot) {
     console.error("[bleepforge/server] No Godot project root configured.");
     console.error(
       "[bleepforge/server] Open Preferences and pick your project's root,",
@@ -408,6 +417,36 @@ export async function startServer(): Promise<StartedServer> {
       console.log(
         `[bleepforge/server] project mode: ${config.projectMode ?? "(none)"}`,
       );
+      // Pending import-once seed (phase 7). If the active project's
+      // data/ carries a `.bleepforge-pending-import.json` manifest, run
+      // the one-shot seed against the source Godot tree before the
+      // normal boot gates fire. After the seed completes the project
+      // is a regular notebook project; subsequent boots see no manifest
+      // and skip this branch.
+      const pendingImport =
+        config.projectMode === "notebook"
+          ? readPendingImport(config.dataRoot)
+          : null;
+      if (pendingImport) {
+        try {
+          console.log(
+            `[bleepforge/server] running one-shot import-once seed from ${pendingImport.sourceGodotRoot}`,
+          );
+          const result = await runPendingImport(pendingImport.sourceGodotRoot);
+          console.log(
+            `[bleepforge/server] import-once seeded ${result.importedTres} .tres → JSON, copied ${result.copiedAssets} assets, rewrote ${result.rewrittenRefs} refs in ${result.durationMs}ms`,
+          );
+          clearPendingImport(config.dataRoot);
+        } catch (err) {
+          console.error(
+            `[bleepforge/server] import-once seed failed: ${(err as Error).message}`,
+          );
+          console.error(
+            `[bleepforge/server] manifest left in place at ${config.dataRoot} for retry on next boot`,
+          );
+        }
+      }
+
       // Two independent gates: .tres-coupled work (project index +
       // reconcile + .tres watching) only runs in sync mode with a Godot
       // root; content-coupled work (asset cache + shader cache + the
