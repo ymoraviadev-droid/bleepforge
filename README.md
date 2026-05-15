@@ -188,6 +188,7 @@ bleepforge/
 ├── server/            Express + TS - REST API, .tres parser/writer, watcher
 ├── client/            React + TS + Tailwind + Vite - every authoring UI
 ├── electron/          Electron main process + preload (desktop wrap)
+├── godot-lib/         Godot companion library (v0.2.6 — scaffolding only)
 ├── projects.json      Multi-project registry (gitignored — absolute paths)
 ├── active-project.json Active-project pointer (gitignored)
 └── projects/<slug>/   Per-project storage
