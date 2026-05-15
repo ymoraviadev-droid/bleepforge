@@ -1,15 +1,35 @@
-// Wires every store to the legacy `catalog-bus` so the existing
-// `refreshCatalog()` calls in api.ts (fired after every save/remove in
-// Phase 1) trigger a refetch of each domain. Same blanket behavior as
-// pre-v0.2.5; Phase 3 will replace this with per-domain invalidation
-// driven by the SSE event's `domain` field.
+// Choreographs the three update paths that flow into the domain
+// stores:
 //
-// Gate: each store only refreshes if it's been touched at least once
-// (status !== "idle"). Without this gate, refreshCatalog would force-
-// load every slice on the first save in the app even if nobody had
-// asked for that data yet.
+//   1) catalog-bus (`refreshCatalog()`) — manual all-refresh trigger.
+//      Today only the Integrity diagnostics tab's "Refresh" button
+//      fires this. Refreshes every store that's been touched at least
+//      once. The status gate is the safety: untouched stores stay
+//      idle, no force-load.
+//
+//   2) `Bleepforge:sync` SSE — external .tres change for one of the
+//      seven game-mirrored domains. The event's `domain` field picks
+//      the matching store; the rest stay untouched. For "deleted"
+//      events we don't bother removing the key locally — the next
+//      store.refresh() reflects the missing entity. Flat domains are
+//      direct mappings; the foldered domains (dialog, balloon) split
+//      `event.key` on "/" to get folder+id when targeted invalidation
+//      becomes worth the extra surface — Phase 3 just refreshes the
+//      slice wholesale (one fetch, one domain).
+//
+//   3) `Bleepforge:shader` SSE — external .gdshader change. Routes to
+//      the shader store only.
+//
+// Phase 3 (v0.2.5) replaces the prior blanket "every event refreshes
+// every store" behavior with per-domain routing. Local save/remove
+// calls in api.ts now patch their respective stores directly from
+// PUT/DELETE responses, so the SSE events here are the external-only
+// path (plus the saving window's own self-echo, which lands on a
+// store that's already in sync via the patch — small redundant
+// fetch, no correctness issue).
 
 import { subscribeCatalog } from "../catalog-bus";
+import type { SyncDomain } from "../sync/stream";
 import { balloonStore } from "./balloons";
 import { codexStore } from "./codex";
 import type { Store } from "./createStore";
@@ -29,7 +49,7 @@ type AnyStore =
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   | FolderedStore<any, any>;
 
-const stores: AnyStore[] = [
+const allStores: AnyStore[] = [
   itemStore,
   npcStore,
   questStore,
@@ -42,15 +62,42 @@ const stores: AnyStore[] = [
   codexStore,
 ];
 
+// SyncDomain → store. Covers every domain the sync SSE stream
+// publishes; pickups + codex + shaders are not part of SyncDomain so
+// they're not in this map.
+const storeForSyncDomain: Record<SyncDomain, AnyStore> = {
+  item: itemStore,
+  npc: npcStore,
+  quest: questStore,
+  karma: karmaStore,
+  faction: factionStore,
+  dialog: dialogStore,
+  balloon: balloonStore,
+};
+
+function maybeRefresh(store: AnyStore): void {
+  if (store.getSnapshot().status !== "idle") void store.refresh();
+}
+
 let wired = false;
 
 export function wireStoresToBus(): void {
   if (wired) return;
   wired = true;
+
+  // (1) Manual all-refresh path.
   subscribeCatalog(() => {
-    for (const s of stores) {
-      const snap = s.getSnapshot();
-      if (snap.status !== "idle") void s.refresh();
-    }
+    for (const s of allStores) maybeRefresh(s);
+  });
+
+  // (2) Per-domain SSE routing.
+  window.addEventListener("Bleepforge:sync", (e) => {
+    const store = storeForSyncDomain[e.detail.domain];
+    if (store) maybeRefresh(store);
+  });
+
+  // (3) Shader SSE — single domain.
+  window.addEventListener("Bleepforge:shader", () => {
+    maybeRefresh(shaderStore);
   });
 }

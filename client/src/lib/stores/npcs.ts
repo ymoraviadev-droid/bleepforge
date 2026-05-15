@@ -1,8 +1,8 @@
 import type { Npc } from "@bleepforge/shared";
 import { npcsApi } from "../api";
-import { createStore, useStore } from "./createStore";
+import { createStore, useStore, type Store } from "./createStore";
 
-export const npcStore = createStore<Npc>({
+export const npcStore: Store<Npc> = createStore<Npc>({
   name: "npcs",
   fetcher: () => npcsApi.list(),
   keyOf: (n) => n.NpcId,

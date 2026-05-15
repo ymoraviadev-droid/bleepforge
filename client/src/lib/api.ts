@@ -16,8 +16,9 @@ import type {
   Preferences,
   Quest,
 } from "@bleepforge/shared";
-import { refreshCatalog } from "./catalog-bus";
 import { noteLocalShaderSave } from "./shaders/localSaves";
+import type { Store } from "./stores/createStore";
+import type { FolderedStore } from "./stores/createFolderedStore";
 
 // Returned by the server alongside the saved entity. Lets us surface
 // .tres write status to the user (or just log it if UI feedback isn't
@@ -63,42 +64,58 @@ function logTresWrite(label: string, r: TresWriteResult): void {
   }
 }
 
-const crud = <T>(name: string, keyOf: (entity: T) => string): ResourceApi<T> => ({
-  list: async () => {
-    const r = await fetch(`/api/${name}`);
-    if (!r.ok) throw new Error(`list ${name} failed: ${r.status}`);
-    return r.json();
-  },
-  get: async (key) => {
-    const r = await fetch(`/api/${name}/${encodeURIComponent(key)}`);
-    if (r.status === 404) return null;
-    if (!r.ok) throw new Error(`get ${name} failed: ${r.status}`);
-    return r.json();
-  },
-  save: async (entity) => {
-    const r = await fetch(`/api/${name}/${encodeURIComponent(keyOf(entity))}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(entity),
-    });
-    if (!r.ok) {
-      const body = await r.text();
-      throw new Error(`save ${name} failed: ${r.status} ${body}`);
-    }
-    const data = await r.json();
-    refreshCatalog();
-    return unwrapSavedResponse<T>(data, `${name}/${keyOf(entity)}`);
-  },
-  remove: async (key) => {
-    const r = await fetch(`/api/${name}/${encodeURIComponent(key)}`, {
-      method: "DELETE",
-    });
-    if (!r.ok && r.status !== 404) {
-      throw new Error(`delete ${name} failed: ${r.status}`);
-    }
-    refreshCatalog();
-  },
-});
+// `getStore` is a lazy getter (not the store directly) to sidestep the
+// circular module dependency — stores/items.ts imports itemsApi for its
+// fetcher, api.ts imports itemStore for the patch path. The closure
+// reads the store binding at user-call time, by which point both
+// modules have finished evaluating.
+const crud = <T>(opts: {
+  name: string;
+  keyOf: (entity: T) => string;
+  getStore: () => Store<T>;
+}): ResourceApi<T> => {
+  const { name, keyOf, getStore } = opts;
+  return {
+    list: async () => {
+      const r = await fetch(`/api/${name}`);
+      if (!r.ok) throw new Error(`list ${name} failed: ${r.status}`);
+      return r.json();
+    },
+    get: async (key) => {
+      const r = await fetch(`/api/${name}/${encodeURIComponent(key)}`);
+      if (r.status === 404) return null;
+      if (!r.ok) throw new Error(`get ${name} failed: ${r.status}`);
+      return r.json();
+    },
+    save: async (entity) => {
+      const r = await fetch(`/api/${name}/${encodeURIComponent(keyOf(entity))}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entity),
+      });
+      if (!r.ok) {
+        const body = await r.text();
+        throw new Error(`save ${name} failed: ${r.status} ${body}`);
+      }
+      const data = await r.json();
+      const saved = unwrapSavedResponse<T>(data, `${name}/${keyOf(entity)}`);
+      // Patch the store directly from the response — saves a round-trip
+      // refetch. The server reads back the JSON after writing, so the
+      // returned entity is authoritative.
+      getStore().patch(saved);
+      return saved;
+    },
+    remove: async (key) => {
+      const r = await fetch(`/api/${name}/${encodeURIComponent(key)}`, {
+        method: "DELETE",
+      });
+      if (!r.ok && r.status !== 404) {
+        throw new Error(`delete ${name} failed: ${r.status}`);
+      }
+      getStore().remove(key);
+    },
+  };
+};
 
 export const assetUrl = (path: string): string =>
   `/api/asset?path=${encodeURIComponent(path)}`;
@@ -119,11 +136,24 @@ export const itemIconApi = {
   },
 };
 
-export const questsApi = crud<Quest>("quests", (e) => e.Id);
-export const itemsApi = crud<Item>("items", (e) => e.Slug);
-export const karmaApi = crud<KarmaImpact>("karma", (e) => e.Id);
-export const npcsApi = crud<Npc>("npcs", (e) => e.NpcId);
-export const factionsApi = crud<FactionData>("factions", (e) => e.Faction);
+// Each api wires its matching store via a lazy getter — see the note on
+// `crud<T>` above for why the indirection. Imports are below to keep
+// the top of api.ts focused on the crud factory.
+import { balloonStore } from "./stores/balloons";
+import { codexStore } from "./stores/codex";
+import { dialogStore } from "./stores/dialogs";
+import { factionStore } from "./stores/factions";
+import { itemStore } from "./stores/items";
+import { karmaStore } from "./stores/karma";
+import { npcStore } from "./stores/npcs";
+import { questStore } from "./stores/quests";
+import { shaderStore } from "./stores/shaders";
+
+export const questsApi = crud<Quest>({ name: "quests", keyOf: (e) => e.Id, getStore: () => questStore });
+export const itemsApi = crud<Item>({ name: "items", keyOf: (e) => e.Slug, getStore: () => itemStore });
+export const karmaApi = crud<KarmaImpact>({ name: "karma", keyOf: (e) => e.Id, getStore: () => karmaStore });
+export const npcsApi = crud<Npc>({ name: "npcs", keyOf: (e) => e.NpcId, getStore: () => npcStore });
+export const factionsApi = crud<FactionData>({ name: "factions", keyOf: (e) => e.Faction, getStore: () => factionStore });
 
 // Read-only list of collectible scenes from the Godot project. Used by the
 // NPC LootTable editor to render a pickup-picker dropdown.
@@ -434,8 +464,9 @@ export const dialogsApi = {
       throw new Error(`save dialog failed: ${r.status} ${body}`);
     }
     const data = await r.json();
-    refreshCatalog();
-    return unwrapSavedResponse<DialogSequence>(data, `dialogs/${folder}/${sequence.Id}`);
+    const saved = unwrapSavedResponse<DialogSequence>(data, `dialogs/${folder}/${sequence.Id}`);
+    dialogStore.patch(folder, saved);
+    return saved;
   },
   remove: async (folder: string, id: string): Promise<void> => {
     const r = await fetch(
@@ -445,7 +476,7 @@ export const dialogsApi = {
     if (!r.ok && r.status !== 404) {
       throw new Error(`remove dialog failed: ${r.status}`);
     }
-    refreshCatalog();
+    dialogStore.remove(folder, id);
   },
   getLayout: async (folder: string): Promise<DialogLayout> => {
     const r = await fetch(`/api/dialogs/${encodeURIComponent(folder)}/_layout`);
@@ -510,8 +541,9 @@ export const balloonsApi = {
       throw new Error(`save balloon failed: ${r.status} ${body}`);
     }
     const data = await r.json();
-    refreshCatalog();
-    return unwrapSavedResponse<Balloon>(data, `balloons/${folder}/${balloon.Id}`);
+    const saved = unwrapSavedResponse<Balloon>(data, `balloons/${folder}/${balloon.Id}`);
+    balloonStore.patch(folder, saved);
+    return saved;
   },
   remove: async (folder: string, id: string): Promise<void> => {
     const r = await fetch(
@@ -521,7 +553,7 @@ export const balloonsApi = {
     if (!r.ok && r.status !== 404) {
       throw new Error(`remove balloon failed: ${r.status}`);
     }
-    refreshCatalog();
+    balloonStore.remove(folder, id);
   },
 };
 
@@ -564,8 +596,12 @@ export const codexApi = {
       throw new Error(`save meta failed: ${r.status} ${body}`);
     }
     const data = await r.json();
-    refreshCatalog();
-    return unwrapSavedResponse<CodexCategoryMeta>(data, `codex/${meta.Category}/_meta`);
+    const saved = unwrapSavedResponse<CodexCategoryMeta>(data, `codex/${meta.Category}/_meta`);
+    // Meta changes touch the category schema, not just one entry — the
+    // foldered store doesn't model a "patch meta" op, so we refresh the
+    // single codex slice. Other slices are untouched.
+    void codexStore.refresh();
+    return saved;
   },
   removeCategory: async (category: string): Promise<void> => {
     const r = await fetch(`/api/codex/${encodeURIComponent(category)}`, {
@@ -574,7 +610,9 @@ export const codexApi = {
     if (!r.ok && r.status !== 404) {
       throw new Error(`remove category failed: ${r.status}`);
     }
-    refreshCatalog();
+    // Whole-folder removal (entire CodexCategoryGroup gone). The
+    // foldered store has no removeFolder op — refresh the slice.
+    void codexStore.refresh();
   },
   getEntry: async (category: string, id: string): Promise<CodexEntry | null> => {
     const r = await fetch(
@@ -598,8 +636,9 @@ export const codexApi = {
       throw new Error(`save entry failed: ${r.status} ${body}`);
     }
     const data = await r.json();
-    refreshCatalog();
-    return unwrapSavedResponse<CodexEntry>(data, `codex/${category}/${entry.Id}`);
+    const saved = unwrapSavedResponse<CodexEntry>(data, `codex/${category}/${entry.Id}`);
+    codexStore.patch(category, saved);
+    return saved;
   },
   removeEntry: async (category: string, id: string): Promise<void> => {
     const r = await fetch(
@@ -609,7 +648,7 @@ export const codexApi = {
     if (!r.ok && r.status !== 404) {
       throw new Error(`remove entry failed: ${r.status}`);
     }
-    refreshCatalog();
+    codexStore.remove(category, id);
   },
 };
 
@@ -923,7 +962,9 @@ export const shadersApi = {
     // Mark this path as locally-saved so the echoed SSE event doesn't
     // toast in the same window the user just got Save-button feedback in.
     noteLocalShaderSave(path);
-    return r.json();
+    const result: ShaderSaveResult = await r.json();
+    if (result.asset) shaderStore.patch(result.asset);
+    return result;
   },
   create: async (input: {
     targetDir: string;
@@ -941,6 +982,7 @@ export const shadersApi = {
     }
     const result: ShaderCreateResult = await r.json();
     noteLocalShaderSave(result.path);
+    if (result.asset) shaderStore.patch(result.asset);
     return result;
   },
   setPattern: async (
@@ -957,7 +999,9 @@ export const shadersApi = {
       throw new Error(`set shader pattern failed: ${r.status} ${body}`);
     }
     noteLocalShaderSave(path);
-    return r.json();
+    const result: { ok: boolean; asset: ShaderAsset | null } = await r.json();
+    if (result.asset) shaderStore.patch(result.asset);
+    return result;
   },
   setColor: async (
     path: string,
@@ -973,7 +1017,9 @@ export const shadersApi = {
       throw new Error(`set shader color failed: ${r.status} ${body}`);
     }
     noteLocalShaderSave(path);
-    return r.json();
+    const result: { ok: boolean; asset: ShaderAsset | null } = await r.json();
+    if (result.asset) shaderStore.patch(result.asset);
+    return result;
   },
   deleteFile: async (path: string): Promise<ShaderDeleteResult> => {
     const r = await fetch(
@@ -985,6 +1031,7 @@ export const shadersApi = {
       throw new Error(`delete shader failed: ${r.status} ${body}`);
     }
     noteLocalShaderSave(path);
+    shaderStore.remove(path);
     return r.json();
   },
 };

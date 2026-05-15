@@ -1,6 +1,10 @@
 import type { CodexCategoryGroup, CodexEntry } from "@bleepforge/shared";
 import { codexApi } from "../api";
-import { createFolderedStore, useFolderedStore } from "./createFolderedStore";
+import {
+  createFolderedStore,
+  useFolderedStore,
+  type FolderedStore,
+} from "./createFolderedStore";
 
 // Codex groups carry both `meta` (the per-category schema) and
 // `entries`. The store treats entries as the patchable unit; meta
@@ -16,7 +20,7 @@ import { createFolderedStore, useFolderedStore } from "./createFolderedStore";
 // uses an empty meta with a placeholder DisplayName + Color so the
 // store doesn't crash; the next refresh will overwrite with the
 // real meta from disk.
-export const codexStore = createFolderedStore<CodexCategoryGroup, CodexEntry>({
+export const codexStore: FolderedStore<CodexCategoryGroup, CodexEntry> = createFolderedStore<CodexCategoryGroup, CodexEntry>({
   name: "codex",
   fetcher: () => codexApi.listAll(),
   folderOf: (g) => g.category,

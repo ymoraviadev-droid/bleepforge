@@ -1,5 +1,5 @@
 import { shadersApi, type ShaderAsset } from "../api";
-import { createStore, useStore } from "./createStore";
+import { createStore, useStore, type Store } from "./createStore";
 
 // Shaders are a flat list of file descriptors (path / basename / parentRel
 // / shaderType / pattern / color). The `.gdshader` text source is fetched
@@ -10,7 +10,7 @@ import { createStore, useStore } from "./createStore";
 // catch-fallback to keep the rest of the boot alive. The store does the
 // same — a failed fetch lands in `status: "error"` but doesn't take
 // other slices down with it.
-export const shaderStore = createStore<ShaderAsset>({
+export const shaderStore: Store<ShaderAsset> = createStore<ShaderAsset>({
   name: "shaders",
   fetcher: async () => (await shadersApi.list()).shaders,
   keyOf: (s) => s.path,

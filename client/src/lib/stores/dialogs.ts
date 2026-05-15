@@ -1,8 +1,12 @@
 import type { DialogSequence } from "@bleepforge/shared";
 import { dialogsApi, type DialogFolderGroup } from "../api";
-import { createFolderedStore, useFolderedStore } from "./createFolderedStore";
+import {
+  createFolderedStore,
+  useFolderedStore,
+  type FolderedStore,
+} from "./createFolderedStore";
 
-export const dialogStore = createFolderedStore<DialogFolderGroup, DialogSequence>({
+export const dialogStore: FolderedStore<DialogFolderGroup, DialogSequence> = createFolderedStore<DialogFolderGroup, DialogSequence>({
   name: "dialogs",
   fetcher: () => dialogsApi.listAll(),
   folderOf: (g) => g.folder,

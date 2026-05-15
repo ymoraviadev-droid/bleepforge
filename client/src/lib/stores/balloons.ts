@@ -1,8 +1,12 @@
 import type { Balloon } from "@bleepforge/shared";
 import { balloonsApi, type BalloonFolderGroup } from "../api";
-import { createFolderedStore, useFolderedStore } from "./createFolderedStore";
+import {
+  createFolderedStore,
+  useFolderedStore,
+  type FolderedStore,
+} from "./createFolderedStore";
 
-export const balloonStore = createFolderedStore<BalloonFolderGroup, Balloon>({
+export const balloonStore: FolderedStore<BalloonFolderGroup, Balloon> = createFolderedStore<BalloonFolderGroup, Balloon>({
   name: "balloons",
   fetcher: () => balloonsApi.listAll(),
   folderOf: (g) => g.folder,

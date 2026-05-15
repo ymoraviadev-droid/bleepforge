@@ -1,8 +1,8 @@
 import type { KarmaImpact } from "@bleepforge/shared";
 import { karmaApi } from "../api";
-import { createStore, useStore } from "./createStore";
+import { createStore, useStore, type Store } from "./createStore";
 
-export const karmaStore = createStore<KarmaImpact>({
+export const karmaStore: Store<KarmaImpact> = createStore<KarmaImpact>({
   name: "karma",
   fetcher: () => karmaApi.list(),
   keyOf: (k) => k.Id,

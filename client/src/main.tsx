@@ -42,7 +42,6 @@ import { closeSavesStream, startSavesStream } from "./lib/saves/stream";
 import { closeShaderStream, startShaderStream } from "./lib/shaders/stream";
 import { closeSyncStream, startSyncStream } from "./lib/sync/stream";
 import { closeGlobalThemeChannel } from "./styles/GlobalTheme";
-import { refreshCatalog } from "./lib/catalog-bus";
 import { wireStoresToBus } from "./lib/stores/wireToBus";
 import { markBootCheckpoint } from "./lib/boot/progress";
 
@@ -95,19 +94,14 @@ startAssetStream();
 // + edit page (external-edit banner).
 startShaderStream();
 
-// Wire every domain store to the catalog-bus so `refreshCatalog()` calls
-// from api.ts (after every save/remove) trigger a per-slice refresh.
-// Phase 1 keeps the blanket-refresh-all-slices behavior identical to
-// pre-v0.2.5; Phase 3 replaces this with per-domain invalidation
-// driven by the SSE event's `domain` field.
+// Wire the domain stores to their three update channels:
+//   - catalog-bus (manual all-refresh)
+//   - Bleepforge:sync (external .tres changes, routed by domain)
+//   - Bleepforge:shader (external .gdshader changes)
+// See lib/stores/wireToBus.ts for the routing details. Local saves
+// patch their stores directly via api.ts; this listener only handles
+// external changes + manual refresh.
 wireStoresToBus();
-
-// Refresh the autocomplete catalog on any external change so datalists
-// stay current with the data the user just saw flow in from Godot.
-// Shader events feed the same refresh — adding/renaming/removing a
-// shader externally needs to flow into the Ctrl+K AppSearch index too.
-window.addEventListener("Bleepforge:sync", () => refreshCatalog());
-window.addEventListener("Bleepforge:shader", () => refreshCatalog());
 
 // Renderer teardown cleanup. Without this, Electron's force-close of the
 // renderer process leaves Chromium to forcibly cleanup our long-lived
