@@ -4,7 +4,7 @@
 
 Bleepforge is the editor your `[GlobalClass]` resources have always wanted: a focused, opinionated UI for building game content - dialogues, quests, items, karma impacts, NPCs, factions, balloons, project-specific concept categories, and shaders - that round-trips losslessly to and from Godot's `.tres` files (or for shaders, the `.gdshader` files themselves). The Godot project stays the source of truth; Bleepforge gives you the human-friendly surface on top of it.
 
-Currently bootstrapped against [Flock of Bleeps](data/concept.json), an in-development 2D adventure-platformer about a not-very-bright robot judged worthless and dumped in a landfill. Long-term direction is to be generic for any Godot project's content (see [Roadmap](#roadmap)).
+Currently bootstrapped against [Flock of Bleeps](projects/flock-of-bleeps/data/concept.json), an in-development 2D adventure-platformer about a not-very-bright robot judged worthless and dumped in a landfill. Long-term direction is to be generic for any Godot project's content (see [Roadmap](#roadmap)).
 
 ---
 
@@ -63,7 +63,7 @@ Thirteen distinct surfaces, each tailored to one slice of the work:
 
 - **Node.js ≥ 20** (the engines field enforces this)
 - **pnpm ≥ 10** (`npm install -g pnpm`)
-- A **Godot 4 / C#** project to point at (currently shaped around the [Flock of Bleeps](data/concept.json) schema)
+- A **Godot 4 / C#** project to point at (currently shaped around the [Flock of Bleeps](projects/flock-of-bleeps/data/concept.json) schema)
 
 ### Install
 
@@ -95,7 +95,7 @@ DATA_ROOT=data      # optional, default ./data
 ASSET_ROOT=/home/you  # optional, defaults to $HOME
 ```
 
-The Godot project root is required for the server to read or write `.tres` files. In dev (`pnpm dev`), missing it is a fail-fast boot error. In packaged builds (AppImage / Windows installer), missing it triggers a first-run welcome screen that prompts you to pick a folder via a native dialog. Either way, the chosen path is saved to `data/preferences.json` and takes priority over the env var on subsequent runs.
+The Godot project root is required for the server to read or write `.tres` files in **sync mode** (the only mode pre-v0.2.5). v0.2.5 introduced two more modes — **notebook** (standalone, no Godot connection) and **import-once** (snapshot a Godot tree into a notebook). For a sync-mode project the env var here is the bootstrap fallback; once the v0.2.5 migration runs, the canonical source is the active project record (see [Multi-project](#multi-project) below). Notebook projects ignore the env var entirely.
 
 ### Run (browser)
 
@@ -124,9 +124,9 @@ pnpm dist:linux  # Linux AppImage only
 pnpm dist:win    # Windows NSIS installer only (cross-build from Linux supported)
 ```
 
-**Linux** produces `electron/release/Bleepforge-<version>-x86_64.AppImage` (~115MB, single file, no install). Double-click to run; user state persists at `~/.config/Bleepforge/data/`. Run `pnpm install:desktop` once to register the app in the KDE / GNOME application menu with pre-cached thumbnails.
+**Linux** produces `electron/release/Bleepforge-<version>-x86_64.AppImage` (~115MB, single file, no install). Double-click to run; user state persists at `~/.config/Bleepforge/projects/<slug>/`. Run `pnpm install:desktop` once to register the app in the KDE / GNOME application menu with pre-cached thumbnails.
 
-**Windows** produces `electron/release/Bleepforge-Setup-<version>-x64.exe` (~86MB), an NSIS installer with the full wizard (welcome → install location → install), per-user install (no admin prompt), desktop + start menu shortcuts, and a working uninstaller. Unsigned — first install shows one SmartScreen warning the user clicks through with **More info → Run anyway**. User state persists at `%APPDATA%\Bleepforge\data\`.
+**Windows** produces `electron/release/Bleepforge-Setup-<version>-x64.exe` (~86MB), an NSIS installer with the full wizard (welcome → install location → install), per-user install (no admin prompt), desktop + start menu shortcuts, and a working uninstaller. Unsigned — first install shows one SmartScreen warning the user clicks through with **More info → Run anyway**. User state persists at `%APPDATA%\Bleepforge\projects\<slug>\`.
 
 **Cross-building Windows from Linux** requires a dedicated 64-bit Wine prefix at `~/.wine64-bleepforge` — electron-builder's `rcedit` step (sets `.exe` metadata + embeds the icon) needs to operate on a 64-bit target, and a 32-bit Wine prefix can't manipulate it. First-time setup:
 
@@ -152,16 +152,31 @@ macOS (.dmg) is a config-only follow-up. Auto-update + code signing are deferred
   ↑   canonical            (Express + watcher)    (Vite)
   └─── source of truth ─────────┘
                                  │
-                                 └──► JSON cache in dialoguer/data/<domain>/
+                                 └──► JSON cache in projects/<slug>/data/<domain>/
                                       (rebuilt on boot, kept live by chokidar,
-                                      pushed back to .tres on every save)
+                                      pushed back to .tres on every save —
+                                      only in sync-mode projects)
 ```
 
-- `.tres` is canonical; `data/<domain>/<id>.json` is a **derived cache**, rebuilt on every server start and kept in sync afterward. The cache JSONs are `.gitignore`d (machine-local, regenerated on boot) — never hand-edited; drift gets reconciled away on the next boot.
-- Bleepforge-only **authored** state IS tracked in git: `data/concept.json`, per-folder `data/dialogs/<folder>/_layout.json`, the entire `data/codex/` tree, the entire `data/help/` tree. `data/preferences.json` (Godot project root path + theme picks) is gitignored as machine-specific.
+- `.tres` is canonical; `projects/<slug>/data/<domain>/<id>.json` is a **derived cache**, rebuilt on every server start and kept in sync afterward. The cache JSONs are `.gitignore`d (machine-local, regenerated on boot) — never hand-edited; drift gets reconciled away on the next boot.
+- Bleepforge-only **authored** state IS tracked in git: `concept.json`, per-folder `dialogs/<folder>/_layout.json`, the entire `codex/` tree, the entire `help/` tree, `shaders/_meta.json`. `preferences.json` (theme + Godot project root) is gitignored as machine-specific, along with `projects.json` and `active-project.json` which carry per-machine absolute paths.
 - Schemas live in `shared/src/`, validated at the server boundary on read and write.
 
 For the deep-dive reasoning behind every architectural choice, see [CLAUDE.md](CLAUDE.md). It's the project bible - schema definitions, design decisions, write-back internals, watcher behavior, theme system, the lot.
+
+---
+
+## Multi-project
+
+As of v0.2.5 a single Bleepforge install holds many projects, exactly one **active** at a time. The active-project chip in the sidebar (under the BLEEPFORGE wordmark) shows which one you're editing; click it to open `/projects` and switch. Three creation flows from the `+ New project` button on that page:
+
+- **Notebook** — standalone. Bleepforge owns the data + assets + shaders inside the project. No Godot connection.
+- **Sync to Godot** — pick a Godot folder. Two-way live sync: `.tres` files are canonical, Bleepforge mirrors them as JSON on every boot and writes edits back on save; the watcher catches Godot-side changes live.
+- **Import once from Godot** — snapshot a Godot tree into a fresh notebook. `.tres` data lands as JSON, referenced images + shaders get copied into the new project's `content/` dir, refs are rewritten to the portable `content://` URL scheme. After the snapshot the project is independent.
+
+Switching projects requires a restart (paths are captured at boot). Rename + Delete live on each card's `⋯` menu; sync-mode projects' Godot trees are never touched by delete regardless of choice — Bleepforge only deletes what it owns.
+
+The legacy `data/` layout (pre-v0.2.5) migrates automatically on first boot: contents move to `projects/<slug>/data/`, slug derived from `concept.json`'s Title, the Godot root pulled out of `preferences.json` into the new project record.
 
 ---
 
@@ -173,14 +188,19 @@ bleepforge/
 ├── server/            Express + TS - REST API, .tres parser/writer, watcher
 ├── client/            React + TS + Tailwind + Vite - every authoring UI
 ├── electron/          Electron main process + preload (desktop wrap)
-└── data/              Derived JSON cache + Bleepforge-only state
-    ├── concept.json   The project pitch (Bleepforge-only)
-    ├── preferences.json  Active theme + Godot project root (Bleepforge-only)
-    ├── dialogs/<folder>/   Per-folder dialog cache + _layout.json
-    ├── balloons/<model>/   Per-NPC-model balloon cache
-    ├── codex/<category>/   Game Codex (Bleepforge-only, never round-trips)
-    ├── help/<category>/    Help library (Bleepforge-only)
-    ├── quests/, items/, karma/, npcs/, factions/  Flat-domain caches
+├── projects.json      Multi-project registry (gitignored — absolute paths)
+├── active-project.json Active-project pointer (gitignored)
+└── projects/<slug>/   Per-project storage
+    ├── data/          Derived JSON cache + Bleepforge-only state
+    │   ├── concept.json   The project pitch (Bleepforge-only)
+    │   ├── preferences.json  Active theme + Godot project root (gitignored)
+    │   ├── dialogs/<folder>/   Per-folder dialog cache + _layout.json
+    │   ├── balloons/<model>/   Per-NPC-model balloon cache
+    │   ├── codex/<category>/   Game Codex (Bleepforge-only, never round-trips)
+    │   ├── help/<category>/    Help library (Bleepforge-only)
+    │   ├── shaders/_meta.json  Per-shader pattern + color
+    │   ├── quests/, items/, karma/, npcs/, factions/  Flat-domain caches
+    └── content/       Notebook-mode assets + shaders (not present in sync mode)
 ```
 
 pnpm workspace; each package has its own `tsconfig.json` and shares strict TypeScript across the monorepo.
@@ -198,7 +218,7 @@ Run from the repo root:
 | `pnpm dist` | Build packaged binaries for both platforms — Linux AppImage + Windows NSIS installer (Vite + esbuild + tsc + electron-builder) |
 | `pnpm build` | Build all workspaces (`tsc` for shared/server/electron, `vite build` for client) |
 | `pnpm typecheck` | Run `tsc --noEmit` across all workspaces |
-| `pnpm sync:from-userdata` | Pull AppImage edits back into the repo (`~/.config/Bleepforge/data/` → `./data/`). Dry-run + confirm by default; `-y` to skip prompt. |
+| `pnpm sync:from-userdata` | Pull AppImage edits back into the repo (`~/.config/Bleepforge/projects/<slug>/data/` → `./projects/<slug>/data/`). Walks every project on either side; dry-run + confirm by default; `-y` to skip prompt. |
 | `pnpm sync:to-userdata` | Push repo content into the running AppImage's userData (opposite direction). |
 
 Server-side dev tools (run via `pnpm --filter @bleepforge/server <name>`):

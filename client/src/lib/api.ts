@@ -276,6 +276,37 @@ export const projectsApi = {
     }
     return r.json();
   },
+  rename: async (slug: string, displayName: string): Promise<Project> => {
+    const r = await fetch(`/api/projects/${encodeURIComponent(slug)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ displayName }),
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      throw new Error(`rename project failed: ${r.status} ${detail}`);
+    }
+    const body = (await r.json()) as { project: Project };
+    return body.project;
+  },
+  /** Remove from registry. `wipe=true` also `rm -rf`s the project's
+   *  on-disk dir (data/ + content/). Sync-mode projects' Godot trees
+   *  are never touched regardless of wipe. */
+  remove: async (
+    slug: string,
+    wipe: boolean,
+  ): Promise<{ ok: boolean; slug: string; wiped: boolean; wipeError?: string }> => {
+    const qs = wipe ? "?wipe=true" : "";
+    const r = await fetch(
+      `/api/projects/${encodeURIComponent(slug)}${qs}`,
+      { method: "DELETE" },
+    );
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      throw new Error(`delete project failed: ${r.status} ${detail}`);
+    }
+    return r.json();
+  },
 };
 
 export const godotProjectApi = {

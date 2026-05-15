@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "../../components/Button";
-import { showConfirm } from "../../components/Modal";
+import { showChoice, showConfirm, showPrompt } from "../../components/Modal";
 import { PixelSkeleton } from "../../components/PixelSkeleton";
+import { pushToast } from "../../components/Toast";
 import {
   projectsApi,
   type CreateProjectResult,
@@ -83,6 +84,85 @@ export function ProjectsPage() {
     } catch (err) {
       setSwitchingTo(null);
       setError((err as Error).message);
+    }
+  }
+
+  async function handleRename(slug: string): Promise<void> {
+    if (!data) return;
+    const project = data.projects.find((p) => p.slug === slug);
+    if (!project) return;
+    const next = await showPrompt({
+      title: "Rename project",
+      message: `Slug stays "${slug}" — only the display name changes.`,
+      defaultValue: project.displayName,
+      confirmLabel: "Rename",
+      validate: (v) => (v.trim().length === 0 ? "Name cannot be empty" : null),
+    });
+    if (next === null) return;
+    const trimmed = next.trim();
+    if (trimmed === project.displayName) return;
+    try {
+      await projectsApi.rename(slug, trimmed);
+      await refresh();
+      pushToast({
+        id: `projects:renamed:${slug}`,
+        title: `Renamed to "${trimmed}"`,
+        variant: "success",
+      });
+    } catch (err) {
+      pushToast({
+        id: `projects:rename-failed:${slug}`,
+        title: "Rename failed",
+        body: (err as Error).message,
+        variant: "error",
+      });
+    }
+  }
+
+  async function handleRemove(slug: string): Promise<void> {
+    if (!data) return;
+    const project = data.projects.find((p) => p.slug === slug);
+    if (!project) return;
+    const sourceGodotNote =
+      project.mode === "sync"
+        ? " The Godot project itself is never touched, regardless of choice."
+        : "";
+    const choice = await showChoice({
+      title: `Delete "${project.displayName}"?`,
+      message: `Forget removes the project from Bleepforge but keeps its files at projects/${slug}/ on disk — you can re-register it later. Delete files also wipes that directory.${sourceGodotNote}`,
+      options: [
+        { id: "cancel", label: "Cancel", variant: "secondary" },
+        { id: "forget", label: "Forget", variant: "secondary" },
+        { id: "wipe", label: "Delete files", variant: "danger" },
+      ],
+    });
+    if (!choice || choice === "cancel") return;
+    try {
+      const result = await projectsApi.remove(slug, choice === "wipe");
+      await refresh();
+      if (result.wipeError) {
+        pushToast({
+          id: `projects:wipe-partial:${slug}`,
+          title: `Forgot "${project.displayName}" — wipe failed`,
+          body: result.wipeError,
+          variant: "warn",
+        });
+      } else {
+        pushToast({
+          id: `projects:removed:${slug}`,
+          title: result.wiped
+            ? `Deleted "${project.displayName}"`
+            : `Forgot "${project.displayName}"`,
+          variant: "success",
+        });
+      }
+    } catch (err) {
+      pushToast({
+        id: `projects:remove-failed:${slug}`,
+        title: "Delete failed",
+        body: (err as Error).message,
+        variant: "error",
+      });
     }
   }
 
@@ -182,6 +262,11 @@ export function ProjectsPage() {
               project={p}
               active={p.slug === activeSlug}
               onSwitch={handleSwitch}
+              onRename={handleRename}
+              onRemove={handleRemove}
+              // Server refuses both anyway, but disabling the menu item
+              // when delete is impossible keeps the affordance honest.
+              canRemove={p.slug !== activeSlug && projects.length > 1}
               busy={switchingTo === p.slug}
             />
           ))}

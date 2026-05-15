@@ -4,15 +4,98 @@
 
 **A schema-driven content authoring studio for Godot projects.** Currently bootstrapped against Yehonatan's game **Flock of Bleeps** (formerly placeholder "AstroMan" — the C# namespace and project folder still use the old name); the long-term direction is to be generic for any Godot project's content (see "Genericize for any Godot project" under Editor scope / next steps). Authors **dialogues** (graph view + multi-folder), **quests**, **items**, **karma impacts**, **NPCs**, **factions**, and **balloons** (the small "Hi there!" lines NPCs say when the player walks up), plus a **Game Codex** (Bleepforge-only notebook for project-specific concepts that don't fit a hardcoded domain — Hazards, Locations, etc., with user-defined property schemas), an **assets gallery + image editor** (crop, tint, bg removal, Magic crop) for the project's images, a **shaders surface** with in-app `.gdshader` authoring (CodeMirror editor with GDShader syntax, live WebGL2 preview canvas with a GDShader → GLSL ES subset translator, auto-generated uniform controls, cross-system usage tracking), and an **in-app Help library** (Bleepforge-only read-only documentation surface; content is authored directly in `data/help/<category>/*.json`). Also serves as the project bible — see [data/concept.json](data/concept.json) for the canonical pitch, acts structure, and faction roles.
 
-**`.tres` is canonical, JSON in `data/` is a derived cache** (for the seven hardcoded game-domain surfaces). The Godot `.tres` files are what the game runtime loads, so they're the source of truth: anything that ships is what's in `astro-man/`. Bleepforge's JSON in `dialoguer/data/{dialogs,quests,items,karma,npcs,factions,balloons}/` is a cache rebuilt from `.tres` on every server start, kept in sync afterward by the live watcher, and pushed back to `.tres` on every save. **These cache JSONs are `.gitignore`d** (as of v0.2.0) — they're machine-local, regenerated from `.tres` on every boot, and tracking them in git just produced merge-conflict churn on every save without adding value. Same for `data/preferences.json` (Godot project root path + theme settings — machine + user specific). Bleepforge-only files are **not** part of the cache and ARE tracked in git as authoritative state: `data/concept.json`, per-folder `data/dialogs/<folder>/_layout.json` (graph node positions and edge styles — kept tracked via a `!data/dialogs/**/_layout.json` negation rule that overrides the cache-folder ignore), the entire **`data/codex/`** tree (Game Codex categories + entries — Bleepforge-only, never round-tripped to Godot), and the entire **`data/help/`** tree (in-app Help library categories + entries — same Bleepforge-only model).
+**`.tres` is canonical, JSON in `data/` is a derived cache** (for the seven hardcoded game-domain surfaces, in sync-mode projects). The Godot `.tres` files are what the game runtime loads, so they're the source of truth: anything that ships is what's in `astro-man/`. Bleepforge's JSON in `projects/<slug>/data/{dialogs,quests,items,karma,npcs,factions,balloons}/` is a cache rebuilt from `.tres` on every server start, kept in sync afterward by the live watcher, and pushed back to `.tres` on every save. **These cache JSONs are `.gitignore`d** (as of v0.2.0) — they're machine-local, regenerated from `.tres` on every boot, and tracking them in git just produced merge-conflict churn on every save without adding value. Same for `data/preferences.json` (theme settings — machine + user specific). Bleepforge-only files are **not** part of the cache and ARE tracked in git as authoritative state: `data/concept.json`, per-folder `data/dialogs/<folder>/_layout.json` (graph node positions and edge styles — kept tracked via a `!projects/*/data/dialogs/**/_layout.json` negation rule that overrides the cache-folder ignore), the entire **`data/codex/`** tree (Game Codex categories + entries — Bleepforge-only, never round-tripped to Godot), and the entire **`data/help/`** tree (in-app Help library categories + entries — same Bleepforge-only model). All `data/` paths in the following sections are written relative to the active project's data root; in v0.2.5+ that's `projects/<slug>/data/` rather than the legacy top-level `data/`.
 
-**Godot project on disk**: `/home/ymoravia/Data/Projects/Godot/astro-man/`. The project root is **required** — Bleepforge refuses to start without it (no project root → nothing to read or write, so we fail fast instead of presenting an empty UI). Resolution order at boot: `data/preferences.json#godotProjectRoot` (set in-app via Preferences) → `GODOT_PROJECT_ROOT` env var → fail. The env var is the bootstrap fallback for first run before preferences exist; once you save a path in Preferences, that takes priority. Changes to the saved value require a server restart (no hot-swap — the resolved value is captured once at module init). Defense in depth: the writer refuses any target outside the resolved root. The schema sections below mirror the Godot Resource fields 1:1 so the mappers can apply JSON edits to the corresponding `.tres` properties.
+**Multi-project layer (v0.2.5)**: a single Bleepforge install holds many projects, exactly one **active** at a time. The active project's slug picks which data root the rest of the server reads + writes through, and which Godot project (if any) the .tres watcher + writer target. Three creation modes:
+
+- **Sync** — two-way live sync with a Godot project's .tres files. The Godot tree IS the content root.
+- **Notebook** — standalone. Bleepforge owns data + assets + shaders inside `projects/<slug>/{data,content}/`. No Godot connection.
+- **Import once from Godot** — creation flow that seeds a notebook from a Godot tree once, then disconnects. Results in a `notebook`-mode project after the first-boot seed completes.
+
+Stored at the Bleepforge root: `projects.json` (registry, one entry per project) + `active-project.json` (pointer). Both are gitignored (machine-specific absolute paths inside). See the "Multi-project layer" section below for the full architecture (migration from legacy data/, content:// URL scheme for portable refs, mode gating, switch + delete + rename semantics).
+
+**Godot project on disk**: `/home/ymoravia/Data/Projects/Godot/astro-man/`. The project root is **required for sync-mode projects** (no project root → nothing to read or write, so we fail fast instead of presenting an empty UI). Notebook projects boot fine without a Godot root by design. Resolution order at boot: active project record's `godotProjectRoot` field (canonical post-v0.2.5) → `GODOT_PROJECT_ROOT` env var (bootstrap fallback for fresh installs with no active project) → fail (sync only). The Preferences UI still writes to `godotProjectRoot` for back-compat; the PUT handler write-throughs to the active project record. Changes require a server restart — the resolved value is captured once at module init. Defense in depth: the writer refuses any target outside the resolved root. The schema sections below mirror the Godot Resource fields 1:1 so the mappers can apply JSON edits to the corresponding `.tres` properties.
 
 ## Stack
 
 - **Frontend**: React + TypeScript + Tailwind + Vite
 - **Backend**: Express + TypeScript
-- **Persistence**: `.tres` (canonical, in the Godot project) + JSON cache at `dialoguer/data/<domain>/<id>.json` (rebuilt on boot, kept live by the watcher)
+- **Persistence**: `.tres` (canonical, in the Godot project, sync mode only) + JSON cache at `projects/<slug>/data/<domain>/<id>.json` (rebuilt on boot, kept live by the watcher)
+
+## Multi-project layer
+
+Added in v0.2.5. A single Bleepforge install holds many **projects**, exactly one **active** at a time. Each project has a slug (immutable URL-safe id, the on-disk directory name), a display name (renameable), a mode (`sync` or `notebook`), and an optional `godotProjectRoot` (sync mode only). The active project's paths feed everything else: `config.dataRoot`, `config.contentRoot`, `config.godotProjectRoot`, `config.projectMode` are all derived from the active project record at boot.
+
+**On-disk layout** at the Bleepforge install root (= `dialoguer/` in dev, `~/.config/Bleepforge/` etc when packaged):
+
+```text
+<bleepforgeRoot>/
+  projects.json              registry: { schemaVersion, projects: Project[] }
+  active-project.json        pointer:  { schemaVersion, activeSlug, lastSwitched }
+  projects/
+    <slug>/
+      data/                  Bleepforge's JSON cache + authored content
+      content/               notebook-mode assets + shaders (skipped in sync)
+```
+
+`projects.json` and `active-project.json` are gitignored (carry per-machine absolute paths to Godot projects). Project records carry `mode`, `godotProjectRoot`, `createdAt`, `lastOpened`. Schemas in [shared/src/project.ts](shared/src/project.ts).
+
+**Three creation modes** ([NewProjectModal.tsx](client/src/features/projects/NewProjectModal.tsx)):
+
+- **Notebook** — `mode: "notebook"`, `godotProjectRoot: null`. Bleepforge owns everything inside the project. No `.tres` writeback, no boot reconcile, watcher attaches to `<project>/content/` for cross-window asset+shader sync.
+- **Sync to Godot** — `mode: "sync"`, `godotProjectRoot: <abs>`. Two-way live sync; the Godot tree IS the content root. Existing FoB workflow.
+- **Import once from Godot** — creation flow only; the stored mode is `notebook`. Server creates the project + writes a `.bleepforge-pending-import.json` manifest into `data/`, flips active, restarts. On next boot, app.ts detects the manifest and runs the one-shot seed: rebuild projectIndex against source Godot tree → run reconcile → walk JSON for absolute paths under source root → copy each referenced file into `<project>/content/<rel>` → rewrite the JSON string to `content://<rel>` → delete manifest. After the seed, subsequent boots are normal notebook boots.
+
+**Mode gating** ([config.ts](server/src/config.ts) exports `isSyncMode()`):
+
+- `shouldWriteTres()` ([writer.ts](server/src/internal/tres/writer.ts)) gates on `isSyncMode()` — every per-domain writer auto-inherits.
+- Boot ordering ([app.ts](server/src/app.ts)) splits work between sync gate (`isSyncMode() + godotProjectRoot` → projectIndex + bootReconcile) and content gate (`contentRoot` → asset cache + shader cache + watcher). Sync mode passes both; notebook passes only content.
+- Watcher target is `contentRoot` (not `godotProjectRoot`). Sync-mode equals the Godot tree; notebook mode equals `<project>/content/`. The `.tres` + `.tscn` branches in the watcher's `handleEvent` defensively early-return when not sync mode.
+- Preferences PUT write-through of `godotProjectRoot` into the active project record only fires when `isSyncMode()` — a notebook project has no Godot connection by design.
+
+**content:// URL scheme** ([lib/assets/pathScheme.ts](server/src/lib/assets/pathScheme.ts)) — project-relative reference for asset paths. `content://images/foo.png` resolves to `<contentRoot>/images/foo.png` at request time. Server's asset router decodes it via `resolveContentPath`; gallery `/api/assets/import` endpoint returns `content://`-prefixed paths in notebook mode via `toPortablePath`. Notebook + import-once projects use this scheme so the project is portable across machines (move the dir, refs still resolve). Sync mode keeps absolute paths for now — migrating existing FoB data is wider work than v0.2.5 fit.
+
+**HTTP surface** ([server/src/lib/projects/router.ts](server/src/lib/projects/router.ts)):
+
+```text
+GET    /api/projects                    list + activeSlug + bleepforgeRoot
+POST   /api/projects                    create (notebook or sync)
+POST   /api/projects/import-once        seed a notebook from a Godot tree
+PATCH  /api/projects/:slug              rename displayName (slug immutable)
+DELETE /api/projects/:slug[?wipe=true]  forget (or rm -rf with wipe)
+PUT    /api/projects/active             switch active slug
+```
+
+Switching + creating-with-auto-active set `restartRequired: true` so the client can wire up its restart IPC. PUT `/active` returns `noop: true` when the requested slug already matches the running active project; the client skips the restart prompt. DELETE refuses two states: active project (would point active at a missing slug), last project (would leave the system with no project to load).
+
+**Migration from legacy v0.2.4 layout** ([lib/projects/migrate.ts](server/src/lib/projects/migrate.ts)). First boot of v0.2.5 against a v0.2.4-or-earlier install:
+
+1. Slug derived from `concept.json`'s Title via `slugify` (fallback `flock-of-bleeps`).
+2. `data/` contents `mv`'d into `projects/<slug>/data/`.
+3. `godotProjectRoot` pulled out of `preferences.json` into the new project record.
+4. Registry + active pointer written.
+5. Legacy `data/` dir left empty as a verification window — log line prompts manual cleanup on subsequent boots.
+
+Partial-migration recovery: if `projects/<slug>/data/` exists from an interrupted prior run but the registry is missing, MERGE — move only entries that don't exist in target, never overwrite. Conflicts get logged for manual resolution.
+
+**Cross-machine bootstrap path**: if `projects.json` is missing but `projects/<slug>/data/` dirs exist (someone cloned the repo after a post-migration commit), walk the tree, register every discovered project with `godotProjectRoot: null` (the user fills in via Preferences after first boot). Either path populates the registry exactly once; subsequent boots no-op.
+
+**Switching projects requires a server restart** (paths are captured at module init; no hot-swap). Electron restart IPC is one click on the post-switch prompt; browser-dev mode surfaces an inline "restart your pnpm dev" notice. ~2 second cycle on the AppImage.
+
+**UI surface** ([client/src/features/projects/](client/src/features/projects/)):
+
+- **`ProjectsPage`** at `/projects` — card grid of every project, active marked with emerald accent + ACTIVE badge, non-active cards have a "Switch" button. `+ New project` button opens `NewProjectModal`.
+- **`ProjectCard`** — display name + slug + mode badge + Godot root (sync only) + relative timestamps + `⋯` menu (Rename / Delete). Right-click on the card surfaces the same menu via `showContextMenu`. The Delete menu item is disabled when the card is active OR there's only one project (server refuses both anyway; disabling earlier keeps the affordance honest).
+- **`ProjectChip`** in the sidebar between the BLEEPFORGE wordmark and the meta-icon row. Shows active project's display name + mode badge; click → `/projects`. Highlights when on the route. One fetch on mount (active project doesn't change in-session; switching requires restart, polling is wasted).
+- **`NewProjectModal`** — radio-style mode picker + display-name input + conditional Godot folder field (for `sync` + `import-once`). Live validation via `/api/godot-project/validate` (the same endpoint that backs WelcomeScreen). Submit gated on a valid Godot path when needed.
+
+**Rename + delete** are slug-immutable / data-preserving by default. Rename only touches `displayName` + `lastOpened`; the slug stays because it's the on-disk dir name AND the active-pointer key. Delete offers two paths: **Forget** (registry only, files persist at `projects/<slug>/`) or **Delete files** (also `rm -rf`s the dir). Sync-mode projects' Godot trees are NEVER touched regardless — Bleepforge only deletes what it owns.
+
+**Known gaps** (deferred to later releases):
+
+- Help library is per-project (lands in each project's `data/help/`) instead of app-level. The seed manifest at `<bleepforgeRoot>/.bleepforge-seed-manifest.json` covers one project's worth correctly; multi-project means edits to the help library in project A don't propagate to project B's copy. Likely fix: hoist help out of per-project storage.
+- Sync-mode JSON still stores absolute paths for image refs. The asset router transparently accepts both forms, but existing FoB data won't move to `content://` until a migration pass is run. Probably part of the genericization work.
+- Watcher's log prefix still says `[tres-watcher]` even in notebook mode where there are no .tres. Cosmetic; the watcher does watch the content tree correctly in both modes.
 
 ## v1 plan (decided)
 
@@ -79,7 +162,7 @@ The `DialogGraph` exported component wraps `DialogGraphInner` in `<ReactFlowProv
 **Architecture decisions:**
 
 - **Monorepo with workspaces** (pnpm): `client/` (React + TS + Tailwind + Vite), `server/` (Express + TS), `shared/` (TS types + zod schemas — single source of truth for JSON shapes, imported by both sides).
-- **Storage**: `dialoguer/data/<domain>/<id>.json`. Configurable via `DATA_ROOT` env (default: `data` relative to the Bleepforge project root).
+- **Storage**: `projects/<active-slug>/data/<domain>/<id>.json` (per-project as of v0.2.5; pre-v0.2.5 was `dialoguer/data/<domain>/<id>.json`). `config.dataRoot` resolves to the active project's data dir at boot, and the rest of the codebase reads through that constant — domain-level code is ignorant of the multi-project layer.
 - **One file per entity** — clean diffs, easy to inspect.
 - **Local-only, no auth, no deploy.** Express on localhost, Vite dev server proxies `/api`. Single user.
 - **Validation** via zod schemas in `shared/`, applied at the server boundary on read and write.

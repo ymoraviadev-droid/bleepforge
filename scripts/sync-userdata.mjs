@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-// Bidirectional sync between the AppImage's userData and the repo's data/.
+// Bidirectional sync between the AppImage's userData and the repo's
+// projects/ tree.
 //
-// The packaged app reads/writes user state under ~/.config/Bleepforge/data/
-// (Linux; ~/Library/Application Support/Bleepforge/data on macOS;
-// %APPDATA%/Bleepforge/data on Windows). When Yehonatan authors Concept /
-// Codex / Help content in the AppImage, that work lives outside the repo
-// — this script ferries it back so the next git commit + build picks it up.
+// The packaged app reads/writes user state under
+// ~/.config/Bleepforge/projects/<slug>/data/ (Linux; the equivalent on
+// macOS / Windows via Electron's app.setName). When Yehonatan authors
+// Concept / Codex / Help content in the AppImage, that work lives
+// outside the repo — this script ferries it back so the next git
+// commit + build picks it up.
 //
 // Two directions:
 //
@@ -18,11 +20,16 @@
 //
 // Sync-eligible files (the Bleepforge-only authored content; everything
 // else under data/ is either machine-local cache or .gitignore'd):
-//   concept.json
-//   codex/**
-//   help/**
-//   dialogs/<folder>/_layout.json
-//   shaders/_meta.json
+//   <slug>/data/concept.json
+//   <slug>/data/codex/**
+//   <slug>/data/help/**
+//   <slug>/data/dialogs/<folder>/_layout.json
+//   <slug>/data/shaders/_meta.json
+//
+// Walks every project on EITHER side: if a project exists only on the
+// source it gets created on the destination; orphans (only on dest)
+// are reported but not touched. Slugs that exist on both sides are
+// compared file-by-file via sha256.
 //
 // Defaults to dry-run with an inline confirmation prompt. Pass --yes / -y
 // to skip the prompt. Deletions are NOT propagated in v1 — if a file
@@ -38,9 +45,9 @@ import { fileURLToPath } from "node:url";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, "..");
-const REPO_DATA = path.join(REPO_ROOT, "data");
+const REPO_PROJECTS = path.join(REPO_ROOT, "projects");
 const USERDATA_ROOT = resolveUserDataRoot();
-const USERDATA_DATA = path.join(USERDATA_ROOT, "data");
+const USERDATA_PROJECTS = path.join(USERDATA_ROOT, "projects");
 
 function resolveUserDataRoot() {
   const home = os.homedir();
@@ -71,57 +78,76 @@ if (direction !== "from" && direction !== "to") {
   process.exit(1);
 }
 
-const src = direction === "from" ? USERDATA_DATA : REPO_DATA;
-const dst = direction === "from" ? REPO_DATA : USERDATA_DATA;
+const srcProjects = direction === "from" ? USERDATA_PROJECTS : REPO_PROJECTS;
+const dstProjects = direction === "from" ? REPO_PROJECTS : USERDATA_PROJECTS;
 const srcLabel = direction === "from" ? "userData" : "repo";
 const dstLabel = direction === "from" ? "repo" : "userData";
 
-console.log(`Source:      ${srcLabel}  (${src})`);
-console.log(`Destination: ${dstLabel}  (${dst})`);
+console.log(`Source:      ${srcLabel}  (${srcProjects})`);
+console.log(`Destination: ${dstLabel}  (${dstProjects})`);
 console.log("");
 
-if (!fs.existsSync(src)) {
+if (!fs.existsSync(srcProjects)) {
   console.error(
-    `Source directory does not exist: ${src}\n` +
+    `Source projects/ does not exist: ${srcProjects}\n` +
       (direction === "from"
         ? "Have you launched the AppImage at least once?"
-        : "This shouldn't happen — the repo's data/ should always exist."),
+        : "Run the dev server once to trigger the v0.2.5 migration."),
   );
   process.exit(1);
 }
 
 // ─── Walk + classify ────────────────────────────────────────────────────
 
-/** Yield relative paths (relative to root) for every sync-eligible file. */
-function* walkSyncable(root) {
+/** Discover project slugs (immediate subdirs of `projects/` that have
+ *  a `data/` child). */
+function listProjectSlugs(root) {
+  if (!fs.existsSync(root)) return [];
+  const out = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (entry.name.startsWith(".")) continue;
+    if (fs.existsSync(path.join(root, entry.name, "data"))) {
+      out.push(entry.name);
+    }
+  }
+  return out;
+}
+
+/** Yield project-relative paths (relative to projects/) for every
+ *  sync-eligible file under one slug's data/ dir. */
+function* walkSyncable(slug, projectsRoot) {
+  const dataRoot = path.join(projectsRoot, slug, "data");
   // Top-level singletons
   for (const rel of ["concept.json", "shaders/_meta.json"]) {
-    const abs = path.join(root, rel);
-    if (fs.existsSync(abs) && fs.statSync(abs).isFile()) yield rel;
+    const abs = path.join(dataRoot, rel);
+    if (fs.existsSync(abs) && fs.statSync(abs).isFile()) {
+      yield path.join(slug, "data", rel);
+    }
   }
   // Whole-tree recursive directories
   for (const dir of ["codex", "help"]) {
-    yield* walkDir(path.join(root, dir), root);
+    yield* walkDir(path.join(dataRoot, dir), projectsRoot);
   }
   // Dialog layouts only (not the cache JSONs)
-  const dialogsRoot = path.join(root, "dialogs");
+  const dialogsRoot = path.join(dataRoot, "dialogs");
   if (fs.existsSync(dialogsRoot)) {
     for (const folder of fs.readdirSync(dialogsRoot, { withFileTypes: true })) {
       if (!folder.isDirectory()) continue;
       const layout = path.join(dialogsRoot, folder.name, "_layout.json");
       if (fs.existsSync(layout)) {
-        yield path.relative(root, layout);
+        yield path.relative(projectsRoot, layout);
       }
     }
   }
 }
 
-function* walkDir(start, root) {
+function* walkDir(start, projectsRoot) {
   if (!fs.existsSync(start)) return;
   for (const entry of fs.readdirSync(start, { withFileTypes: true })) {
     const abs = path.join(start, entry.name);
-    if (entry.isDirectory()) yield* walkDir(abs, root);
-    else if (entry.isFile()) yield path.relative(root, abs);
+    if (entry.isDirectory()) yield* walkDir(abs, projectsRoot);
+    else if (entry.isFile()) yield path.relative(projectsRoot, abs);
   }
 }
 
@@ -131,8 +157,18 @@ function sha(absPath) {
     .digest("hex");
 }
 
-const srcFiles = new Set(walkSyncable(src));
-const dstFiles = new Set(walkSyncable(dst));
+const srcSlugs = new Set(listProjectSlugs(srcProjects));
+const dstSlugs = new Set(listProjectSlugs(dstProjects));
+const allSlugs = new Set([...srcSlugs, ...dstSlugs]);
+
+const srcFiles = new Set();
+const dstFiles = new Set();
+for (const slug of srcSlugs) {
+  for (const rel of walkSyncable(slug, srcProjects)) srcFiles.add(rel);
+}
+for (const slug of dstSlugs) {
+  for (const rel of walkSyncable(slug, dstProjects)) dstFiles.add(rel);
+}
 const allFiles = new Set([...srcFiles, ...dstFiles]);
 
 const plan = {
@@ -141,6 +177,13 @@ const plan = {
   unchanged: [], // exists in both, same content
   orphan: [], // exists in dst only — won't be touched
 };
+const onlyOnSrcProjects = []; // slugs present on src but not dst — get created
+const onlyOnDstProjects = []; // slugs present on dst but not src — left alone
+
+for (const slug of [...allSlugs].sort()) {
+  if (srcSlugs.has(slug) && !dstSlugs.has(slug)) onlyOnSrcProjects.push(slug);
+  else if (!srcSlugs.has(slug) && dstSlugs.has(slug)) onlyOnDstProjects.push(slug);
+}
 
 for (const rel of [...allFiles].sort()) {
   const inSrc = srcFiles.has(rel);
@@ -148,8 +191,8 @@ for (const rel of [...allFiles].sort()) {
   if (inSrc && !inDst) plan.add.push(rel);
   else if (!inSrc && inDst) plan.orphan.push(rel);
   else {
-    const hashSrc = sha(path.join(src, rel));
-    const hashDst = sha(path.join(dst, rel));
+    const hashSrc = sha(path.join(srcProjects, rel));
+    const hashDst = sha(path.join(dstProjects, rel));
     if (hashSrc === hashDst) plan.unchanged.push(rel);
     else plan.update.push(rel);
   }
@@ -158,6 +201,21 @@ for (const rel of [...allFiles].sort()) {
 // ─── Print summary ──────────────────────────────────────────────────────
 
 const willCopy = plan.add.length + plan.update.length;
+
+if (onlyOnSrcProjects.length > 0) {
+  console.log(
+    `New projects on ${srcLabel} (${onlyOnSrcProjects.length}):`,
+  );
+  for (const slug of onlyOnSrcProjects) console.log(`  + ${slug}/`);
+  console.log("");
+}
+if (onlyOnDstProjects.length > 0) {
+  console.log(
+    `Projects only on ${dstLabel} (${onlyOnDstProjects.length}) — left alone:`,
+  );
+  for (const slug of onlyOnDstProjects) console.log(`  ! ${slug}/`);
+  console.log("");
+}
 
 function printGroup(label, items, marker) {
   if (items.length === 0) return;
@@ -217,8 +275,8 @@ if (!(await confirm())) {
 
 let copied = 0;
 for (const rel of [...plan.add, ...plan.update]) {
-  const srcAbs = path.join(src, rel);
-  const dstAbs = path.join(dst, rel);
+  const srcAbs = path.join(srcProjects, rel);
+  const dstAbs = path.join(dstProjects, rel);
   fs.mkdirSync(path.dirname(dstAbs), { recursive: true });
   fs.copyFileSync(srcAbs, dstAbs);
   copied++;

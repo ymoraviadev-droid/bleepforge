@@ -1,12 +1,18 @@
+import type { MouseEvent } from "react";
 import type { Project } from "@bleepforge/shared";
 
 import { Button } from "../../components/Button";
+import { showContextMenu } from "../../components/ContextMenu";
 import { formatRelative, modeBadgeClass } from "./format";
 
 interface ProjectCardProps {
   project: Project;
   active: boolean;
   onSwitch?: (slug: string) => void;
+  onRename?: (slug: string) => void;
+  onRemove?: (slug: string) => void;
+  /** When false the menu's Delete item is disabled. */
+  canRemove?: boolean;
   busy?: boolean;
 }
 
@@ -19,7 +25,62 @@ interface ProjectCardProps {
 // rows below, action row at the bottom. Visual identity for projects
 // over domain entities is mostly the active-state treatment plus the
 // per-mode badge.
-export function ProjectCard({ project, active, onSwitch, busy }: ProjectCardProps) {
+//
+// Rename + Delete live on a "…" menu in the top-right and on
+// right-click (same items via showContextMenu). The menu's Delete row
+// is disabled when canRemove is false (active project or only one
+// project — server refuses both anyway, but disabling earlier keeps the
+// UX honest).
+export function ProjectCard({
+  project,
+  active,
+  onSwitch,
+  onRename,
+  onRemove,
+  canRemove = true,
+  busy,
+}: ProjectCardProps) {
+  function openMenu(x: number, y: number): void {
+    showContextMenu({
+      x,
+      y,
+      items: [
+        ...(onRename
+          ? [
+              {
+                label: "Rename…",
+                onClick: () => onRename(project.slug),
+              },
+            ]
+          : []),
+        ...(onRemove
+          ? [
+              {
+                label: "Delete…",
+                danger: true,
+                disabled: !canRemove,
+                onClick: () => onRemove(project.slug),
+              },
+            ]
+          : []),
+      ],
+    });
+  }
+
+  function onMenuButtonClick(e: MouseEvent<HTMLButtonElement>): void {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    openMenu(rect.right, rect.bottom);
+  }
+
+  function onCardContextMenu(e: MouseEvent<HTMLDivElement>): void {
+    if (!onRename && !onRemove) return;
+    e.preventDefault();
+    e.stopPropagation();
+    openMenu(e.clientX, e.clientY);
+  }
+
   return (
     <div
       className={`card-lift flex flex-col gap-2 border-2 p-3 ${
@@ -27,6 +88,7 @@ export function ProjectCard({ project, active, onSwitch, busy }: ProjectCardProp
           ? "border-emerald-600/70 bg-emerald-950/20"
           : "border-neutral-800 bg-neutral-950"
       }`}
+      onContextMenu={onCardContextMenu}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -52,6 +114,17 @@ export function ProjectCard({ project, active, onSwitch, busy }: ProjectCardProp
             <span className="border border-emerald-600/60 bg-emerald-950/60 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-emerald-300">
               active
             </span>
+          )}
+          {(onRename || onRemove) && (
+            <button
+              type="button"
+              onClick={onMenuButtonClick}
+              className="border border-neutral-800 px-1.5 py-0.5 font-mono text-xs leading-none text-neutral-400 hover:border-neutral-600 hover:bg-neutral-900 hover:text-neutral-200"
+              aria-label={`Actions for ${project.displayName}`}
+              title="More actions"
+            >
+              ⋯
+            </button>
           )}
         </div>
       </div>

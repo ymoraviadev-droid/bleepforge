@@ -1,9 +1,11 @@
 // HTTP surface for the multi-project layer. Endpoints:
 //
-//   GET  /api/projects             list every registered project + active slug
-//   POST /api/projects             create a new project (notebook or sync)
-//   POST /api/projects/import-once seed a notebook project from a Godot tree
-//   PUT  /api/projects/active      set the active project (slug in body)
+//   GET    /api/projects               list every registered project + active slug
+//   POST   /api/projects               create a new project (notebook or sync)
+//   POST   /api/projects/import-once   seed a notebook project from a Godot tree
+//   PATCH  /api/projects/:slug         rename displayName (slug stays immutable)
+//   DELETE /api/projects/:slug         remove from registry (?wipe=true also rm -rf)
+//   PUT    /api/projects/active        set the active project (slug in body)
 //
 // Switching or creating-with-auto-active requires a server restart —
 // the active project's paths (data root, content root, godot root,
@@ -309,6 +311,122 @@ projectsRouter.post("/import-once", (req, res) => {
     activeSlug: slug,
     restartRequired: true,
   });
+});
+
+const PatchBody = z.object({
+  displayName: z.string().min(1).max(120),
+});
+
+projectsRouter.patch("/:slug", (req, res) => {
+  const slug = req.params.slug;
+  const parsed = PatchBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.format() });
+    return;
+  }
+  const registry = readRegistry(config.bleepforgeRoot);
+  if (!registry) {
+    res.status(404).json({ error: "no project registry on disk" });
+    return;
+  }
+  const project = findProject(registry, slug);
+  if (!project) {
+    res.status(404).json({ error: `no project with slug "${slug}"` });
+    return;
+  }
+  // Slug is immutable on purpose — it's the on-disk directory name and
+  // the active-pointer key. Only displayName flexes. A future "fork
+  // under a new slug" is its own operation, not a rename.
+  project.displayName = parsed.data.displayName.trim();
+  project.lastOpened = new Date().toISOString();
+  try {
+    writeRegistry(config.bleepforgeRoot, registry);
+  } catch (err) {
+    res.status(500).json({
+      error: `could not write registry: ${(err as Error).message}`,
+    });
+    return;
+  }
+  res.json({ ok: true, project });
+});
+
+projectsRouter.delete("/:slug", (req, res) => {
+  const slug = req.params.slug;
+  const wipe = req.query.wipe === "true" || req.query.wipe === "1";
+
+  const registry = readRegistry(config.bleepforgeRoot);
+  if (!registry) {
+    res.status(404).json({ error: "no project registry on disk" });
+    return;
+  }
+  const idx = registry.projects.findIndex((p) => p.slug === slug);
+  if (idx < 0) {
+    res.status(404).json({ error: `no project with slug "${slug}"` });
+    return;
+  }
+  // Two refusals to keep the user out of a bad state:
+  //   - Can't delete the active project (would point active at a slug
+  //     that no longer exists; next boot limps with no project).
+  //   - Can't delete the last project (registry becomes empty; same
+  //     limp-mode state). The user has to create a new one first.
+  if (config.activeProjectSlug === slug) {
+    res.status(409).json({
+      error:
+        "refusing to delete the active project — switch to another project first",
+    });
+    return;
+  }
+  if (registry.projects.length <= 1) {
+    res.status(409).json({
+      error:
+        "refusing to delete the last project — create a new one first so Bleepforge has somewhere to land",
+    });
+    return;
+  }
+
+  registry.projects.splice(idx, 1);
+  try {
+    writeRegistry(config.bleepforgeRoot, registry);
+  } catch (err) {
+    res.status(500).json({
+      error: `could not write registry: ${(err as Error).message}`,
+    });
+    return;
+  }
+
+  let wiped = false;
+  if (wipe) {
+    const projectDir = path.join(config.bleepforgeRoot, "projects", slug);
+    try {
+      fs.rmSync(projectDir, { recursive: true, force: true });
+      wiped = true;
+    } catch (err) {
+      // Registry write already succeeded — the project is gone from
+      // Bleepforge's POV even if the on-disk wipe failed. Surface the
+      // partial-success state so the client can warn the user.
+      console.error(
+        `[bleepforge/projects] wipe failed for ${projectDir}: ${(err as Error).message}`,
+      );
+      res.json({
+        ok: true,
+        slug,
+        wiped: false,
+        wipeError: (err as Error).message,
+      });
+      return;
+    }
+  }
+
+  // Sync-mode projects are deliberately forget-only as far as the Godot
+  // tree is concerned: we never touch the user's Godot project on
+  // disk, even when wipe=true. The wipe scope is strictly
+  // projects/<slug>/ (Bleepforge's data + content). The Godot tree
+  // stays where it is and can be re-imported into a new project later.
+
+  console.log(
+    `[bleepforge/projects] removed project "${slug}" (wipe=${wiped})`,
+  );
+  res.json({ ok: true, slug, wiped });
 });
 
 projectsRouter.put("/active", (req, res) => {
