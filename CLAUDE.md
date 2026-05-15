@@ -104,6 +104,118 @@ The Electron app-restart IPC stays in place as a recovery action (Bleepforge upg
 - Sync-mode JSON still stores absolute paths for image refs. The asset router transparently accepts both forms, but existing FoB data won't move to `content://` until a migration pass is run. Probably part of the genericization work.
 - Watcher's log prefix still says `[tres-watcher]` even in notebook mode where there are no .tres. Cosmetic; the watcher does watch the content tree correctly in both modes.
 
+## Genericization arc (v0.2.6 → v0.3.0)
+
+Bleepforge ships hardcoded against Flock of Bleeps' seven game-domain schemas + per-domain edit forms + per-domain `.tres` mappers. The bones underneath — `.tres` parser/emitter/writer/watcher, JSON CRUD machinery, asset surface, diagnostics shell, theming, the SSE channels — are all project-agnostic. The schema layer is the only project-specific code.
+
+The v0.2.6 → v0.3.0 arc replaces hardcoded schemas with a **manifest contract** the user's Godot project emits via a small companion library (`godot-lib/`). Three intermediate releases land between today and v0.3.0:
+
+- **v0.2.6** — Manifest contract + library tier 1 (abstract base classes for the four entry kinds) + editor reads manifest. **Editor UI does NOT change in v0.2.6**; FoB workflow stays unchanged. This release is the foundation; nothing user-visible flips.
+- **v0.2.7** — Generic editor surfaces + override mechanism. Generic `<DomainList>` + `<DomainEdit>` driven by manifest field declarations; generic `.tres` mapper for writeback (the meaty bit — sub-resource reconciliation, ext-resource minting, default-aware per-field, AtlasTexture preservation); bespoke FoB UIs (DialogGraph, NpcEdit, BalloonCard) keep working via override. v0.2.7 = "Bleepforge edits any project that has a manifest."
+- **v0.2.8** — Schema authoring + C# stub generation. Schema editor surface in Bleepforge lets users define new domains (name, fields, key, folder layout, view). Library tier 1.5 reads Bleepforge-authored manifest entries and generates C# stub classes into the user's project; users extend via `partial class`. Two-way: edit schema in Bleepforge → C# in Godot → user wires runtime logic → manifest re-exports → Bleepforge sees it.
+- **v0.3.0** — Headline cut: "Bleepforge is generic." Polish, docs, README pass, the advertise-able release.
+
+### Locked design decisions (2026-05-16)
+
+- **Library + editor are co-requirements for v0.3.0.** Both must ship together. Library is the runtime assist that makes Bleepforge usage correct in Godot; editor is the design tool. Bleepforge is the primary surface; library serves it, not the inverse.
+- **Monorepo, not separate repo.** `godot-lib/` sibling folder lands in v0.2.6 Phase 1. Atomic commits across library + editor + manifest spec are load-bearing — the whole point is keeping the contract honest.
+- **Designed against abstract patterns, not FoB.** The library's shape comes from the four entry kinds (registry / foldered / discriminated / enum-keyed), not from FoB's specific schemas. FoB happens to be a varied real example but doesn't drive the design — same trap v0.2.5's multi-project layer broke us out of, just one layer deeper.
+- **No demo game before v0.3.0.** Validation in v0.2.6 Phase 5 uses a tiny synthetic Godot project (NOT FoB). Demo game is a v0.3.0+ question if/when public showcase is wanted.
+- **No FoB port required.** FoB keeps its hand-rolled autoloads. Porting is a future Bleepforge-USER choice for FoB, not a library development dependency.
+- **Tiered library.** Tier 1 (abstract bases — the registry shapes) is required for v0.2.6. Tier 2 (opinionated runtime helpers — DialogRunner, FlagStore, KarmaApplier) deferred indefinitely; convenience, not required for genericization.
+- **Nothing gets lost — features only ADD.** Bespoke FoB UIs stay; generic surfaces are new defaults for new domains; users plug bespoke alongside.
+
+### Manifest contract (v0.2.6)
+
+Lives at the Godot project root as `bleepforge_manifest.json`. The library emits it via reflection over the user's `BleepforgeResource` subclasses; the editor parses it via the zod schema in [shared/src/manifest.ts](shared/src/manifest.ts). Top-level shape:
+
+```json
+{ "schemaVersion": 1, "domains": [ ... ], "subResources": [ ... ] }
+```
+
+**Four entry kinds** (`kind` discriminator) cover every shape FoB uses:
+
+1. **`domain`** — single instance per file, flat shape (Quest, Karma, NPC). Files live directly under `folder`. Identity is the `key` field's value.
+2. **`discriminatedFamily`** — base class with N variants keyed by an enum field on the base. Variants add fields on top of base (ItemData → QuestItemData with extra QuestId + CanDrop). The discriminator field's enum values map to variant entries.
+3. **`foldered`** — per-folder grouping discovered by walking the project tree. Composite ids `<folder>/<basename>`. `groupBy: "parentDir"` (Dialog → speaker name) or `"grandparentDir"` (Balloon → robot model, with defensive `parentNameMustBe: "balloons"` check guarding against a stray `BalloonLine` `.tres` placed elsewhere).
+4. **`enumKeyed`** — exactly one instance per enum value (Faction's four values). `folderLayout: "subfolderPerValue"` (FoB convention) or `"fileNamedByValue"`.
+
+**Twelve field types** cover every authored field across FoB's seven domains:
+
+| Type | Use | Editor surface |
+| --- | --- | --- |
+| `string` | Plain text | Text input |
+| `multiline` | Block of text | Textarea |
+| `int` | Integer | Number input |
+| `float` | Decimal | Number input |
+| `bool` | True/false | Checkbox |
+| `enum` | One of N values | Dropdown (values declared inline) |
+| `flag` | Game-flag string | Autocomplete from corpus |
+| `ref` | Cross-domain reference | Autocomplete picker against `to:` domain |
+| `array` | Sub-resources OR refs | Inline list editor (`of:` for sub-resources, `itemRef:` for refs) |
+| `subresource` | Single inline sub-resource | Inline editor (`of:` names the sub-resource shape) |
+| `texture` | Image path (Texture2D) | AssetPicker |
+| `scene` | PackedScene path (.tscn) | Scene picker |
+
+The locked spec was 11 types. Phase 0's audit walked every FoB schema + per-domain mapper and surfaced two minimal expansions: **`subresource`** (NpcData.LootTable is a single inline sub-resource that can't honestly be modeled as a 1-element array — the wrapper IS the LootTable, with its own Entries inside) and **`array.itemRef`** (NpcData.CasualRemarks is an array of refs to balloons, not sub-resources). Both expansions were called out at locked-decision time as "things the audit may surface" and accepted.
+
+**Cross-cutting field props** (every type supports these):
+
+- `required: bool` — field must be present.
+- `default: <value>` — used for default-aware emit (Bleepforge omits the property from `.tres` when JSON value matches the default, matching Godot's own behavior).
+- `showWhen: { otherField: value | [values] }` — gates BOTH UI render AND writeback. Quest Objective's `TargetItem` only applies when `Type=CollectItem`; both the form hides it AND the writeback omits it for other types. Same primitive, dual-purpose: cleaner files, smaller diffs, matches what the user sees.
+
+**Array-specific props**:
+
+- `arrayContainerType: "typed" | "untyped"` (default `untyped`) — `"typed"` emits the C# typed-collection literal `Array[ExtResource("scriptId")]([...])`. NpcData LootTable.Entries is the FoB instance (`Godot.Collections.Array<LootEntry>`). Getting this wrong silently breaks loot.
+- `nullable: true` — field may be omitted entirely from `.tres` (vs emitting an empty `[]`).
+
+**Sub-resource declarations** are referenced by `array.of` or `subresource.of`. Each declares its `class`, a `stableIdField` (defaults to `_subId` matching Bleepforge's existing reorder-safe sub-resource matching mechanism), its `fields` and `fieldOrder`.
+
+**Per-entry `fieldOrder`** is declared explicitly. The alternative — reading order from existing files — silently breaks first-save of a new entity. The top-level `ManifestSchema.superRefine` validates every `fieldOrder` against its `fields` keys at parse, so manifest-emitter bugs surface loudly instead of producing subtly wrong `.tres` at writeback.
+
+**Per-domain `view: "list" | "cards" | "graph"`** picks the editor's default surface. `view: "graph"` requires at least one `ref` field (otherwise there are no edges to draw). **Per-domain `overrideUi: "<ComponentName>"`** names a registered React component the editor mounts instead of the generic surface. Declared in v0.2.6, consumed in v0.2.7+. FoB's bespoke UIs (DialogGraph, NpcEdit, BalloonCard, etc) plug in via this without any generic-fallback regression.
+
+### Three export triggers
+
+The library writes the manifest on three triggers:
+
+- **Editor-load auto-export** (default) — every time the user opens the Godot editor, the library re-reflects + writes.
+- **Manual menu button** (override) — explicit re-export from the Bleepforge plugin menu.
+- **Build hook** (CI) — pre-build step writes the manifest so a fresh checkout has it without opening the editor.
+
+### Composite-id refs
+
+Foldered domains have composite ids of shape `<folder>/<basename>` (e.g. `hap_500/greeting` for a Balloon, `Eddie/welcome_001` for a Dialog). NpcData.CasualRemarks references balloons in this form natively. The editor knows the id shape from the target domain's `kind` (foldered → composite, others → plain) — no separate manifest field for this.
+
+### Enum-value editability
+
+v0.2.6 / v0.2.7 enums are always read-only in the editor — values come from C# enum reflection, no add/remove from inside Bleepforge. v0.2.8's schema authoring will add a `valuesEditable: bool` flag on enum fields: Bleepforge-authored enums can opt into editable, the C# stub generator handles round-trip, and the editor surfaces an "add value" button. C#-reflected enums (FoB's existing ones) stay read-only. **Caveat:** adding a value to a runtime-branched enum (where C# does `switch (X) { case A: ... }`) gets you the value but no behavior — user has to add the case. Bleepforge can flag but can't fix.
+
+### What's NOT in v0.2.6 (deferred)
+
+- Generic edit forms / list views / mappers (v0.2.7).
+- FoB port to the library — never required; future user-side choice for FoB.
+- Tier 2 helpers (DialogRunner, FlagStore, KarmaApplier) — deferred indefinitely.
+- Schema authoring in Bleepforge (v0.2.8).
+- C# stub generation (v0.2.8).
+- Demo game (v0.3.0 if at all).
+- Editor UI changes — FoB workflow MUST be unchanged through v0.2.6.
+
+### v0.2.6 phases
+
+1. **Phase 0 — Lock manifest spec on paper.** ✓ Shipped 2026-05-16. Zod schema in [shared/src/manifest.ts](shared/src/manifest.ts), audit walk over every FoB `.tres` field + per-domain mapper confirmed the catalog covers reality (with the two `subresource` + `array.itemRef` expansions noted above). Top-level `superRefine` catches `fieldOrder` misalignment at parse.
+2. **Phase 1 — Monorepo structure.** Add `godot-lib/` sibling folder. Initial files: README.md, addons/bleepforge/, plugin.cfg, LICENSE.
+3. **Phase 2 — C# library tier 1 (abstract bases).** `BleepforgeResource` (marker), `BleepforgeRegistry<T>`, `BleepforgeFolderedRegistry<T>`, `BleepforgeDiscriminatedRegistry<TBase>`, `BleepforgeEnumRegistry<TEnum, T>`. All registries: walk paths, index by key, hot reload on `.tres` change.
+4. **Phase 3 — Manifest emitter (C# side).** Library reflects over `BleepforgeResource` subclasses, builds manifest matching the spec, writes `bleepforge_manifest.json` at project root. Three triggers as above.
+5. **Phase 4 — Editor-side manifest consumption (TS side).** Editor detects + parses `bleepforge_manifest.json` at the active project's Godot root. Validates against shared zod schema. New diagnostic surface ("Bleepforge sees N domains: …"). NO UI changes to FoB workflows.
+6. **Phase 5 — Validation harness.** Tiny synthetic Godot project at `godot-lib/test-project/`. 2-3 resource types covering different kinds (regular domain + foldered minimum). Library exports manifest, editor reads it, registry hot reload works. NOT FoB.
+7. **Phase 6 — Docs + release.** godot-lib README, Help library entry under "Under the hood", release notes (`data/help/release-notes/v0-2-6.json`), stable bump.
+
+### Riskiest call across the arc
+
+The v0.2.7 generic mapper. The current per-domain mappers in `server/src/internal/tres/domains/` encode subtle behavior (sub-resource positional reconcile, default-aware emit, ext-resource dedup, AtlasTexture preservation, typed-array literal output). Collapsing to a manifest-driven generic without losing fidelity is the part most likely to balloon. Mitigation: Phase 0's mapper audit (in-file rationale block at the top of [shared/src/manifest.ts](shared/src/manifest.ts)) enumerated every behavior currently relied on — each became either a manifest field or a documented "generic-mapper behavior" the v0.2.7 work knows it has to handle.
+
 ## v1 plan (decided)
 
 **Scope** — seven Godot-mirrored data domains, one Bleepforge-only multi-category authoring surface, and a Bleepforge-only concept doc:
@@ -911,7 +1023,7 @@ UI subscribers: every list/edit page wires `useSyncRefresh` for its domain (item
 - **Shaders Phase 9+ (deferred)** — `varying` support if we ever build a vertex pipeline; spatial / particles / sky / fog shader types; `#include` directives (would need a resolver for relative `.gdshaderinc` paths).
 - ~~**Wrap with Electron (Phase 1 — dev window)**~~ — done. `pnpm dev:desktop` runs server + client + electron in parallel, the desktop window loads `http://localhost:5173`, HMR + SSE + TS strict mode all preserved.
 - ~~**Wrap with Electron (Phase 2 — Linux AppImage)**~~ — done. `pnpm dist` produces a single self-contained `Bleepforge-<v>-x86_64.AppImage` (~115MB) that runs without sudo on Fedora 44 / KDE / Wayland. Server bundle (esbuild, ~211KB) + client bundle (Vite) + Help library seed all ride inside `app.asar`; user state lives outside in `~/.config/Bleepforge/data/`. macOS (.dmg) / Windows (NSIS) targets are a config-only follow-up — the build pipeline is platform-generic. Auto-update + code signing are deferred until distribution is something other than "the user runs the AppImage from disk." See "Electron desktop wrap" below for the packaging architecture and the five Linux-specific landmines we hit (workspace dep resolution, sandbox flag conflict, /dev/shm, asar fs.cpSync, asar+send).
-- **Genericize for any Godot project** (post-1.0, future direction) — Bleepforge currently ships hardcoded against Flock of Bleeps' seven domain schemas + per-domain edit forms + per-domain `.tres` mappers. The bones are project-agnostic: `.tres` parser / emitter / writer / watcher, JSON CRUD machinery, asset surface, diagnostics shell, UI primitives, theming, the three SSE infrastructure channels — none of those know anything about this specific game. The schema layer is the only project-specific code (seven zod schemas in `shared/src/`, the per-domain mappers under `server/src/internal/tres/domains/`, the hand-coded edit forms in `client/src/features/<domain>/`, plus the dialog-specific graph view). Genericization path: make the schema layer runtime-configurable, ideally by reading the user's project's `[GlobalClass]` resource types directly to auto-generate forms / integrity checks / a configurable graph view that recognizes any "next"-style reference. Coupling is by configuration, not by architecture — that's why the lift is reasonable.
+- **Genericize for any Godot project** — in progress as the v0.2.6 → v0.3.0 arc. See "Genericization arc (v0.2.6 → v0.3.0)" near the top of this doc for the full plan: manifest contract + library tier 1 in v0.2.6 (Phase 0 schema landed 2026-05-16), generic editor surfaces + override mechanism in v0.2.7, schema authoring + C# stub generation in v0.2.8, headline cut in v0.3.0.
 - v1 polish on existing UIs (deferred — Yehonatan: "we'll polish with time").
 
 ## Client `src/` structure

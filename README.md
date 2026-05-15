@@ -260,10 +260,19 @@ Server-side dev tools (run via `pnpm --filter @bleepforge/server <name>`):
 - Electron desktop wrap (dev + Linux AppImage + Windows NSIS installer via `pnpm dist` / `pnpm dist:win`)
 - **First-run welcome flow** for packaged builds (v0.2.3) — when no `preferences.json` exists yet, the renderer shows a native folder picker instead of a broken-looking shell.
 
+**In progress (v0.2.6 → v0.3.0):**
+
+- **Genericize for any Godot project.** Three intermediate releases land between today and v0.3.0:
+  - **v0.2.6** (in progress) — manifest contract + library tier 1 (abstract base classes for the four entry kinds: `domain` / `discriminatedFamily` / `foldered` / `enumKeyed`) + editor reads manifest. Phase 0 (zod schema in [shared/src/manifest.ts](shared/src/manifest.ts)) shipped 2026-05-16. Editor UI does NOT change; FoB workflow stays unchanged.
+  - **v0.2.7** — generic editor surfaces + override mechanism. Generic `<DomainList>` + `<DomainEdit>` driven by manifest field declarations; generic `.tres` mapper for writeback; bespoke FoB UIs (DialogGraph, NpcEdit, BalloonCard) keep working via override. v0.2.7 = "Bleepforge edits any project that has a manifest."
+  - **v0.2.8** — schema authoring + C# stub generation. Define new domains in Bleepforge → library generates C# stubs into your Godot project → you wire runtime logic via `partial class` → manifest re-exports → Bleepforge sees it.
+  - **v0.3.0** — headline cut: "Bleepforge is generic." Polish, docs, the advertise-able release.
+
+  See the **Genericization arc** section in [CLAUDE.md](CLAUDE.md) for the full design — manifest spec (4 entry kinds + 12 field types), locked decisions (monorepo, no FoB port required, tiered library, no demo game), 7-phase plan for v0.2.6.
+
 **Next:**
 
 - **macOS packaging + auto-update + code signing.** Deferred until distribution is something other than "the user runs the installer from disk." macOS (.dmg) is a config-only follow-up to the existing electron-builder pipeline. Windows NSIS shipped unsigned in v0.2.3.
-- **Genericize for any Godot project.** Currently the seven game-domain schemas + their per-domain edit forms + per-domain `.tres` mappers are hardcoded to Flock of Bleeps. The `.tres` parser/emitter/writer/watcher, JSON CRUD machinery, asset surface, diagnostics shell, theming, and the three SSE infrastructure channels are all project-agnostic - only the schema layer is project-specific. The path is to make that layer runtime-configurable, ideally by reading the user's project's `[GlobalClass]` resource types directly to auto-generate forms / integrity checks / a configurable graph view.
 
 ---
 
