@@ -1,4 +1,15 @@
-import { useEffect, useState } from "react";
+// useCatalog aggregates every domain slice + derived selector into one
+// `Catalog | null` bag for back-compat with existing call sites
+// (CatalogDatalists, AppSearch, Workbench, useDiagnostics, IntegrityTab,
+// NpcEdit, CodexEdit). The bag is `null` until every slice + selector
+// reports `ready` — same blocking semantics as the pre-v0.2.5 version.
+//
+// The win over the prior version: the underlying data lives in module-
+// level singletons, so seven `useCatalog()` mounts share one fetch per
+// domain instead of each running its own `Promise.all` of ten fetches.
+// New code can also import per-domain hooks directly from `./stores` to
+// skip the bag entirely and get fine-grained loading states.
+
 import type {
   Balloon,
   CodexCategoryGroup,
@@ -12,22 +23,24 @@ import type {
   Pickup,
   Quest,
 } from "@bleepforge/shared";
+import type { BalloonFolderGroup, DialogFolderGroup, ShaderAsset } from "./api";
 import {
-  balloonsApi,
-  codexApi,
-  dialogsApi,
-  factionsApi,
-  itemsApi,
-  karmaApi,
-  npcsApi,
-  pickupsApi,
-  questsApi,
-  shadersApi,
-  type BalloonFolderGroup,
-  type DialogFolderGroup,
-  type ShaderAsset,
-} from "./api";
-import { catalogTick, subscribeCatalog } from "./catalog-bus";
+  useBalloonRefs,
+  useBalloons,
+  useCodex,
+  useCodexEntries,
+  useDialogs,
+  useFactions,
+  useFlags,
+  useItems,
+  useKarma,
+  useNpcs,
+  usePickups,
+  useQuests,
+  useSequences,
+  useShaders,
+  type BalloonRef,
+} from "./stores";
 
 export { refreshCatalog } from "./catalog-bus";
 
@@ -40,114 +53,71 @@ export interface Catalog {
   pickups: Pickup[];
   dialogs: DialogFolderGroup[];
   sequences: DialogSequence[];
-  /** Per-folder balloon groups, mirroring the dialogs shape. Each balloon's
-   *  full Bleepforge id is "<folder>/<Id>". */
   balloons: BalloonFolderGroup[];
-  /** Flat list of balloons across all folders, with Bleepforge-id form for
-   *  quick lookup by NpcData.CasualRemarks entries. */
-  balloonRefs: { id: string; folder: string; balloon: Balloon }[];
-  /** Per-category Codex groups. Each carries its meta (schema) plus
-   *  current entries. Empty when no categories have been created yet. */
+  balloonRefs: BalloonRef[];
   codexCategories: CodexCategoryGroup[];
-  /** Flat per-entry list, useful for app search and integrity checks. */
   codexEntries: { category: string; meta: CodexCategoryMeta; entry: CodexEntry }[];
-  /** Every discovered .gdshader file in the Godot project. Loaded once at
-   *  catalog boot so the global Ctrl+K search can jump to a shader by
-   *  basename. The shader gallery has its own (more detailed) fetch with
-   *  usage counts; this list carries just the descriptors. */
   shaders: ShaderAsset[];
   flags: string[];
 }
 
-function collectFlags(sequences: DialogSequence[], quests: Quest[]): string[] {
-  const set = new Set<string>();
-  const add = (s: string | undefined | null) => {
-    if (s) set.add(s);
-  };
-  for (const seq of sequences) {
-    add(seq.SetsFlag);
-    for (const line of seq.Lines) {
-      for (const c of line.Choices) add(c.SetsFlag);
-    }
-  }
-  for (const q of quests) {
-    add(q.ActiveFlag);
-    add(q.CompleteFlag);
-    add(q.TurnedInFlag);
-    for (const r of q.Rewards) {
-      if (r.Type === "Flag") add(r.FlagName);
-    }
-  }
-  return [...set].sort();
-}
-
 export function useCatalog(): Catalog | null {
-  const [catalog, setCatalog] = useState<Catalog | null>(null);
-  const [tick, setTick] = useState(catalogTick);
+  // Source slices.
+  const npcs = useNpcs();
+  const items = useItems();
+  const quests = useQuests();
+  const karma = useKarma();
+  const factions = useFactions();
+  const pickups = usePickups();
+  const dialogs = useDialogs();
+  const balloons = useBalloons();
+  const codex = useCodex();
+  const shaders = useShaders();
 
-  useEffect(() => subscribeCatalog(() => setTick(catalogTick())), []);
+  // Derived projections (subscribe to their own source slices internally).
+  const sequences = useSequences();
+  const balloonRefs = useBalloonRefs();
+  const codexEntries = useCodexEntries();
+  const flags = useFlags();
 
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      npcsApi.list(),
-      itemsApi.list(),
-      questsApi.list(),
-      karmaApi.list(),
-      factionsApi.list(),
-      pickupsApi.list(),
-      dialogsApi.listAll(),
-      balloonsApi.listAll(),
-      codexApi.listAll(),
-      // Shaders are a Godot-project file scan rather than a JSON CRUD list;
-      // catch failures so a missing endpoint (or a project root without
-      // shaders) doesn't take the whole catalog down.
-      shadersApi.list().catch(() => ({ shaders: [] as ShaderAsset[] })),
-    ])
-      .then(([npcs, items, quests, karma, factions, pickups, dialogs, balloons, codexCategories, shadersResponse]) => {
-        if (cancelled) return;
-        const sequences = dialogs.flatMap((g) => g.sequences);
-        const balloonRefs = balloons.flatMap((g) =>
-          g.balloons.map((b) => ({
-            id: `${g.folder}/${b.Id}`,
-            folder: g.folder,
-            balloon: b,
-          })),
-        );
-        const codexEntries = codexCategories.flatMap((g) =>
-          g.entries.map((entry) => ({
-            category: g.category,
-            meta: g.meta,
-            entry,
-          })),
-        );
-        const flags = collectFlags(sequences, quests);
-        setCatalog({
-          npcs,
-          items,
-          quests,
-          karma,
-          factions,
-          pickups,
-          dialogs,
-          sequences,
-          balloons,
-          balloonRefs,
-          codexCategories,
-          codexEntries,
-          shaders: shadersResponse.shaders,
-          flags,
-        });
-      })
-      .catch(() => {
-        if (!cancelled) setCatalog(null);
-        // The UI's own error-handling kicks in once the user navigates
-        // (each list page surfaces its own fetch error).
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [tick]);
+  // Block on all-ready. A single slice's error null-collapses the catalog
+  // (same shape as the prior version's `.catch(() => setCatalog(null))`),
+  // because consumers branch on `catalog === null` and don't have per-slice
+  // error handling. New code should import the per-domain hooks directly
+  // to get the granular status.
+  if (
+    !npcs.data ||
+    !items.data ||
+    !quests.data ||
+    !karma.data ||
+    !factions.data ||
+    !pickups.data ||
+    !dialogs.data ||
+    !balloons.data ||
+    !codex.data ||
+    !shaders.data ||
+    !sequences.data ||
+    !balloonRefs.data ||
+    !codexEntries.data ||
+    !flags.data
+  ) {
+    return null;
+  }
 
-  return catalog;
+  return {
+    npcs: npcs.data,
+    items: items.data,
+    quests: quests.data,
+    karma: karma.data,
+    factions: factions.data,
+    pickups: pickups.data,
+    dialogs: dialogs.data,
+    sequences: sequences.data,
+    balloons: balloons.data,
+    balloonRefs: balloonRefs.data,
+    codexCategories: codex.data,
+    codexEntries: codexEntries.data,
+    shaders: shaders.data,
+    flags: flags.data,
+  };
 }

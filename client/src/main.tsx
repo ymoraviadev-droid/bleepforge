@@ -43,6 +43,7 @@ import { closeShaderStream, startShaderStream } from "./lib/shaders/stream";
 import { closeSyncStream, startSyncStream } from "./lib/sync/stream";
 import { closeGlobalThemeChannel } from "./styles/GlobalTheme";
 import { refreshCatalog } from "./lib/catalog-bus";
+import { wireStoresToBus } from "./lib/stores/wireToBus";
 import { markBootCheckpoint } from "./lib/boot/progress";
 
 // Stamp the version into document.title so the OS window title bar shows
@@ -93,6 +94,13 @@ startAssetStream();
 // Fourth channel — .gdshader add/change/remove for the shader gallery
 // + edit page (external-edit banner).
 startShaderStream();
+
+// Wire every domain store to the catalog-bus so `refreshCatalog()` calls
+// from api.ts (after every save/remove) trigger a per-slice refresh.
+// Phase 1 keeps the blanket-refresh-all-slices behavior identical to
+// pre-v0.2.5; Phase 3 replaces this with per-domain invalidation
+// driven by the SSE event's `domain` field.
+wireStoresToBus();
 
 // Refresh the autocomplete catalog on any external change so datalists
 // stay current with the data the user just saw flow in from Godot.
