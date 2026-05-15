@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Faction, FactionData } from "@bleepforge/shared";
 import { factionsApi } from "../../lib/api";
+import { useFactions } from "../../lib/stores";
 import { AssetPicker } from "../../components/AssetPicker";
 import { AssetThumb } from "../../components/AssetThumb";
 import { ButtonLink } from "../../components/Button";
@@ -29,6 +30,12 @@ export function FactionEdit() {
   const navigate = useNavigate();
   const isNew = factionParam === undefined;
 
+  const { data: factions, status, error: storeError } = useFactions();
+  const fromStore =
+    !isNew && factionParam && factions
+      ? factions.find((f) => f.Faction === factionParam)
+      : undefined;
+
   const [data, setData] = useState<FactionData | null>(isNew ? empty() : null);
   /** Last-loaded / last-saved snapshot — dirty comparisons run against
    *  this. Stays null for the new-faction form. */
@@ -38,30 +45,27 @@ export function FactionEdit() {
 
   useEffect(() => {
     if (isNew) return;
-    factionsApi
-      .get(factionParam!)
-      .then((d) => {
-        if (d === null) {
-          setError("not found");
-          return;
-        }
-        setData(d);
-        setBaseline(d);
-      })
-      .catch((e) => setError(String(e)));
-  }, [factionParam, isNew]);
+    if (baseline !== null) return;
+    if (status === "loading" || status === "idle") return;
+    if (status === "error") {
+      setError(storeError ?? "failed to load factions");
+      return;
+    }
+    if (!fromStore) {
+      setError("not found");
+      return;
+    }
+    setData(fromStore);
+    setBaseline(fromStore);
+  }, [isNew, baseline, status, storeError, fromStore]);
 
   const reload = useCallback(() => {
     if (isNew || !factionParam) return;
-    factionsApi
-      .get(factionParam)
-      .then((d) => {
-        if (!d) return;
-        setData(d);
-        setBaseline(d);
-      })
-      .catch(() => {});
-  }, [isNew, factionParam]);
+    const fresh = factions?.find((f) => f.Faction === factionParam);
+    if (!fresh) return;
+    setData(fresh);
+    setBaseline(fresh);
+  }, [isNew, factionParam, factions]);
 
   const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "faction",

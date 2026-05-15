@@ -11,6 +11,7 @@ import {
   type CodexRefDomain,
 } from "@bleepforge/shared";
 import { codexApi } from "../../lib/api";
+import { useCodex } from "../../lib/stores";
 import { Button, ButtonLink } from "../../components/Button";
 import { DirtyDot } from "../../components/DirtyDot";
 import { showConfirm } from "../../components/Modal";
@@ -53,6 +54,12 @@ export function CategoryEdit() {
   const navigate = useNavigate();
   const isNew = routeCategory === undefined;
 
+  const { data: codexGroups, status, error: storeError } = useCodex();
+  const metaFromStore =
+    !isNew && routeCategory && codexGroups
+      ? codexGroups.find((g) => g.category === routeCategory)?.meta
+      : undefined;
+
   const [meta, setMeta] = useState<CodexCategoryMeta | null>(isNew ? empty() : null);
   /** Baseline snapshot for the dirty check. For new categories the
    *  empty stub is the baseline — once the user types anything, dirty
@@ -66,18 +73,19 @@ export function CategoryEdit() {
 
   useEffect(() => {
     if (isNew || !routeCategory) return;
-    codexApi
-      .getMeta(routeCategory)
-      .then((m) => {
-        if (m === null) {
-          setError("not found");
-        } else {
-          setMeta(m);
-          setBaseline(m);
-        }
-      })
-      .catch((e) => setError(String(e)));
-  }, [routeCategory, isNew]);
+    if (baseline !== null) return;
+    if (status === "loading" || status === "idle") return;
+    if (status === "error") {
+      setError(storeError ?? "failed to load codex");
+      return;
+    }
+    if (!metaFromStore) {
+      setError("not found");
+      return;
+    }
+    setMeta(metaFromStore);
+    setBaseline(metaFromStore);
+  }, [routeCategory, isNew, baseline, status, storeError, metaFromStore]);
 
   const dirty = useMemo(() => {
     if (meta === null || baseline === null) return false;

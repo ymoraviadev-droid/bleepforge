@@ -8,6 +8,7 @@ import type {
   DialogSourceType,
 } from "@bleepforge/shared";
 import { dialogsApi } from "../../lib/api";
+import { useDialogs } from "../../lib/stores";
 import { AssetPicker } from "../../components/AssetPicker";
 import { DL } from "../../components/CatalogDatalists";
 import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
@@ -45,9 +46,17 @@ export function DialogEdit() {
   const navigate = useNavigate();
   const isNew = id === undefined;
 
+  const { data: dialogGroups, status, error: storeError } = useDialogs();
+  const fromStore =
+    !isNew && folderParam && id && dialogGroups
+      ? dialogGroups.find((g) => g.folder === folderParam)?.sequences.find((s) => s.Id === id)
+      : undefined;
+
   const [folder, setFolder] = useState<string>(
     folderParam ?? searchParams.get("folder") ?? "",
   );
+  // listFolders still needed for the folder dropdown (includes empty
+  // folders the store doesn't know about).
   const [folders, setFolders] = useState<string[]>([]);
   const [seq, setSeq] = useState<DialogSequence | null>(isNew ? emptySequence() : null);
   /** Last-loaded / last-saved snapshot — dirty comparisons run against
@@ -62,30 +71,30 @@ export function DialogEdit() {
 
   useEffect(() => {
     if (isNew) return;
-    dialogsApi
-      .get(folderParam!, id!)
-      .then((s) => {
-        if (s === null) {
-          setError("not found");
-          return;
-        }
-        setSeq(s);
-        setBaseline(s);
-      })
-      .catch((e) => setError(String(e)));
-  }, [folderParam, id, isNew]);
+    if (baseline !== null) return;
+    if (!folderParam || !id) return;
+    if (status === "loading" || status === "idle") return;
+    if (status === "error") {
+      setError(storeError ?? "failed to load dialogs");
+      return;
+    }
+    if (!fromStore) {
+      setError("not found");
+      return;
+    }
+    setSeq(fromStore);
+    setBaseline(fromStore);
+  }, [isNew, baseline, folderParam, id, status, storeError, fromStore]);
 
   const reload = useCallback(() => {
     if (isNew || !folderParam || !id) return;
-    dialogsApi
-      .get(folderParam, id)
-      .then((s) => {
-        if (!s) return;
-        setSeq(s);
-        setBaseline(s);
-      })
-      .catch(() => {});
-  }, [isNew, folderParam, id]);
+    const fresh = dialogGroups
+      ?.find((g) => g.folder === folderParam)
+      ?.sequences.find((s) => s.Id === id);
+    if (!fresh) return;
+    setSeq(fresh);
+    setBaseline(fresh);
+  }, [isNew, folderParam, id, dialogGroups]);
 
   const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "dialog",

@@ -9,6 +9,7 @@ import type {
   RewardType,
 } from "@bleepforge/shared";
 import { questsApi } from "../../lib/api";
+import { useQuests } from "../../lib/stores";
 import { DL } from "../../components/CatalogDatalists";
 import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
 import { showConfirm } from "../../components/Modal";
@@ -64,6 +65,9 @@ export function QuestEdit() {
   const navigate = useNavigate();
   const isNew = id === undefined;
 
+  const { data: quests, status, error: storeError } = useQuests();
+  const fromStore = !isNew && id && quests ? quests.find((q) => q.Id === id) : undefined;
+
   const [quest, setQuest] = useState<Quest | null>(isNew ? empty() : null);
   /** Last-loaded / last-saved snapshot — dirty comparisons run against
    *  this. Stays null for the new-quest form. */
@@ -73,30 +77,27 @@ export function QuestEdit() {
 
   useEffect(() => {
     if (isNew) return;
-    questsApi
-      .get(id!)
-      .then((q) => {
-        if (q === null) {
-          setError("not found");
-          return;
-        }
-        setQuest(q);
-        setBaseline(q);
-      })
-      .catch((e) => setError(String(e)));
-  }, [id, isNew]);
+    if (baseline !== null) return;
+    if (status === "loading" || status === "idle") return;
+    if (status === "error") {
+      setError(storeError ?? "failed to load quests");
+      return;
+    }
+    if (!fromStore) {
+      setError("not found");
+      return;
+    }
+    setQuest(fromStore);
+    setBaseline(fromStore);
+  }, [isNew, baseline, status, storeError, fromStore]);
 
   const reload = useCallback(() => {
     if (isNew || !id) return;
-    questsApi
-      .get(id)
-      .then((q) => {
-        if (!q) return;
-        setQuest(q);
-        setBaseline(q);
-      })
-      .catch(() => {});
-  }, [isNew, id]);
+    const fresh = quests?.find((q) => q.Id === id);
+    if (!fresh) return;
+    setQuest(fresh);
+    setBaseline(fresh);
+  }, [isNew, id, quests]);
 
   const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "quest",

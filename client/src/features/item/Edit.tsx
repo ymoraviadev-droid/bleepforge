@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import type { Item, ItemCategory } from "@bleepforge/shared";
 import { itemsApi } from "../../lib/api";
+import { useItems } from "../../lib/stores";
 import { AssetPicker } from "../../components/AssetPicker";
 import { ButtonLink } from "../../components/Button";
 import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
@@ -41,6 +42,11 @@ export function ItemEdit() {
   const navigate = useNavigate();
   const isNew = slug === undefined;
 
+  // The entity to edit comes from the items store (find-by-slug).
+  // No per-mount api.get fetch — the store has the data already.
+  const { data: items, status, error: storeError } = useItems();
+  const fromStore = !isNew && slug && items ? items.find((i) => i.Slug === slug) : undefined;
+
   const [item, setItem] = useState<Item | null>(isNew ? empty() : null);
   /** Last-loaded / last-saved snapshot — dirty comparisons run against
    *  this. Stays null for the new-item form. */
@@ -48,32 +54,37 @@ export function ItemEdit() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Seed local state from the store on first arrival. After the seed
+  // we own `item` locally so the user's in-progress edits aren't
+  // clobbered by store updates; external-change reconciliation runs
+  // through useExternalChange below.
   useEffect(() => {
     if (isNew) return;
-    itemsApi
-      .get(slug!)
-      .then((it) => {
-        if (it === null) {
-          setError("not found");
-          return;
-        }
-        setItem(it);
-        setBaseline(it);
-      })
-      .catch((e) => setError(String(e)));
-  }, [slug, isNew]);
+    if (baseline !== null) return; // already seeded
+    if (status === "loading" || status === "idle") return; // wait for store
+    if (status === "error") {
+      setError(storeError ?? "failed to load items");
+      return;
+    }
+    if (!fromStore) {
+      setError("not found");
+      return;
+    }
+    setItem(fromStore);
+    setBaseline(fromStore);
+  }, [isNew, baseline, status, storeError, fromStore]);
 
+  // Reload from the store on demand (used by the external-change
+  // banner's "Reload from disk" button). The store auto-refreshes
+  // when the SSE event fires via wireToBus, so by the time the user
+  // clicks Reload the store already has the new value.
   const reload = useCallback(() => {
     if (isNew || !slug) return;
-    itemsApi
-      .get(slug)
-      .then((it) => {
-        if (!it) return;
-        setItem(it);
-        setBaseline(it);
-      })
-      .catch(() => {});
-  }, [isNew, slug]);
+    const fresh = items?.find((i) => i.Slug === slug);
+    if (!fresh) return;
+    setItem(fresh);
+    setBaseline(fresh);
+  }, [isNew, slug, items]);
 
   const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "item",

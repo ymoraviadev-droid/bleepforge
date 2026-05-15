@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { ButtonLink } from "../../components/Button";
 import type { Faction, KarmaDelta, KarmaImpact } from "@bleepforge/shared";
 import { karmaApi } from "../../lib/api";
+import { useKarma } from "../../lib/stores";
 import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
@@ -23,6 +24,9 @@ export function KarmaEdit() {
   const navigate = useNavigate();
   const isNew = id === undefined;
 
+  const { data: impacts, status, error: storeError } = useKarma();
+  const fromStore = !isNew && id && impacts ? impacts.find((k) => k.Id === id) : undefined;
+
   const [impact, setImpact] = useState<KarmaImpact | null>(isNew ? empty() : null);
   /** Last-loaded / last-saved snapshot — dirty comparisons run against
    *  this. Stays null for the new-impact form. */
@@ -32,30 +36,27 @@ export function KarmaEdit() {
 
   useEffect(() => {
     if (isNew) return;
-    karmaApi
-      .get(id!)
-      .then((k) => {
-        if (k === null) {
-          setError("not found");
-          return;
-        }
-        setImpact(k);
-        setBaseline(k);
-      })
-      .catch((e) => setError(String(e)));
-  }, [id, isNew]);
+    if (baseline !== null) return;
+    if (status === "loading" || status === "idle") return;
+    if (status === "error") {
+      setError(storeError ?? "failed to load karma impacts");
+      return;
+    }
+    if (!fromStore) {
+      setError("not found");
+      return;
+    }
+    setImpact(fromStore);
+    setBaseline(fromStore);
+  }, [isNew, baseline, status, storeError, fromStore]);
 
   const reload = useCallback(() => {
     if (isNew || !id) return;
-    karmaApi
-      .get(id)
-      .then((k) => {
-        if (!k) return;
-        setImpact(k);
-        setBaseline(k);
-      })
-      .catch(() => {});
-  }, [isNew, id]);
+    const fresh = impacts?.find((k) => k.Id === id);
+    if (!fresh) return;
+    setImpact(fresh);
+    setBaseline(fresh);
+  }, [isNew, id, impacts]);
 
   const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "karma",

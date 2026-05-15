@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
-import type { Balloon, Npc } from "@bleepforge/shared";
-import { balloonsApi, npcsApi } from "../../lib/api";
+import type { Balloon } from "@bleepforge/shared";
+import { balloonsApi } from "../../lib/api";
+import { useBalloons, useNpcs } from "../../lib/stores";
 import { ButtonLink } from "../../components/Button";
 import { ExternalChangeBanner } from "../../components/ExternalChangeBanner";
 import { showConfirm } from "../../components/Modal";
 import { NotFoundPage } from "../../components/NotFoundPage";
 import { SliderField } from "../../components/SliderField";
 import { useExternalChange } from "../../lib/sync/useExternalChange";
-import { useSyncRefresh } from "../../lib/sync/useSyncRefresh";
 import { useUnsavedWarning } from "../../lib/useUnsavedWarning";
 import { button, fieldLabel, textInput } from "../../styles/classes";
 
@@ -38,6 +38,17 @@ export function BalloonEdit() {
   // (lets the user click a model card and start editing in that folder).
   const initialFolder = routeFolder ?? search.get("folder") ?? "";
 
+  const { data: balloonGroups, status: balloonStatus, error: balloonStoreError } = useBalloons();
+  const { data: npcsData } = useNpcs();
+  const npcs = npcsData ?? [];
+
+  // Resolve the balloon by (folder, basename) from the store's grouped
+  // data. fromStore is undefined until the store loads.
+  const fromStore =
+    !isNew && routeFolder && basename && balloonGroups
+      ? balloonGroups.find((g) => g.folder === routeFolder)?.balloons.find((b) => b.Id === basename)
+      : undefined;
+
   const [folder, setFolder] = useState<string>(initialFolder);
   const [balloon, setBalloon] = useState<Balloon | null>(isNew ? empty() : null);
   /** Last-loaded / last-saved snapshot — what dirty comparisons run
@@ -45,41 +56,34 @@ export function BalloonEdit() {
   const [baseline, setBaseline] = useState<Balloon | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [npcs, setNpcs] = useState<Npc[]>([]);
 
   useEffect(() => {
     if (isNew) return;
+    if (baseline !== null) return;
     if (!routeFolder || !basename) return;
-    balloonsApi
-      .get(routeFolder, basename)
-      .then((b) => {
-        if (b === null) {
-          setError("not found");
-          return;
-        }
-        setBalloon(b);
-        setBaseline(b);
-      })
-      .catch((e) => setError(String(e)));
-  }, [routeFolder, basename, isNew]);
+    if (balloonStatus === "loading" || balloonStatus === "idle") return;
+    if (balloonStatus === "error") {
+      setError(balloonStoreError ?? "failed to load balloons");
+      return;
+    }
+    if (!fromStore) {
+      setError("not found");
+      return;
+    }
+    setBalloon(fromStore);
+    setBaseline(fromStore);
+  }, [isNew, baseline, routeFolder, basename, balloonStatus, balloonStoreError, fromStore]);
 
-  useEffect(() => {
-    npcsApi.list().then(setNpcs).catch(() => {});
-  }, []);
-
-  // Reload-from-disk path — used both for the external-change banner's
-  // Reload action AND as the silent-refetch path when the form is clean.
+  // Reload-from-disk path — reads from the (now-updated) store.
   const reload = useCallback(() => {
     if (isNew || !routeFolder || !basename) return;
-    balloonsApi
-      .get(routeFolder, basename)
-      .then((b) => {
-        if (!b) return;
-        setBalloon(b);
-        setBaseline(b);
-      })
-      .catch(() => {});
-  }, [isNew, routeFolder, basename]);
+    const fresh = balloonGroups
+      ?.find((g) => g.folder === routeFolder)
+      ?.balloons.find((b) => b.Id === basename);
+    if (!fresh) return;
+    setBalloon(fresh);
+    setBaseline(fresh);
+  }, [isNew, routeFolder, basename, balloonGroups]);
 
   // Dirty-aware sync: banner when local is dirty + external change;
   // silent refetch when clean.
@@ -93,11 +97,6 @@ export function BalloonEdit() {
 
   // Warn on window close / in-app navigation while the form is dirty.
   useUnsavedWarning(dirty);
-
-  useSyncRefresh({
-    domain: "npc",
-    onChange: () => npcsApi.list().then(setNpcs).catch(() => {}),
-  });
 
   const ref = balloon ? `${folder}/${balloon.Id}` : "";
   const usedBy = useMemo(

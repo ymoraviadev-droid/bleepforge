@@ -7,6 +7,7 @@ import {
   type CodexPropertyDef,
 } from "@bleepforge/shared";
 import { codexApi } from "../../lib/api";
+import { useCodex } from "../../lib/stores";
 import { AssetPicker } from "../../components/AssetPicker";
 import { Button, ButtonLink } from "../../components/Button";
 import { DirtyDot } from "../../components/DirtyDot";
@@ -44,6 +45,14 @@ export function Edit() {
   const isNew = id === undefined;
   const catalog = useCatalog();
 
+  const { data: codexGroups, status, error: storeError } = useCodex();
+  const group = routeCategory && codexGroups
+    ? codexGroups.find((g) => g.category === routeCategory)
+    : undefined;
+  const metaFromStore = group?.meta;
+  const entryFromStore =
+    !isNew && id && group ? group.entries.find((e) => e.Id === id) : undefined;
+
   const [meta, setMeta] = useState<CodexCategoryMeta | null>(null);
   const [entry, setEntry] = useState<CodexEntry | null>(null);
   /** Snapshot of the entry as last loaded / last saved. Used as the
@@ -54,41 +63,41 @@ export function Edit() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // Load meta first, then the entry. Meta is required to render the
-  // dynamic property fields and to compute defaults for new entries.
+  // Seed meta + entry from the store on first arrival. Same pattern as
+  // the .tres-backed edit pages: wait for store status, then either
+  // 404 or initialize local state from the cached value.
   useEffect(() => {
     if (!routeCategory) return;
-    codexApi
-      .getMeta(routeCategory)
-      .then((m) => {
-        if (m === null) {
-          setError("not found");
-          return;
-        }
-        setMeta(m);
-        if (isNew) {
-          const fresh = { ...empty(), Properties: defaultPropertiesForMeta(m) };
-          setEntry(fresh);
-          setBaseline(fresh);
-        }
-      })
-      .catch((e) => setError(String(e)));
-  }, [routeCategory, isNew]);
+    if (meta !== null) return;
+    if (status === "loading" || status === "idle") return;
+    if (status === "error") {
+      setError(storeError ?? "failed to load codex");
+      return;
+    }
+    if (!metaFromStore) {
+      setError("not found");
+      return;
+    }
+    setMeta(metaFromStore);
+    if (isNew) {
+      const fresh = { ...empty(), Properties: defaultPropertiesForMeta(metaFromStore) };
+      setEntry(fresh);
+      setBaseline(fresh);
+    }
+  }, [routeCategory, isNew, meta, status, storeError, metaFromStore]);
 
   useEffect(() => {
     if (isNew || !routeCategory || !id) return;
-    codexApi
-      .getEntry(routeCategory, id)
-      .then((e) => {
-        if (e === null) {
-          setError("not found");
-        } else {
-          setEntry(e);
-          setBaseline(e);
-        }
-      })
-      .catch((e) => setError(String(e)));
-  }, [routeCategory, id, isNew]);
+    if (baseline !== null) return;
+    if (status === "loading" || status === "idle") return;
+    if (status === "error") return; // meta useEffect surfaces the error
+    if (!entryFromStore) {
+      setError("not found");
+      return;
+    }
+    setEntry(entryFromStore);
+    setBaseline(entryFromStore);
+  }, [routeCategory, id, isNew, baseline, status, entryFromStore]);
 
   const dirty = useMemo(() => {
     if (entry === null || baseline === null) return false;

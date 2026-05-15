@@ -7,7 +7,8 @@ import type {
   LootEntry,
   Pickup,
 } from "@bleepforge/shared";
-import { itemsApi, npcsApi, pickupsApi } from "../../lib/api";
+import { npcsApi } from "../../lib/api";
+import { useItems, useNpcs, usePickups } from "../../lib/stores";
 import { AssetPicker } from "../../components/AssetPicker";
 import { AssetThumb } from "../../components/AssetThumb";
 import { Button, ButtonLink } from "../../components/Button";
@@ -45,49 +46,45 @@ export function NpcEdit() {
   const navigate = useNavigate();
   const isNew = npcId === undefined;
 
+  // Per-domain stores. The NPC entity comes from useNpcs (find-by-id);
+  // pickups + items feed the LootTable editor.
+  const { data: npcs, status: npcStatus, error: npcStoreError } = useNpcs();
+  const { data: pickupsData } = usePickups();
+  const { data: itemsData } = useItems();
+  const pickups = pickupsData ?? [];
+  const items = itemsData ?? [];
+  const fromStore = !isNew && npcId && npcs ? npcs.find((n) => n.NpcId === npcId) : undefined;
+
   const [npc, setNpc] = useState<Npc | null>(isNew ? empty() : null);
   /** Last-loaded / last-saved snapshot — dirty comparisons run against
    *  this. Stays null for the new-NPC form. */
   const [baseline, setBaseline] = useState<Npc | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [pickups, setPickups] = useState<Pickup[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
 
   useEffect(() => {
     if (isNew) return;
-    npcsApi
-      .get(npcId!)
-      .then((n) => {
-        if (n === null) {
-          setError("not found");
-          return;
-        }
-        setNpc(n);
-        setBaseline(n);
-      })
-      .catch((e) => setError(String(e)));
-  }, [npcId, isNew]);
-
-  // Pickups (collectible scenes) + items: feed the LootTable editor.
-  // Pickups give us the dropdown options; items resolve each pickup's
-  // DbItemName to a friendly display name.
-  useEffect(() => {
-    pickupsApi.list().then(setPickups).catch(() => {});
-    itemsApi.list().then(setItems).catch(() => {});
-  }, []);
+    if (baseline !== null) return;
+    if (npcStatus === "loading" || npcStatus === "idle") return;
+    if (npcStatus === "error") {
+      setError(npcStoreError ?? "failed to load NPCs");
+      return;
+    }
+    if (!fromStore) {
+      setError("not found");
+      return;
+    }
+    setNpc(fromStore);
+    setBaseline(fromStore);
+  }, [isNew, baseline, npcStatus, npcStoreError, fromStore]);
 
   const reload = useCallback(() => {
     if (isNew || !npcId) return;
-    npcsApi
-      .get(npcId)
-      .then((n) => {
-        if (!n) return;
-        setNpc(n);
-        setBaseline(n);
-      })
-      .catch(() => {});
-  }, [isNew, npcId]);
+    const fresh = npcs?.find((n) => n.NpcId === npcId);
+    if (!fresh) return;
+    setNpc(fresh);
+    setBaseline(fresh);
+  }, [isNew, npcId, npcs]);
 
   const { dirty, externalChange, handleReload, handleDismiss } = useExternalChange({
     domain: "npc",
