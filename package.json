@@ -1,7 +1,7 @@
 {
   "name": "bleepforge",
   "private": true,
-  "version": "0.2.5",
+  "version": "0.2.6-dev",
   "scripts": {
     "dev": "pnpm --parallel --filter @bleepforge/server --filter @bleepforge/client run dev",
     "dev:desktop": "pnpm --parallel --filter @bleepforge/server --filter @bleepforge/client --filter @bleepforge/electron run dev",
