@@ -21,12 +21,13 @@ cd godot-lib/test-project
 
 ### 1. Open in Godot
 
-Open this folder (`godot-lib/test-project/`) in Godot 4.4+. Godot will:
+Open this folder (`godot-lib/test-project/`) in Godot 4.4+ (4.6 recommended — matches the test-project's pinned SDK). On first open, Godot will prompt to migrate the project version if your editor is newer than the pinned one — click OK, it's just a metadata bump.
 
-1. Import the C# scripts (the project's csproj inherits `Godot.NET.Sdk/4.4.0`, targets `net8.0`).
-2. Auto-enable the Bleepforge plugin (declared in `project.godot`'s `[editor_plugins]` block).
-3. Fire `BleepforgePlugin._EnterTree`, which calls the manifest emitter.
-4. Write `bleepforge_manifest.json` at the project root.
+**First open: build C# first, then enable the plugin.** Godot's plugin loader runs before the C# build by default, so if you skip this you'll see `Unable to load addon script from path: 'res://addons/bleepforge/BleepforgePlugin.cs'` and the plugin will silently disable itself.
+
+1. Click the hammer icon (top-right) or Project → Tools → C# → Build Project. Wait for "Build successful" in the Output panel.
+2. Project → Project Settings → Plugins → check **Bleepforge** (Godot disabled it during the failed first auto-enable).
+3. Plugin loads → `BleepforgePlugin._EnterTree` fires → manifest emitter runs → `bleepforge_manifest.json` appears at the project root.
 
 Watch the Output panel for:
 
@@ -34,7 +35,9 @@ Watch the Output panel for:
 [Bleepforge] Manifest emitted: 4 domain(s), 0 sub-resource(s) → res://bleepforge_manifest.json
 ```
 
-If you see warnings instead, the emitter found something it couldn't classify — most likely a C# build issue or a missing autoload.
+**Subsequent opens work normally** — the build runs alongside the editor and the plugin loads on first try. This first-open dance is a Godot 4 C# addon platform thing; every C# addon hits it.
+
+If you see warnings or errors instead of the success line above, the emitter found something it couldn't classify — most likely a C# compilation issue. Check the Output panel for `[CSC] error CS####:` lines.
 
 ### 2. Verify the manifest
 

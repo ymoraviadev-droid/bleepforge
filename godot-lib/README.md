@@ -38,15 +38,16 @@ The emitter maps C# types to manifest field types as follows:
 | `T[]` / `Godot.Collections.Array<T>` of BleepforgeResource | `array` with `itemRef` | Array of refs. |
 | `T[]` / `Godot.Collections.Array<T>` of other Resource | `array` with `of` | Array of inline sub-resources. |
 
-## Installation (post-Phase 3, when the manifest emitter lands)
+## Installation
 
 1. Copy the `addons/bleepforge/` folder into your Godot project's `addons/` directory.
 2. Open your project in the Godot editor.
-3. Project → Project Settings → Plugins → enable **Bleepforge**.
-4. The library writes `bleepforge_manifest.json` at your project root on the next editor load.
-5. Point Bleepforge at your Godot project (sync mode) — the manifest drives the editor surfaces.
+3. **Build C# first.** Click the hammer icon (top-right) or Project → Tools → C# → Build Project. Wait for "Build successful" in the Output panel.
+4. Project → Project Settings → Plugins → enable **Bleepforge**.
+5. The library writes `bleepforge_manifest.json` at your project root immediately.
+6. Point Bleepforge at your Godot project (sync mode) — the Manifest tab in Diagnostics shows the parse result; v0.2.7+ will drive the generic editor surfaces from it.
 
-Today (Phase 2) you can already use the registry base classes by themselves — see the XML-doc examples on each class. The plugin itself is still a scaffold.
+> **Why step 3 matters:** Godot's plugin loader runs before the project's C# build by default. If you skip the manual build on first install, Godot will try to enable Bleepforge against an empty assembly, fail with `Unable to load addon script from path: 'res://addons/bleepforge/BleepforgePlugin.cs'`, and silently disable the plugin. After step 3 builds the assembly, step 4's enable works on first try. **Subsequent project opens work normally** — the build runs alongside the editor and the plugin loads cleanly. This is a Godot 4 C# addon platform limitation; every C# addon hits it on fresh install.
 
 ## The five base classes
 

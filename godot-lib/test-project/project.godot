@@ -1,22 +1,22 @@
 ; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
 ;
-; Godot will rewrite this file on first open (rebalancing whitespace,
-; adding a config_version header, etc.). The values below are the
-; minimum needed to make the test project openable in Godot 4.4+.
-;
-; The four registries are configured as autoloads so they're alive in
-; the editor's running scene tree (each is [Tool]-annotated, so it
-; runs in editor too — that's what gives us hot reload on .tres
-; changes via EditorInterface.Singleton.GetResourceFilesystem
-; .FilesystemChanged).
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
 
 config_version=5
+
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 
 [application]
 
 config/name="Bleepforge test project"
 config/description="Synthetic Godot project that exercises godot-lib + the Bleepforge manifest emitter against all four entry kinds (domain / foldered / discriminatedFamily / enumKeyed). NOT a real game — Phase 5 of the v0.2.6 genericization arc."
-config/features=PackedStringArray("4.4", "C#", "Forward Plus")
+config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
 [autoload]
