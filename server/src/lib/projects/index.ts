@@ -4,3 +4,4 @@
 
 export * from "./registry.js";
 export * from "./migrate.js";
+export { projectsRouter } from "./router.js";

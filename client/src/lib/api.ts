@@ -14,6 +14,7 @@ import type {
   Npc,
   Pickup,
   Preferences,
+  Project,
   Quest,
 } from "@bleepforge/shared";
 import { bumpAssetMtime, getAssetMtime } from "./assets/mtimeCache";
@@ -191,6 +192,45 @@ export interface GodotProjectValidation {
   isProject: boolean;
   message?: string;
 }
+
+// Multi-project layer. List + active marker for the /projects page; PUT
+// /active sets the new active slug (server captures it at boot, so a
+// restart is what actually swaps paths over).
+export interface ProjectsList {
+  projects: Project[];
+  activeSlug: string | null;
+  bleepforgeRoot: string;
+}
+
+export interface SetActiveResult {
+  ok: boolean;
+  activeSlug: string;
+  /** True when the caller should restart the app to pick up the change.
+   *  False when the requested slug already matched the running active
+   *  project — no restart needed. */
+  restartRequired: boolean;
+  noop: boolean;
+}
+
+export const projectsApi = {
+  list: async (): Promise<ProjectsList> => {
+    const r = await fetch("/api/projects");
+    if (!r.ok) throw new Error(`list projects failed: ${r.status}`);
+    return r.json();
+  },
+  setActive: async (slug: string): Promise<SetActiveResult> => {
+    const r = await fetch("/api/projects/active", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug }),
+    });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      throw new Error(`set active project failed: ${r.status} ${detail}`);
+    }
+    return r.json();
+  },
+};
 
 export const godotProjectApi = {
   get: async (): Promise<GodotProjectInfo> => {

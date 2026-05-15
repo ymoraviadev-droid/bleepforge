@@ -36,6 +36,7 @@ import { logsRouter } from "./lib/logs/router.js";
 import { pickupsRouter } from "./lib/pickup/router.js";
 import { preferencesRouter } from "./features/preferences/router.js";
 import { processRouter } from "./lib/process/router.js";
+import { projectsRouter } from "./lib/projects/router.js";
 import { runBootReconcile } from "./lib/reconcile/bootReconcile.js";
 import { reconcileRouter } from "./lib/reconcile/router.js";
 import { savesRouter } from "./lib/saves/router.js";
@@ -347,6 +348,7 @@ export async function startServer(): Promise<StartedServer> {
   app.use("/api/preferences", preferencesRouter);
   app.use("/api/pickups", pickupsRouter);
   app.use("/api/godot-project", godotProjectRouter);
+  app.use("/api/projects", projectsRouter);
   app.use("/api/reconcile", reconcileRouter);
   app.use("/api/logs", logsRouter);
   app.use("/api/process", processRouter);

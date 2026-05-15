@@ -28,6 +28,7 @@ import { NpcEdit } from "./features/npc/Edit";
 import { FactionList } from "./features/faction/List";
 import { FactionEdit } from "./features/faction/Edit";
 import { PreferencesPage } from "./features/preferences/PreferencesPage";
+import { ProjectsPage } from "./features/projects/ProjectsPage";
 import { Workbench } from "./features/workbench/Workbench";
 import { CategoryView as HelpCategoryView } from "./features/help/CategoryView";
 import { EntryView as HelpEntryView } from "./features/help/EntryView";
@@ -185,6 +186,7 @@ const router = createBrowserRouter([
       { path: "integrity", element: <Navigate to="/diagnostics/integrity" replace /> },
       { path: "reconcile", element: <Navigate to="/diagnostics/reconcile" replace /> },
       { path: "preferences", element: <PreferencesPage /> },
+      { path: "projects", element: <ProjectsPage /> },
       { path: "import", element: <Navigate to="/preferences" replace /> },
       {
         element: <HelpLayout />,

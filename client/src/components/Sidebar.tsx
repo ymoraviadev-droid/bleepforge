@@ -22,6 +22,7 @@ import { DiagnosticsIcon } from "../features/diagnostics/DiagnosticsIcon";
 import { useDiagnostics } from "../features/diagnostics/useDiagnostics";
 import { GearIcon } from "../features/preferences/GearIcon";
 import { HelpIcon } from "../features/help/HelpIcon";
+import { ProjectChip } from "../features/projects/ProjectChip";
 import { isElectron, popoutOrNavigate, restartApp } from "../lib/electron";
 import { useRestartRequired } from "../lib/useRestartRequired";
 
@@ -168,6 +169,12 @@ export function Sidebar() {
         </Link>
         <VersionLabel />
       </div>
+
+      {/* Active-project chip. Below the brand because it's part of the
+          "where am I" context (which project's data is the rest of the
+          sidebar showing?) — same scan line as the version. Click →
+          /projects to switch or inspect. */}
+      <ProjectChip />
 
       {/* Meta-action icons — single horizontal row inside the sidebar.
           Same four icons + same severity-aware tinting the old top bar
