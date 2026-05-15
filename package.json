@@ -1,7 +1,7 @@
 {
   "name": "bleepforge",
   "private": true,
-  "version": "0.2.6",
+  "version": "0.2.7-dev",
   "license": "AGPL-3.0-or-later",
   "scripts": {
     "dev": "pnpm --parallel --filter @bleepforge/server --filter @bleepforge/client run dev",
