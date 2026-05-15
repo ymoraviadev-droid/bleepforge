@@ -6,7 +6,7 @@ import {
   emptyPreferences,
   type Preferences,
 } from "@bleepforge/shared";
-import { config } from "../../config.js";
+import { config, isSyncMode } from "../../config.js";
 import {
   findProject,
   readRegistry,
@@ -45,11 +45,13 @@ async function write(p: Preferences): Promise<Preferences> {
 }
 
 /** Propagate the saved godotProjectRoot into the active project record so
- *  config.ts reads the new value on the next boot. No-op when no project
- *  is active (the prefs file still gets written; first-run flow handles
- *  the no-project state separately). */
+ *  config.ts reads the new value on the next boot. No-op in three cases:
+ *  no active project (first-run path handles it separately), notebook
+ *  mode (godotProjectRoot is meaningless there — a notebook project has
+ *  no Godot connection), or no change. */
 function writeGodotRootThrough(prefs: Preferences): void {
   if (!config.activeProjectSlug) return;
+  if (!isSyncMode()) return;
   const registry = readRegistry(config.bleepforgeRoot);
   if (!registry) return;
   const project = findProject(registry, config.activeProjectSlug);

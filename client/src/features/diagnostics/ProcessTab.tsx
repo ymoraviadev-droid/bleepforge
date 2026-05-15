@@ -51,7 +51,11 @@ export function ProcessTab() {
         <Row label="Bleepforge root" value={info.bleepforgeRoot} mono />
         <Row
           label="Active project"
-          value={info.activeProjectSlug ?? "(none)"}
+          value={
+            info.activeProjectSlug
+              ? `${info.activeProjectSlug} (${info.projectMode ?? "?"})`
+              : "(none)"
+          }
           mono
         />
         <Row label="Data root" value={info.dataRoot} mono />

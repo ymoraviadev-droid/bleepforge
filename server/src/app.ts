@@ -20,7 +20,7 @@ import {
   NpcSchema,
   QuestSchema,
 } from "@bleepforge/shared";
-import { config, folderAbs } from "./config.js";
+import { config, folderAbs, isSyncMode } from "./config.js";
 import { assetRouter } from "./lib/asset/router.js";
 import { assetsRouter } from "./lib/assets/router.js";
 import { rebuildAssetCache } from "./lib/assets/cache.js";
@@ -401,11 +401,21 @@ export async function startServer(): Promise<StartedServer> {
         typeof addr === "object" && addr !== null ? addr.port : config.port;
       const url = `http://localhost:${port}`;
       console.log(`[bleepforge/server] ${url}`);
-      console.log(`[bleepforge/server] data root:  ${config.dataRoot}`);
-      console.log(`[bleepforge/server] asset root: ${config.assetRoot}`);
-      if (config.godotProjectRoot) {
+      console.log(`[bleepforge/server] data root:    ${config.dataRoot}`);
+      console.log(`[bleepforge/server] asset root:   ${config.assetRoot}`);
+      console.log(
+        `[bleepforge/server] project mode: ${config.projectMode ?? "(none)"}`,
+      );
+      // Two independent gates: .tres-coupled work (project index +
+      // reconcile + .tres watching) only runs in sync mode with a Godot
+      // root; content-coupled work (asset cache + shader cache + the
+      // contentRoot watcher) runs whenever a content root exists, in
+      // either mode. In sync mode contentRoot === godotProjectRoot so
+      // both gates pass together. In notebook mode (phase 5+) only the
+      // content gate passes.
+      if (isSyncMode() && config.godotProjectRoot) {
         console.log(
-          `[bleepforge/server] godot root: ${config.godotProjectRoot} (from ${config.godotProjectRootSource})`,
+          `[bleepforge/server] godot root:   ${config.godotProjectRoot} (from ${config.godotProjectRootSource})`,
         );
         // Project-index FIRST — every downstream "find this entity's
         // .tres" path (reconcile, watcher reimports, writer save-back,
@@ -418,6 +428,16 @@ export async function startServer(): Promise<StartedServer> {
           `[bleepforge/server] project index: ${stats.tresCount} .tres + ${stats.pickupCount} pickup .tscn in ${stats.durationMs}ms (${stats.filesVisited} files visited)`,
         );
         await runBootReconcile();
+      } else if (config.projectMode === "notebook") {
+        console.log(
+          `[bleepforge/server] notebook mode: skipping project index + boot reconcile (no .tres tree)`,
+        );
+      } else {
+        console.warn(
+          `[bleepforge/server] limp mode: no Godot root → skipping project index + boot reconcile`,
+        );
+      }
+      if (config.contentRoot) {
         // Build the image-asset + shader caches once before the watcher
         // starts, so both galleries have full data on first paint and the
         // watcher's first delta event lands on a populated map. Cheap
@@ -427,7 +447,7 @@ export async function startServer(): Promise<StartedServer> {
         startTresWatcher();
       } else {
         console.warn(
-          `[bleepforge/server] limp mode: no Godot root → skipping reconcile, asset cache, watcher`,
+          `[bleepforge/server] no content root → skipping asset cache + shader cache + watcher`,
         );
       }
       resolve({

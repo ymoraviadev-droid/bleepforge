@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import type { ProjectMode } from "@bleepforge/shared";
 import { resolveActiveProject } from "./lib/projects/registry.js";
 import { runLegacyMigration } from "./lib/projects/migrate.js";
 
@@ -94,6 +95,10 @@ export const config = {
   bleepforgeRoot,
   /** Slug of the currently-active project, or null when none exists. */
   activeProjectSlug: activeProject?.slug ?? null,
+  /** Active project's mode (sync = .tres-coupled, notebook = standalone).
+   *  Null when no project is active. Captured once at boot — switching
+   *  modes requires a server restart, by design. */
+  projectMode: (activeProject?.mode ?? null) as ProjectMode | null,
   /** Active project's data dir. Falls back to legacy data/ when no
    *  project is active (limp mode). */
   dataRoot,
@@ -115,6 +120,12 @@ export const config = {
   godotProjectRootSource: resolved.source,
   port: Number(process.env.PORT ?? 4000),
 };
+
+/** Sync mode = active project is .tres-coupled (today's only mode pre-v0.2.6).
+ *  Gate any .tres / Godot-tree-anchored feature on this. */
+export function isSyncMode(): boolean {
+  return config.projectMode === "sync";
+}
 
 export const folderAbs = {
   dialog: path.join(dataRoot, "dialogs"),

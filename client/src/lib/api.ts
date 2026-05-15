@@ -272,6 +272,7 @@ export interface ProcessInfo {
   godotProjectRootSource: "project" | "env" | null;
   bleepforgeRoot: string;
   activeProjectSlug: string | null;
+  projectMode: "sync" | "notebook" | null;
 }
 
 export const processApi = {

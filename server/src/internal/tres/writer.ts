@@ -16,7 +16,7 @@
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
 
-import { config } from "../../config.js";
+import { config, isSyncMode } from "../../config.js";
 import type {
   Balloon,
   DialogSequence,
@@ -95,12 +95,15 @@ export function isRecentSelfWrite(absPath: string): boolean {
   return true;
 }
 
-// Returns true when the Godot project root is configured. .tres write-back
-// is the canonical save path now (JSON is a derived cache), so the only
-// reason to short-circuit is "no Godot project to write to" — which the
-// boot-time check makes a hard error anyway. Kept as a guard so the writer
-// modules stay defensible if config evolves.
+// Returns true when .tres writeback should run for this project. False in
+// either of two cases:
+//   - No Godot project root configured (limp mode — no .tres to write to).
+//   - Project mode is "notebook" — Bleepforge owns its own JSON for the
+//     authored content, no Godot tree to mirror back to.
+// Every writer entry point calls this first so the gate lives in ONE place;
+// new writers + new call sites inherit it automatically.
 export function shouldWriteTres(): boolean {
+  if (!isSyncMode()) return false;
   return !!config.godotProjectRoot;
 }
 

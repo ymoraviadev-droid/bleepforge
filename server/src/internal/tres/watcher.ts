@@ -20,7 +20,7 @@
 import chokidar, { type FSWatcher } from "chokidar";
 import type { Stats } from "node:fs";
 
-import { config } from "../../config.js";
+import { config, isSyncMode } from "../../config.js";
 import { removeImage, upsertImage } from "../../lib/assets/cache.js";
 import { isImagePath } from "../../lib/assets/discover.js";
 import { publishAssetEvent } from "../../lib/assets/eventBus.js";
@@ -82,7 +82,7 @@ export function watcherStatus(): {
 } {
   return {
     active: watcher !== null,
-    root: config.godotProjectRoot,
+    root: config.contentRoot,
     watchedFileCount,
     // Reverse so the consumer (UI) gets newest-first — natural for a feed.
     recentEvents: recentEvents.slice().reverse(),
@@ -90,13 +90,17 @@ export function watcherStatus(): {
 }
 
 export function shouldWatchTres(): boolean {
-  return !!config.godotProjectRoot;
+  return !!config.contentRoot;
 }
 
 export function startTresWatcher(): void {
   if (watcher) return;
   if (!shouldWatchTres()) return;
-  const root = config.godotProjectRoot!;
+  // Watch contentRoot, not godotProjectRoot. In sync mode they're equal
+  // (the Godot tree IS the content root); in notebook mode (phase 5+)
+  // this is the Bleepforge project's content/ dir — only image + shader
+  // events fire there since .tres/.tscn don't live in notebook content.
+  const root = config.contentRoot!;
 
   watcher = chokidar.watch(root, {
     ignored: (p: string, stats?: Stats): boolean => {
@@ -245,7 +249,11 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
   // SSE event (today nothing in the UI subscribes to pickup changes
   // beyond an immediate refetch) — same shape as the watch hook that
   // used to call invalidatePickupCache().
+  // Defensive sync-mode gate: notebook content/ dirs shouldn't carry
+  // .tscn files; if one shows up we leave the projectIndex alone so it
+  // can't pick up stray sync-shaped entries.
   if (absPath.endsWith(".tscn")) {
+    if (!isSyncMode()) return;
     if (kind === "unlink") {
       projectIndex.remove(absPath);
     } else {
@@ -255,6 +263,10 @@ async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<voi
   }
 
   if (!absPath.endsWith(".tres")) return;
+  // Same defensive gate for .tres. The reimport pipeline is sync-only;
+  // a .tres dropped into a notebook content/ dir is treated as an alien
+  // and ignored.
+  if (!isSyncMode()) return;
   const ts = new Date().toISOString();
 
   if (isRecentSelfWrite(absPath)) {

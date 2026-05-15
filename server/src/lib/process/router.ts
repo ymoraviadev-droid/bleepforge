@@ -10,6 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Router } from "express";
 
+import type { ProjectMode } from "@bleepforge/shared";
 import { config } from "../../config.js";
 
 const startedAtMs = Date.now();
@@ -46,6 +47,7 @@ export interface ProcessInfo {
   godotProjectRootSource: "project" | "env" | null;
   bleepforgeRoot: string;
   activeProjectSlug: string | null;
+  projectMode: ProjectMode | null;
 }
 
 export const processRouter: Router = Router();
@@ -66,6 +68,7 @@ processRouter.get("/", async (_req, res) => {
     godotProjectRootSource: config.godotProjectRootSource,
     bleepforgeRoot: config.bleepforgeRoot,
     activeProjectSlug: config.activeProjectSlug,
+    projectMode: config.projectMode,
   };
   res.json(info);
 });
