@@ -23,3 +23,7 @@ bleepforge_manifest.json
 # Editor scratch.
 *.tmp
 *~
+
+# Godot's migration backups (e.g. *.csproj.old written when Godot
+# upgrades the project's SDK version on first open).
+*.old
