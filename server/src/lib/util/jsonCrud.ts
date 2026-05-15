@@ -14,20 +14,35 @@ export interface JsonStorage<T> {
   delete: (key: string) => Promise<boolean>;
 }
 
+/** Folder source: a plain string for the legacy single-path case OR a
+ *  function that returns the current path. The latter lets the storage
+ *  track config.dataRoot mutations driven by hot-reload (v0.2.5+),
+ *  without the caller having to recreate the storage instance. */
+export type FolderSource = string | (() => string);
+
+function resolveFolder(folder: FolderSource): string {
+  return typeof folder === "function" ? folder() : folder;
+}
+
 export function makeJsonStorage<S extends z.ZodTypeAny>(
   schema: S,
-  folder: string,
+  folder: FolderSource,
   keyField: string,
 ): JsonStorage<z.infer<S>> {
   type T = z.infer<S>;
-  const fileFor = (key: string) => path.join(folder, `${key}.json`);
-  const tag = path.basename(folder);
+  // Every operation resolves the folder afresh. `tag` is a one-shot
+  // label for log messages — uses the current folder name at storage
+  // creation time and stays stable across reloads (it's just for
+  // grouping warnings, not for path correctness).
+  const fileFor = (key: string) => path.join(resolveFolder(folder), `${key}.json`);
+  const tag = path.basename(resolveFolder(folder));
 
   return {
     list: async () => {
+      const dir = resolveFolder(folder);
       let entries: string[];
       try {
-        entries = await fs.readdir(folder);
+        entries = await fs.readdir(dir);
       } catch (err) {
         if ((err as NodeJS.ErrnoException).code === "ENOENT") return [];
         throw err;
@@ -36,7 +51,7 @@ export function makeJsonStorage<S extends z.ZodTypeAny>(
       for (const name of entries) {
         if (!name.endsWith(".json")) continue;
         try {
-          const raw = await fs.readFile(path.join(folder, name), "utf8");
+          const raw = await fs.readFile(path.join(dir, name), "utf8");
           out.push(schema.parse(JSON.parse(raw)));
         } catch (err) {
           console.warn(`[${tag}] skipping ${name}: ${(err as Error).message}`);
@@ -61,7 +76,7 @@ export function makeJsonStorage<S extends z.ZodTypeAny>(
       if (typeof key !== "string" || key.length === 0) {
         throw new Error(`entity has no ${keyField}`);
       }
-      await fs.mkdir(folder, { recursive: true });
+      await fs.mkdir(resolveFolder(folder), { recursive: true });
       await fs.writeFile(fileFor(key), JSON.stringify(validated, null, 2), "utf8");
       return validated;
     },

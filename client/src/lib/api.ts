@@ -301,6 +301,24 @@ export const projectsApi = {
   /** Remove from registry. `wipe=true` also `rm -rf`s the project's
    *  on-disk dir (data/ + content/). Sync-mode projects' Godot trees
    *  are never touched regardless of wipe. */
+  /** Hot-reload the active project on the running server. Re-reads
+   *  active-project.json, recomputes config paths, tears down + rebuilds
+   *  caches + watcher, runs reconcile / pending-import seed against the
+   *  newly-active project. No app restart needed; downstream API calls
+   *  see the new project's data the moment this resolves. */
+  reload: async (): Promise<{
+    ok: boolean;
+    prev: string | null;
+    next: string | null;
+    durationMs: number;
+  }> => {
+    const r = await fetch("/api/projects/reload", { method: "POST" });
+    if (!r.ok) {
+      const detail = await r.text().catch(() => "");
+      throw new Error(`reload project failed: ${r.status} ${detail}`);
+    }
+    return r.json();
+  },
   remove: async (
     slug: string,
     wipe: boolean,

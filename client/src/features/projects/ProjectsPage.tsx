@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Button } from "../../components/Button";
-import { showChoice, showConfirm, showPrompt } from "../../components/Modal";
+import { showChoice, showPrompt } from "../../components/Modal";
 import { PixelSkeleton } from "../../components/PixelSkeleton";
 import { pushToast } from "../../components/Toast";
 import {
@@ -9,7 +9,8 @@ import {
   type CreateProjectResult,
   type ProjectsList,
 } from "../../lib/api";
-import { isElectron, restartApp } from "../../lib/electron";
+import { resetAssetMtimeCache, prefetchAssetMtimes } from "../../lib/assets/mtimeCache";
+import { refreshCatalog } from "../../lib/catalog-bus";
 import { NewProjectModal } from "./NewProjectModal";
 import { ProjectCard } from "./ProjectCard";
 import { emitProjectsChanged } from "./projectsBus";
@@ -27,7 +28,6 @@ export function ProjectsPage() {
   const [data, setData] = useState<ProjectsList | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [switchingTo, setSwitchingTo] = useState<string | null>(null);
-  const [restartPending, setRestartPending] = useState<string | null>(null);
   const [showNewModal, setShowNewModal] = useState(false);
 
   async function refresh(): Promise<void> {
@@ -47,6 +47,25 @@ export function ProjectsPage() {
     emitProjectsChanged();
   }
 
+  // Hot-reload the active project's server state, then flush every
+  // client-side cache so the new project's data takes over. Replaces
+  // the v0.2.5-original restart prompt — the server handles the swap
+  // in-process, no app restart needed in dev or packaged mode.
+  async function reloadProjectAndCaches(): Promise<void> {
+    await projectsApi.reload();
+    // Wipe the asset mtime cache (paths differ between projects) and
+    // re-prefetch from the new project's image set. Without this the
+    // prefetched-once flag would freeze the cache on the previous
+    // project's paths.
+    resetAssetMtimeCache();
+    void prefetchAssetMtimes();
+    // Re-fetch every per-domain store. The stores hold the previous
+    // project's catalog in memory; refreshCatalog tells the central
+    // bus to re-fetch all of them.
+    refreshCatalog();
+    await refreshAndNotify();
+  }
+
   useEffect(() => {
     void refresh();
   }, []);
@@ -55,41 +74,23 @@ export function ProjectsPage() {
     if (!data) return;
     const target = data.projects.find((p) => p.slug === slug);
     if (!target) return;
-    const electronMode = isElectron();
-    const ok = await showConfirm({
-      title: `Switch to "${target.displayName}"?`,
-      message: electronMode
-        ? `Bleepforge will restart so the new project's data, content, and (if applicable) Godot root are picked up. Any unsaved edits in open forms will be lost.`
-        : `The active project will switch on the next server boot. Restart your dev server manually to apply, and any unsaved edits will be lost.`,
-      confirmLabel: electronMode ? "Switch and restart" : "Switch",
-      cancelLabel: "Cancel",
-      danger: false,
-    });
-    if (!ok) return;
     setSwitchingTo(slug);
     try {
       const result = await projectsApi.setActive(slug);
       if (result.noop) {
-        // Already the active project — nothing to do, but the prior list
-        // refresh below stays useful in case lastSwitched moved.
+        // Already the active project — nothing to swap.
         setSwitchingTo(null);
         return;
       }
-      if (electronMode) {
-        await restartApp();
-        // restartApp triggers app.relaunch + app.exit; control doesn't
-        // return here in practice. Belt + braces: clear the busy state
-        // so if the restart somehow doesn't fire we recover.
-        setSwitchingTo(null);
-      } else {
-        // Browser-dev mode: server restart is the user's problem. The
-        // pointer on disk has flipped but the running server's captured
-        // paths still point at the previous project. Surface an inline
-        // banner instead of pretending the switch is live.
-        setRestartPending(target.displayName);
-        setSwitchingTo(null);
-        await refreshAndNotify();
-      }
+      // Hot-reload the server's in-process state to the new project
+      // and flush every client-side cache. No app restart needed.
+      await reloadProjectAndCaches();
+      setSwitchingTo(null);
+      pushToast({
+        id: `projects:switched:${slug}`,
+        title: `Switched to "${target.displayName}"`,
+        variant: "success",
+      });
     } catch (err) {
       setSwitchingTo(null);
       setError((err as Error).message);
@@ -177,23 +178,24 @@ export function ProjectsPage() {
 
   async function handleCreated(result: CreateProjectResult): Promise<void> {
     setShowNewModal(false);
-    await refreshAndNotify();
-    if (!result.restartRequired) return;
-    const electronMode = isElectron();
-    const ok = await showConfirm({
-      title: `Created "${result.project.displayName}"`,
-      message: electronMode
-        ? `It's now the active project. Restart Bleepforge to load it?`
-        : `It's now the active project on disk. Restart your dev server (\`pnpm dev\`) to load it.`,
-      confirmLabel: electronMode ? "Restart now" : "OK",
-      cancelLabel: electronMode ? "Later" : "Cancel",
-      danger: false,
-    });
-    if (!ok) return;
-    if (electronMode) {
-      await restartApp();
+    // The POST endpoint flipped active on disk; hot-reload picks it up
+    // in-process. Same flow for create + create-with-import-once: the
+    // pending-import manifest (if any) is processed during the reload's
+    // boot sequence.
+    if (result.restartRequired) {
+      try {
+        await reloadProjectAndCaches();
+        pushToast({
+          id: `projects:created:${result.project.slug}`,
+          title: `Switched to "${result.project.displayName}"`,
+          variant: "success",
+        });
+      } catch (err) {
+        setError((err as Error).message);
+      }
     } else {
-      setRestartPending(result.project.displayName);
+      // Created without flipping active — just refresh the list.
+      await refreshAndNotify();
     }
   }
 
@@ -244,19 +246,9 @@ export function ProjectsPage() {
         </Button>
       </div>
 
-      {restartPending && (
+      {restartQueued && (
         <div className="border-2 border-amber-700/60 bg-amber-950/30 p-3 text-xs text-amber-200">
-          Switched the active project to{" "}
-          <span className="font-mono text-amber-100">{restartPending}</span>{" "}
-          on disk. The running server still has the previous project's paths
-          captured — restart your dev server (`pnpm dev`) to pick up the
-          change.
-        </div>
-      )}
-
-      {restartQueued && !restartPending && (
-        <div className="border-2 border-amber-700/60 bg-amber-950/30 p-3 text-xs text-amber-200">
-          <div className="font-medium text-amber-100">Restart pending</div>
+          <div className="font-medium text-amber-100">Reload pending</div>
           <p className="mt-1">
             Server is currently serving{" "}
             <span className="font-mono text-amber-100">
@@ -266,9 +258,9 @@ export function ProjectsPage() {
             <span className="font-mono text-amber-100">
               {queuedProject?.displayName ?? activeSlug ?? "(none)"}
             </span>
-            . Restart Bleepforge so the new project's paths apply — until then
-            every page still shows the previous project's data even if the
-            switcher claims otherwise.
+            . This should normally clear automatically — POST{" "}
+            <code className="text-amber-100">/api/projects/reload</code>{" "}
+            (or fully restart Bleepforge) to apply.
           </p>
         </div>
       )}

@@ -154,6 +154,15 @@ class ProjectIndex {
     return { tresCount, pickupCount: this.pickups.size, root: this.root };
   }
 
+  /** Drop every indexed entry. Used by the hot-reload path when
+   *  switching to a notebook project (no .tres tree → index should be
+   *  empty) or to a different sync project's tree before rebuild. The
+   *  internal build() also calls this before populating; exposed
+   *  publicly only for the hot-reload orchestration. */
+  reset(): void {
+    this.clear();
+  }
+
   // ---- Internal -----------------------------------------------------------
 
   private clear(): void {

@@ -8,11 +8,11 @@ import { recordSave } from "../../lib/saves/buffer.js";
 // Singleton document — one `data/concept.json` for the whole project.
 // No id, no list, no .tres pipeline. Just GET (with empty fallback) + PUT.
 
-const conceptFile = path.join(config.dataRoot, "concept.json");
+const conceptFile = (): string => path.join(config.dataRoot, "concept.json");
 
 async function read(): Promise<Concept> {
   try {
-    const raw = await fs.readFile(conceptFile, "utf8");
+    const raw = await fs.readFile(conceptFile(), "utf8");
     return ConceptSchema.parse(JSON.parse(raw));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return emptyConcept();
@@ -22,8 +22,8 @@ async function read(): Promise<Concept> {
 
 async function write(c: Concept): Promise<Concept> {
   const validated = ConceptSchema.parse(c);
-  await fs.mkdir(path.dirname(conceptFile), { recursive: true });
-  await fs.writeFile(conceptFile, JSON.stringify(validated, null, 2), "utf8");
+  await fs.mkdir(path.dirname(conceptFile()), { recursive: true });
+  await fs.writeFile(conceptFile(), JSON.stringify(validated, null, 2), "utf8");
   return validated;
 }
 
@@ -51,7 +51,7 @@ conceptRouter.put("/", async (req, res) => {
       key: "concept",
       action: "updated",
       outcome: "ok",
-      path: conceptFile,
+      path: conceptFile(),
     });
     res.json({ entity: saved, tresWrite: { attempted: false } });
   } catch (err) {

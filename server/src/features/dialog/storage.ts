@@ -4,7 +4,7 @@ import { z } from "zod";
 import { DialogSequenceSchema, type DialogSequence } from "@bleepforge/shared";
 import { folderAbs } from "../../config.js";
 
-const root = folderAbs.dialog;
+const root = (): string => folderAbs.dialog;
 
 const LAYOUT_FILE = "_layout.json";
 
@@ -43,7 +43,7 @@ function sanitize(name: string, kind: "folder" | "id"): string {
 
 export async function listFolders(): Promise<string[]> {
   try {
-    const entries = await fs.readdir(root, { withFileTypes: true });
+    const entries = await fs.readdir(root(), { withFileTypes: true });
     return entries
       .filter((e) => e.isDirectory() && !e.name.startsWith("."))
       .map((e) => e.name)
@@ -56,7 +56,7 @@ export async function listFolders(): Promise<string[]> {
 
 export async function listInFolder(folder: string): Promise<DialogSequence[]> {
   sanitize(folder, "folder");
-  const dir = path.join(root, folder);
+  const dir = path.join(root(), folder);
   let names: string[];
   try {
     names = await fs.readdir(dir);
@@ -82,7 +82,7 @@ const EMPTY_LAYOUT: Layout = { nodes: {}, edges: {} };
 export async function readLayout(folder: string): Promise<Layout> {
   sanitize(folder, "folder");
   try {
-    const raw = await fs.readFile(path.join(root, folder, LAYOUT_FILE), "utf8");
+    const raw = await fs.readFile(path.join(root(), folder, LAYOUT_FILE), "utf8");
     return normalizeLayout(JSON.parse(raw));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return { ...EMPTY_LAYOUT };
@@ -93,7 +93,7 @@ export async function readLayout(folder: string): Promise<Layout> {
 export async function writeLayout(folder: string, layout: unknown): Promise<Layout> {
   sanitize(folder, "folder");
   const validated = normalizeLayout(layout);
-  const dir = path.join(root, folder);
+  const dir = path.join(root(), folder);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(
     path.join(dir, LAYOUT_FILE),
@@ -114,7 +114,7 @@ export async function read(folder: string, id: string): Promise<DialogSequence |
   sanitize(folder, "folder");
   sanitize(id, "id");
   try {
-    const raw = await fs.readFile(path.join(root, folder, `${id}.json`), "utf8");
+    const raw = await fs.readFile(path.join(root(), folder, `${id}.json`), "utf8");
     return DialogSequenceSchema.parse(JSON.parse(raw));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
@@ -126,7 +126,7 @@ export async function write(folder: string, seq: DialogSequence): Promise<Dialog
   sanitize(folder, "folder");
   sanitize(seq.Id, "id");
   const validated = DialogSequenceSchema.parse(seq);
-  const dir = path.join(root, folder);
+  const dir = path.join(root(), folder);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(
     path.join(dir, `${validated.Id}.json`),
@@ -140,7 +140,7 @@ export async function remove(folder: string, id: string): Promise<boolean> {
   sanitize(folder, "folder");
   sanitize(id, "id");
   try {
-    await fs.unlink(path.join(root, folder, `${id}.json`));
+    await fs.unlink(path.join(root(), folder, `${id}.json`));
     return true;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;

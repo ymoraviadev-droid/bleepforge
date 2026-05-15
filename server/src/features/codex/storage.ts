@@ -22,7 +22,7 @@ import { folderAbs } from "../../config.js";
 // Reserved name: `_meta` cannot be used as an entry id (it'd clobber the
 // schema file). Storage rejects it; the client just doesn't surface it.
 
-const root = folderAbs.codex;
+const root = (): string => folderAbs.codex;
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const META_FILENAME = "_meta.json";
@@ -39,7 +39,7 @@ function sanitize(name: string, kind: "category" | "id"): string {
 
 export async function listCategories(): Promise<string[]> {
   try {
-    const entries = await fs.readdir(root, { withFileTypes: true });
+    const entries = await fs.readdir(root(), { withFileTypes: true });
     return entries
       .filter((e) => e.isDirectory() && !e.name.startsWith("."))
       .map((e) => e.name)
@@ -53,7 +53,7 @@ export async function listCategories(): Promise<string[]> {
 export async function readMeta(category: string): Promise<CodexCategoryMeta | null> {
   sanitize(category, "category");
   try {
-    const raw = await fs.readFile(path.join(root, category, META_FILENAME), "utf8");
+    const raw = await fs.readFile(path.join(root(), category, META_FILENAME), "utf8");
     return CodexCategoryMetaSchema.parse(JSON.parse(raw));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
@@ -68,7 +68,7 @@ export async function writeMeta(meta: CodexCategoryMeta): Promise<CodexCategoryM
     // Stamp CreatedAt on first write only — preserve existing if already set.
     CreatedAt: meta.CreatedAt || new Date().toISOString(),
   });
-  const dir = path.join(root, validated.Category);
+  const dir = path.join(root(), validated.Category);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(
     path.join(dir, META_FILENAME),
@@ -80,7 +80,7 @@ export async function writeMeta(meta: CodexCategoryMeta): Promise<CodexCategoryM
 
 export async function listInCategory(category: string): Promise<CodexEntry[]> {
   sanitize(category, "category");
-  const dir = path.join(root, category);
+  const dir = path.join(root(), category);
   let names: string[];
   try {
     names = await fs.readdir(dir);
@@ -127,7 +127,7 @@ export async function readEntry(category: string, id: string): Promise<CodexEntr
   sanitize(category, "category");
   sanitize(id, "id");
   try {
-    const raw = await fs.readFile(path.join(root, category, `${id}.json`), "utf8");
+    const raw = await fs.readFile(path.join(root(), category, `${id}.json`), "utf8");
     return CodexEntrySchema.parse(JSON.parse(raw));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
@@ -155,7 +155,7 @@ export async function writeEntry(category: string, entry: CodexEntry): Promise<C
       { status: 400 },
     );
   }
-  const dir = path.join(root, category);
+  const dir = path.join(root(), category);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(
     path.join(dir, `${validated.Id}.json`),
@@ -169,7 +169,7 @@ export async function removeEntry(category: string, id: string): Promise<boolean
   sanitize(category, "category");
   sanitize(id, "id");
   try {
-    await fs.unlink(path.join(root, category, `${id}.json`));
+    await fs.unlink(path.join(root(), category, `${id}.json`));
     return true;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return false;
@@ -181,7 +181,7 @@ export async function removeEntry(category: string, id: string): Promise<boolean
 // directory itself. Caller is responsible for confirming with the user.
 export async function removeCategory(category: string): Promise<boolean> {
   sanitize(category, "category");
-  const dir = path.join(root, category);
+  const dir = path.join(root(), category);
   try {
     await fs.rm(dir, { recursive: true, force: true });
     return true;

@@ -19,7 +19,7 @@ import { folderAbs } from "../../config.js";
 // Reserved names: `_meta` (schema file) and `_layout` (reserved for
 // future per-category UI state) are filtered out of entry listings.
 
-const root = folderAbs.help;
+const root = (): string => folderAbs.help;
 
 const NAME_RE = /^[a-zA-Z0-9_-]+$/;
 const META_FILENAME = "_meta.json";
@@ -36,7 +36,7 @@ function sanitize(name: string, kind: "category" | "id"): string {
 
 export async function listCategories(): Promise<string[]> {
   try {
-    const entries = await fs.readdir(root, { withFileTypes: true });
+    const entries = await fs.readdir(root(), { withFileTypes: true });
     return entries
       .filter((e) => e.isDirectory() && !e.name.startsWith("."))
       .map((e) => e.name)
@@ -50,7 +50,7 @@ export async function listCategories(): Promise<string[]> {
 export async function readMeta(category: string): Promise<HelpCategoryMeta | null> {
   sanitize(category, "category");
   try {
-    const raw = await fs.readFile(path.join(root, category, META_FILENAME), "utf8");
+    const raw = await fs.readFile(path.join(root(), category, META_FILENAME), "utf8");
     return HelpCategoryMetaSchema.parse(JSON.parse(raw));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
@@ -60,7 +60,7 @@ export async function readMeta(category: string): Promise<HelpCategoryMeta | nul
 
 export async function listInCategory(category: string): Promise<HelpEntry[]> {
   sanitize(category, "category");
-  const dir = path.join(root, category);
+  const dir = path.join(root(), category);
   let names: string[];
   try {
     names = await fs.readdir(dir);
@@ -104,7 +104,7 @@ export async function readEntry(category: string, id: string): Promise<HelpEntry
   sanitize(category, "category");
   sanitize(id, "id");
   try {
-    const raw = await fs.readFile(path.join(root, category, `${id}.json`), "utf8");
+    const raw = await fs.readFile(path.join(root(), category, `${id}.json`), "utf8");
     return HelpEntrySchema.parse(JSON.parse(raw));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;

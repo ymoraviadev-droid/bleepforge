@@ -110,18 +110,41 @@ const contentRoot: string | null = (() => {
   return resolved.path;
 })();
 
+// Mutable surface for the active-project-derived bits of config. Properties
+// are `let`-bound under the hood (via the getters/setters below) so that
+// reloadConfig() can swap the active project in-process without requiring
+// a server restart. Anything captured into a `const` somewhere at module
+// load is going to be stale post-reload — by convention, downstream code
+// reads through `config.X` and `folderAbs.X` fresh on each call.
+//
+// What stays immutable: `bleepforgeRoot` (the install root never moves
+// mid-process), `assetRoot` ($HOME, doesn't depend on project), and
+// `port` (couldn't rebind anyway). Everything that depends on the active
+// project is reload-tracked.
+let _activeProjectSlug = activeProject?.slug ?? null;
+let _projectMode: ProjectMode | null = (activeProject?.mode ?? null);
+let _dataRoot = dataRoot;
+let _contentRoot = contentRoot;
+let _godotProjectRoot = resolved.path;
+let _godotProjectRootSource: "project" | "env" | null = resolved.source;
+
 export const config = {
   /** Where projects.json, active-project.json, and projects/ live. */
   bleepforgeRoot,
   /** Slug of the currently-active project, or null when none exists. */
-  activeProjectSlug: activeProject?.slug ?? null,
+  get activeProjectSlug() {
+    return _activeProjectSlug;
+  },
   /** Active project's mode (sync = .tres-coupled, notebook = standalone).
-   *  Null when no project is active. Captured once at boot — switching
-   *  modes requires a server restart, by design. */
-  projectMode: (activeProject?.mode ?? null) as ProjectMode | null,
+   *  Null when no project is active. */
+  get projectMode() {
+    return _projectMode;
+  },
   /** Active project's data dir. Falls back to legacy data/ when no
    *  project is active (limp mode). */
-  dataRoot,
+  get dataRoot() {
+    return _dataRoot;
+  },
   assetRoot,
   /** Where the active project's raw asset + shader files live —
    *  anchor for the image gallery, shader gallery, AssetPicker browse,
@@ -131,13 +154,18 @@ export const config = {
    *  content root — assets and shaders live among the .tres files).
    *
    *  Notebook mode (phase 5+): the project's own content/ dir, decoupled
-   *  from any Godot tree. Phase 2 introduces this alias; phase 5 makes
-   *  it diverge from godotProjectRoot.
+   *  from any Godot tree.
    *
    *  Null when no project is configured (truly-fresh install, limp mode). */
-  contentRoot,
-  godotProjectRoot: resolved.path,
-  godotProjectRootSource: resolved.source,
+  get contentRoot() {
+    return _contentRoot;
+  },
+  get godotProjectRoot() {
+    return _godotProjectRoot;
+  },
+  get godotProjectRootSource() {
+    return _godotProjectRootSource;
+  },
   port: Number(process.env.PORT ?? 4000),
 };
 
@@ -147,15 +175,67 @@ export function isSyncMode(): boolean {
   return config.projectMode === "sync";
 }
 
+// folderAbs uses getters so each `folderAbs.X` access returns a fresh
+// path joined to the CURRENT dataRoot. Modules that captured `const root
+// = folderAbs.X` at module load (storage modules) will be stale — they
+// were converted to read fresh on each call when hot-reload landed.
 export const folderAbs = {
-  dialog: path.join(dataRoot, "dialogs"),
-  quest: path.join(dataRoot, "quests"),
-  item: path.join(dataRoot, "items"),
-  karma: path.join(dataRoot, "karma"),
-  npc: path.join(dataRoot, "npcs"),
-  faction: path.join(dataRoot, "factions"),
-  balloon: path.join(dataRoot, "balloons"),
-  codex: path.join(dataRoot, "codex"),
-  help: path.join(dataRoot, "help"),
-  shader: path.join(dataRoot, "shaders"),
+  get dialog() { return path.join(config.dataRoot, "dialogs"); },
+  get quest() { return path.join(config.dataRoot, "quests"); },
+  get item() { return path.join(config.dataRoot, "items"); },
+  get karma() { return path.join(config.dataRoot, "karma"); },
+  get npc() { return path.join(config.dataRoot, "npcs"); },
+  get faction() { return path.join(config.dataRoot, "factions"); },
+  get balloon() { return path.join(config.dataRoot, "balloons"); },
+  get codex() { return path.join(config.dataRoot, "codex"); },
+  get help() { return path.join(config.dataRoot, "help"); },
+  get shader() { return path.join(config.dataRoot, "shaders"); },
 };
+
+/** Re-read the active project from disk and update config.* in place.
+ *  Used by the hot-reload path (POST /api/projects/reload) so switching
+ *  projects doesn't require a full server restart. Returns the
+ *  before/after slug pair so the caller can decide whether downstream
+ *  work (watcher restart, cache rebuild, etc.) is needed. */
+export function reloadActiveProject(): {
+  prev: string | null;
+  next: string | null;
+} {
+  const prev = _activeProjectSlug;
+  const fresh = resolveActiveProject(bleepforgeRoot);
+
+  _activeProjectSlug = fresh?.slug ?? null;
+  _projectMode = (fresh?.mode ?? null);
+
+  _dataRoot = fresh
+    ? path.join(bleepforgeRoot, "projects", fresh.slug, "data")
+    : legacyDataRoot;
+
+  // Mirror the boot-time resolveGodotRoot + contentRoot logic, but
+  // against the freshly-read project record. Notebook projects ignore
+  // the env-var fallback by design; sync projects can still use it
+  // when the record has no path.
+  if (fresh && fresh.godotProjectRoot) {
+    _godotProjectRoot = path.resolve(fresh.godotProjectRoot);
+    _godotProjectRootSource = "project";
+  } else if (fresh && fresh.mode === "notebook") {
+    _godotProjectRoot = null;
+    _godotProjectRootSource = null;
+  } else if (process.env.GODOT_PROJECT_ROOT) {
+    _godotProjectRoot = path.resolve(process.env.GODOT_PROJECT_ROOT);
+    _godotProjectRootSource = "env";
+  } else {
+    _godotProjectRoot = null;
+    _godotProjectRootSource = null;
+  }
+
+  _contentRoot = (() => {
+    if (!fresh) return null;
+    if (fresh.mode === "notebook") {
+      return path.join(bleepforgeRoot, "projects", fresh.slug, "content");
+    }
+    return _godotProjectRoot;
+  })();
+
+  return { prev, next: _activeProjectSlug };
+}

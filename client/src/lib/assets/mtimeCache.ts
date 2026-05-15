@@ -49,6 +49,16 @@ export function invalidateAssetMtime(path: string): void {
 let prefetched = false;
 let inFlight: Promise<void> | null = null;
 
+/** Wipe the cache + arm a fresh prefetch on the next caller. Used by
+ *  the hot-reload path on project switch — new project has different
+ *  asset paths, and the prefetched-once flag would otherwise keep us
+ *  on the old project's mtime map. */
+export function resetAssetMtimeCache(): void {
+  cache.clear();
+  prefetched = false;
+  inFlight = null;
+}
+
 /** Populates the cache from /api/assets/images. Idempotent — concurrent
  *  callers share the in-flight promise. */
 export function prefetchAssetMtimes(): Promise<void> {

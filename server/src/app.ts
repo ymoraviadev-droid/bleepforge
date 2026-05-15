@@ -20,7 +20,7 @@ import {
   NpcSchema,
   QuestSchema,
 } from "@bleepforge/shared";
-import { config, folderAbs, isSyncMode } from "./config.js";
+import { config, folderAbs, isSyncMode, reloadActiveProject } from "./config.js";
 import { assetRouter } from "./lib/asset/router.js";
 import { assetsRouter } from "./lib/assets/router.js";
 import { rebuildAssetCache } from "./lib/assets/cache.js";
@@ -49,7 +49,7 @@ import { rebuildShaderCache } from "./lib/shaders/cache.js";
 import { shadersRouter } from "./lib/shaders/router.js";
 import { syncRouter } from "./lib/sync/router.js";
 import { makeCrudRouter, makeJsonStorage } from "./lib/util/jsonCrud.js";
-import { startTresWatcher } from "./internal/tres/watcher.js";
+import { startTresWatcher, stopTresWatcher } from "./internal/tres/watcher.js";
 import { watcherRouter } from "./internal/tres/watcherRouter.js";
 import {
   writeFactionTres,
@@ -274,6 +274,131 @@ function copyDirRecursive(src: string, dest: string): void {
   }
 }
 
+// Per-active-project boot work. Runs on initial server startup (via
+// startServer below) AND on hot-reload (via reloadServerState below).
+// Reads from `config` fresh on every call so it works against
+// whichever project is currently active — including immediately after
+// a switch.
+async function runActiveProjectBoot(): Promise<void> {
+  console.log(`[bleepforge/server] data root:    ${config.dataRoot}`);
+  console.log(`[bleepforge/server] asset root:   ${config.assetRoot}`);
+  console.log(
+    `[bleepforge/server] project mode: ${config.projectMode ?? "(none)"}`,
+  );
+  // Pending import-once seed (phase 7). If the active project's
+  // data/ carries a `.bleepforge-pending-import.json` manifest, run
+  // the one-shot seed against the source Godot tree before the
+  // normal boot gates fire. After the seed completes the project
+  // is a regular notebook project; subsequent boots see no manifest
+  // and skip this branch.
+  const pendingImport =
+    config.projectMode === "notebook"
+      ? readPendingImport(config.dataRoot)
+      : null;
+  if (pendingImport) {
+    try {
+      console.log(
+        `[bleepforge/server] running one-shot import-once seed from ${pendingImport.sourceGodotRoot}`,
+      );
+      const result = await runPendingImport(pendingImport.sourceGodotRoot);
+      console.log(
+        `[bleepforge/server] import-once seeded ${result.importedTres} .tres → JSON, copied ${result.copiedAssets} assets, rewrote ${result.rewrittenRefs} refs in ${result.durationMs}ms`,
+      );
+      clearPendingImport(config.dataRoot);
+    } catch (err) {
+      console.error(
+        `[bleepforge/server] import-once seed failed: ${(err as Error).message}`,
+      );
+      console.error(
+        `[bleepforge/server] manifest left in place at ${config.dataRoot} for retry on next boot`,
+      );
+    }
+  }
+
+  // Two independent gates: .tres-coupled work (project index +
+  // reconcile + .tres watching) only runs in sync mode with a Godot
+  // root; content-coupled work (asset cache + shader cache + the
+  // contentRoot watcher) runs whenever a content root exists, in
+  // either mode. In sync mode contentRoot === godotProjectRoot so
+  // both gates pass together. In notebook mode (phase 5+) only the
+  // content gate passes.
+  if (isSyncMode() && config.godotProjectRoot) {
+    console.log(
+      `[bleepforge/server] godot root:   ${config.godotProjectRoot} (from ${config.godotProjectRootSource})`,
+    );
+    // Project-index FIRST — every downstream "find this entity's
+    // .tres" path (reconcile, watcher reimports, writer save-back,
+    // icon resolution, pickup catalog) reads from it. Content-driven
+    // classification means moving files around in the Godot project
+    // doesn't break Bleepforge (until/unless we add a domain whose
+    // identity isn't extractable from the file's body).
+    const stats = await projectIndex.build(config.godotProjectRoot);
+    console.log(
+      `[bleepforge/server] project index: ${stats.tresCount} .tres + ${stats.pickupCount} pickup .tscn in ${stats.durationMs}ms (${stats.filesVisited} files visited)`,
+    );
+    await runBootReconcile();
+  } else if (config.projectMode === "notebook") {
+    // Notebook projects don't have a .tres tree, so the index would
+    // be empty by definition. Reset it so leftover entries from a
+    // previous sync-mode active don't leak into /api/pickups etc.
+    projectIndex.reset();
+    console.log(
+      `[bleepforge/server] notebook mode: skipping project index + boot reconcile (no .tres tree)`,
+    );
+  } else {
+    projectIndex.reset();
+    console.warn(
+      `[bleepforge/server] limp mode: no Godot root → skipping project index + boot reconcile`,
+    );
+  }
+  if (config.contentRoot) {
+    // Build the image-asset + shader caches once before the watcher
+    // starts, so both galleries have full data on first paint and the
+    // watcher's first delta event lands on a populated map. Cheap
+    // (<100ms each; shader walk is even quicker — single-digit files).
+    await rebuildAssetCache();
+    await rebuildShaderCache();
+    startTresWatcher();
+  } else {
+    console.warn(
+      `[bleepforge/server] no content root → skipping asset cache + shader cache + watcher`,
+    );
+  }
+}
+
+export interface ReloadServerStateResult {
+  prev: string | null;
+  next: string | null;
+  durationMs: number;
+}
+
+/** Hot-reload the active project in-process. Tears down the watcher,
+ *  re-reads the active project + recomputes config, then re-runs the
+ *  per-project boot sequence (caches, watcher, optional reconcile,
+ *  pending-import seed) against the newly-active state. Lets the UI
+ *  switch projects without a full Electron / dev-server restart.
+ *
+ *  In-process state that survives the reload: the project registry, the
+ *  saves activity feed, log buffer, sync/asset/shader event buses
+ *  (subscriptions persist across the swap), HTTP server itself. State
+ *  that's torn down + rebuilt: the .tres watcher, the asset + shader
+ *  caches, the project index. State captured in any module-local
+ *  `const` would be stale — by convention every reload-relevant path
+ *  reads `config.X` / `folderAbs.X` fresh per call. */
+export async function reloadServerState(): Promise<ReloadServerStateResult> {
+  const t0 = Date.now();
+  // Stop the watcher FIRST. It captured the previous contentRoot when
+  // it bound to chokidar; leaving it running across the reload would
+  // mean it keeps watching the old tree.
+  stopTresWatcher();
+  const { prev, next } = reloadActiveProject();
+  console.log(
+    `[bleepforge/server] hot-reload active project: ${prev ?? "(none)"} → ${next ?? "(none)"}`,
+  );
+  await runActiveProjectBoot();
+  return { prev, next, durationMs: Date.now() - t0 };
+}
+
 export async function startServer(): Promise<StartedServer> {
   seedHelpLibrary();
 
@@ -303,13 +428,17 @@ export async function startServer(): Promise<StartedServer> {
   // domains (Dialogs, Balloons) ship their own storage modules under
   // features/<domain>/storage.ts because their layout is per-folder and
   // can't be expressed as a single `keyField`.
-  const questStorage = makeJsonStorage(QuestSchema, folderAbs.quest, "Id");
-  const itemStorage = makeJsonStorage(ItemSchema, folderAbs.item, "Slug");
-  const karmaStorage = makeJsonStorage(KarmaImpactSchema, folderAbs.karma, "Id");
-  const npcStorage = makeJsonStorage(NpcSchema, folderAbs.npc, "NpcId");
+  // Pass folder GETTERS so the storage tracks config.dataRoot mutations
+  // driven by hot-reload (POST /api/projects/reload). With a plain
+  // `folderAbs.X` string the path would be captured at storage-creation
+  // time and stay frozen across reloads — wrong target after a switch.
+  const questStorage = makeJsonStorage(QuestSchema, () => folderAbs.quest, "Id");
+  const itemStorage = makeJsonStorage(ItemSchema, () => folderAbs.item, "Slug");
+  const karmaStorage = makeJsonStorage(KarmaImpactSchema, () => folderAbs.karma, "Id");
+  const npcStorage = makeJsonStorage(NpcSchema, () => folderAbs.npc, "NpcId");
   const factionStorage = makeJsonStorage(
     FactionDataSchema,
-    folderAbs.faction,
+    () => folderAbs.faction,
     "Faction",
   );
 
@@ -358,6 +487,21 @@ export async function startServer(): Promise<StartedServer> {
   app.use("/api/pickups", pickupsRouter);
   app.use("/api/godot-project", godotProjectRouter);
   app.use("/api/projects", projectsRouter);
+  // Hot-reload the active project's in-process state. Registered here
+  // rather than on projectsRouter to dodge the circular import with
+  // reloadServerState (defined in this module). The full route is
+  // `POST /api/projects/reload`; Express matches the more-specific path
+  // before the slug-based handlers on projectsRouter.
+  app.post("/api/projects/reload", async (_req, res) => {
+    try {
+      const result = await reloadServerState();
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      res
+        .status(500)
+        .json({ error: `reload failed: ${(err as Error).message}` });
+    }
+  });
   app.use("/api/reconcile", reconcileRouter);
   app.use("/api/logs", logsRouter);
   app.use("/api/process", processRouter);
@@ -412,85 +556,7 @@ export async function startServer(): Promise<StartedServer> {
         typeof addr === "object" && addr !== null ? addr.port : config.port;
       const url = `http://localhost:${port}`;
       console.log(`[bleepforge/server] ${url}`);
-      console.log(`[bleepforge/server] data root:    ${config.dataRoot}`);
-      console.log(`[bleepforge/server] asset root:   ${config.assetRoot}`);
-      console.log(
-        `[bleepforge/server] project mode: ${config.projectMode ?? "(none)"}`,
-      );
-      // Pending import-once seed (phase 7). If the active project's
-      // data/ carries a `.bleepforge-pending-import.json` manifest, run
-      // the one-shot seed against the source Godot tree before the
-      // normal boot gates fire. After the seed completes the project
-      // is a regular notebook project; subsequent boots see no manifest
-      // and skip this branch.
-      const pendingImport =
-        config.projectMode === "notebook"
-          ? readPendingImport(config.dataRoot)
-          : null;
-      if (pendingImport) {
-        try {
-          console.log(
-            `[bleepforge/server] running one-shot import-once seed from ${pendingImport.sourceGodotRoot}`,
-          );
-          const result = await runPendingImport(pendingImport.sourceGodotRoot);
-          console.log(
-            `[bleepforge/server] import-once seeded ${result.importedTres} .tres → JSON, copied ${result.copiedAssets} assets, rewrote ${result.rewrittenRefs} refs in ${result.durationMs}ms`,
-          );
-          clearPendingImport(config.dataRoot);
-        } catch (err) {
-          console.error(
-            `[bleepforge/server] import-once seed failed: ${(err as Error).message}`,
-          );
-          console.error(
-            `[bleepforge/server] manifest left in place at ${config.dataRoot} for retry on next boot`,
-          );
-        }
-      }
-
-      // Two independent gates: .tres-coupled work (project index +
-      // reconcile + .tres watching) only runs in sync mode with a Godot
-      // root; content-coupled work (asset cache + shader cache + the
-      // contentRoot watcher) runs whenever a content root exists, in
-      // either mode. In sync mode contentRoot === godotProjectRoot so
-      // both gates pass together. In notebook mode (phase 5+) only the
-      // content gate passes.
-      if (isSyncMode() && config.godotProjectRoot) {
-        console.log(
-          `[bleepforge/server] godot root:   ${config.godotProjectRoot} (from ${config.godotProjectRootSource})`,
-        );
-        // Project-index FIRST — every downstream "find this entity's
-        // .tres" path (reconcile, watcher reimports, writer save-back,
-        // icon resolution, pickup catalog) reads from it. Content-driven
-        // classification means moving files around in the Godot project
-        // doesn't break Bleepforge (until/unless we add a domain whose
-        // identity isn't extractable from the file's body).
-        const stats = await projectIndex.build(config.godotProjectRoot);
-        console.log(
-          `[bleepforge/server] project index: ${stats.tresCount} .tres + ${stats.pickupCount} pickup .tscn in ${stats.durationMs}ms (${stats.filesVisited} files visited)`,
-        );
-        await runBootReconcile();
-      } else if (config.projectMode === "notebook") {
-        console.log(
-          `[bleepforge/server] notebook mode: skipping project index + boot reconcile (no .tres tree)`,
-        );
-      } else {
-        console.warn(
-          `[bleepforge/server] limp mode: no Godot root → skipping project index + boot reconcile`,
-        );
-      }
-      if (config.contentRoot) {
-        // Build the image-asset + shader caches once before the watcher
-        // starts, so both galleries have full data on first paint and the
-        // watcher's first delta event lands on a populated map. Cheap
-        // (<100ms each; shader walk is even quicker — single-digit files).
-        await rebuildAssetCache();
-        await rebuildShaderCache();
-        startTresWatcher();
-      } else {
-        console.warn(
-          `[bleepforge/server] no content root → skipping asset cache + shader cache + watcher`,
-        );
-      }
+      await runActiveProjectBoot();
       resolve({
         port,
         url,

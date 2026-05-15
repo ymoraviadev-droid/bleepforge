@@ -25,6 +25,11 @@ import { HelpIcon } from "../features/help/HelpIcon";
 import { ProjectChip } from "../features/projects/ProjectChip";
 import { isElectron, popoutOrNavigate, restartApp } from "../lib/electron";
 import { useRestartRequired } from "../lib/useRestartRequired";
+import { projectsApi } from "../lib/api";
+import { resetAssetMtimeCache, prefetchAssetMtimes } from "../lib/assets/mtimeCache";
+import { refreshCatalog } from "../lib/catalog-bus";
+import { emitProjectsChanged } from "../features/projects/projectsBus";
+import { pushToast } from "./Toast";
 
 // Single chrome column on the left edge. Holds (top-to-bottom):
 //   1. BLEEPFORGE branding + version
@@ -109,11 +114,45 @@ function VersionLabel() {
   );
 }
 
-async function handleRestart(): Promise<void> {
+// Two paths for the restart icon, differentiated by whether there's a
+// pending project switch:
+//
+//   restartRequired: hot-reload the active project on the server. No
+//     window flash, no Electron / dev-server restart required, and the
+//     desync between on-disk pointer + runtime gets resolved in
+//     hundreds of ms. This is what the icon's pulse is now signaling
+//     post-v0.2.5.
+//
+//   else: full app restart (the original v0.2.4 behavior). Reserved
+//     for anything that hot-reload doesn't cover — server upgrades,
+//     stuck state, paranoia.
+async function handleRestart(restartRequired: boolean): Promise<void> {
+  if (restartRequired) {
+    try {
+      await projectsApi.reload();
+      resetAssetMtimeCache();
+      void prefetchAssetMtimes();
+      refreshCatalog();
+      emitProjectsChanged();
+      pushToast({
+        id: "restart-icon:reloaded",
+        title: "Active project reloaded",
+        variant: "success",
+      });
+    } catch (err) {
+      pushToast({
+        id: "restart-icon:reload-failed",
+        title: "Reload failed — try a full restart",
+        body: (err as Error).message,
+        variant: "error",
+      });
+    }
+    return;
+  }
   const ok = await showConfirm({
     title: "Restart Bleepforge?",
     message:
-      "Any unsaved edits in open forms will be lost. Use this after changing the Godot project root in Preferences, or to pick up other boot-captured config.",
+      "Any unsaved edits in open forms will be lost. Use this to pick up a Bleepforge upgrade or to recover from stuck state.",
     confirmLabel: "Restart",
     cancelLabel: "Cancel",
     danger: true,
@@ -217,10 +256,14 @@ export function Sidebar() {
           >
             <HelpIcon size={20} />
           </NavLink>
-          {isElectron() && (
+          {/* Icon is visible when either: (a) we're in Electron and a full
+              app-restart is still useful as a recovery action, or (b)
+              there's a pending project reload — that path is a fetch
+              and works in browser-dev too. */}
+          {(isElectron() || restartRequired) && (
             <button
               type="button"
-              onClick={handleRestart}
+              onClick={() => handleRestart(restartRequired)}
               className={
                 restartRequired
                   ? `${ICON_BASE} restart-pending-glow border-emerald-600 bg-emerald-950/40 text-emerald-300 hover:border-emerald-500 hover:bg-emerald-950/60`
@@ -228,12 +271,12 @@ export function Sidebar() {
               }
               title={
                 restartRequired
-                  ? "Restart Bleepforge — boot-captured config has changed"
+                  ? "Reload active project — on-disk pointer doesn't match the running server"
                   : "Restart Bleepforge"
               }
               aria-label={
                 restartRequired
-                  ? "Restart Bleepforge (action required)"
+                  ? "Reload active project (action required)"
                   : "Restart Bleepforge"
               }
             >

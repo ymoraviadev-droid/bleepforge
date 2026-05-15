@@ -25,11 +25,11 @@ import {
 // working — user edits godotProjectRoot in Preferences → restart → server
 // reads the new value from the project record at boot.
 
-const preferencesFile = path.join(config.dataRoot, "preferences.json");
+const preferencesFile = (): string => path.join(config.dataRoot, "preferences.json");
 
 async function read(): Promise<Preferences> {
   try {
-    const raw = await fs.readFile(preferencesFile, "utf8");
+    const raw = await fs.readFile(preferencesFile(), "utf8");
     return PreferencesSchema.parse(JSON.parse(raw));
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return emptyPreferences();
@@ -39,8 +39,8 @@ async function read(): Promise<Preferences> {
 
 async function write(p: Preferences): Promise<Preferences> {
   const validated = PreferencesSchema.parse(p);
-  await fs.mkdir(path.dirname(preferencesFile), { recursive: true });
-  await fs.writeFile(preferencesFile, JSON.stringify(validated, null, 2), "utf8");
+  await fs.mkdir(path.dirname(preferencesFile()), { recursive: true });
+  await fs.writeFile(preferencesFile(), JSON.stringify(validated, null, 2), "utf8");
   return validated;
 }
 

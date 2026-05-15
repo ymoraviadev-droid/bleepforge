@@ -3,6 +3,7 @@
 //   GET    /api/projects               list every registered project + active slug
 //   POST   /api/projects               create a new project (notebook or sync)
 //   POST   /api/projects/import-once   seed a notebook project from a Godot tree
+//   POST   /api/projects/reload        hot-reload the active project in-process
 //   PATCH  /api/projects/:slug         rename displayName (slug stays immutable)
 //   DELETE /api/projects/:slug         remove from registry (?wipe=true also rm -rf)
 //   PUT    /api/projects/active        set the active project (slug in body)
