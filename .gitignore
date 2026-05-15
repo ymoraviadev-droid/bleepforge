@@ -16,26 +16,44 @@ electron/release/
 # delete — tsc regenerates on next build.
 *.tsbuildinfo
 
-# Bleepforge data/ — derived caches + machine-specific user state.
+# Bleepforge per-project data caches — post-v0.2.6 multi-project layout.
 #
-# The seven game-domain folders below are a JSON cache rebuilt from the
-# Godot project's .tres files on every server boot, kept in sync by the
-# live watcher, and pushed back to .tres on every save. Tracking them in
-# git produced merge-conflict churn on every save without adding value
-# (the .tres files inside the Godot project are the source of truth).
+# Same intent as the legacy data/ rules below: the seven game-domain
+# folders are a JSON cache rebuilt from the Godot project's .tres files
+# on every server boot, kept in sync by the watcher, and pushed back on
+# save. preferences.json carries machine-specific state (theme + the
+# Godot project root path — though as of v0.2.6 the canonical source of
+# the root is the project record, see projects.json below).
 #
-# data/preferences.json carries the Godot project root path + theme
-# settings — machine + user specific, would fight across workstations.
+# What STAYS tracked inside any projects/<slug>/data/:
+#   concept.json               Bleepforge-only project pitch (authored)
+#   codex/                     Game Codex categories + entries (authored)
+#   help/                      In-app help library (authored)
+#   dialogs/<folder>/_layout.json  Per-folder graph node positions (authored)
+#   shaders/_meta.json         Per-shader pattern + color (authored)
 #
-# What STAYS tracked:
-#   data/concept.json          Bleepforge-only project pitch (authored)
-#   data/codex/                Game Codex categories + entries (authored)
-#   data/help/                 In-app help library (authored)
-#   data/dialogs/*/_layout.json  Per-folder graph node positions (authored)
-#
-# Negation rule keeps _layout.json visible alongside the ignored cache
-# JSONs inside data/dialogs/<folder>/. Pattern order matters — the
-# negation must come AFTER the broader ignore.
+# The wildcard slug means any local project's caches are ignored — if a
+# contributor creates a test project, its caches don't leak into the diff,
+# and they have to explicitly `git add` to commit authored content from it.
+projects/*/data/dialogs/**/*.json
+!projects/*/data/dialogs/**/_layout.json
+projects/*/data/quests/
+projects/*/data/items/
+projects/*/data/karma/
+projects/*/data/npcs/
+projects/*/data/factions/
+projects/*/data/balloons/
+projects/*/data/preferences.json
+
+# Multi-project registry + active-project pointer. Both carry absolute
+# filesystem paths (godotProjectRoot) and machine-local state.
+/projects.json
+/active-project.json
+/.bleepforge-seed-manifest.json
+
+# Legacy data/ — pre-v0.2.6 single-project layout. Migration moves these
+# into projects/<slug>/data/ at first boot; the rules are kept for the
+# transition window when a partial migration could leave files behind.
 data/dialogs/**/*.json
 !data/dialogs/**/_layout.json
 data/quests/

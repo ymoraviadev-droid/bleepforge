@@ -48,6 +48,12 @@ export function ProcessTab() {
           label="Started"
           value={`${formatLongDateTime(info.startedAt)} (uptime ${formatUptime(info.uptimeMs)})`}
         />
+        <Row label="Bleepforge root" value={info.bleepforgeRoot} mono />
+        <Row
+          label="Active project"
+          value={info.activeProjectSlug ?? "(none)"}
+          mono
+        />
         <Row label="Data root" value={info.dataRoot} mono />
         <Row label="Asset root" value={info.assetRoot} mono />
         <Row

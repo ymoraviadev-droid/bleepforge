@@ -6,6 +6,7 @@ export * from "./npc";
 export * from "./faction";
 export * from "./concept";
 export * from "./preferences";
+export * from "./project";
 export * from "./pickup";
 export * from "./balloon";
 export * from "./codex";

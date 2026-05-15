@@ -7,11 +7,23 @@ import {
   type Preferences,
 } from "@bleepforge/shared";
 import { config } from "../../config.js";
+import {
+  findProject,
+  readRegistry,
+  writeRegistry,
+} from "../../lib/projects/registry.js";
 
-// Singleton document — `data/preferences.json`. Holds the user's saved global
-// themes (color theme + typography bundle, one per named entry) and the name
-// of the currently active one. Mirrors the concept router exactly: GET (with
-// empty fallback) + PUT, no list, no .tres pipeline.
+// Singleton document — `<dataRoot>/preferences.json`. Holds the user's saved
+// global themes (color theme + typography bundle, one per named entry) and
+// the name of the currently active one. Mirrors the concept router exactly:
+// GET (with empty fallback) + PUT, no list, no .tres pipeline.
+//
+// The schema still carries a `godotProjectRoot` field for backwards-compat
+// with the Preferences UI's existing Godot-root section, but the canonical
+// source of that value (post-v0.2.6) is the active project record. The PUT
+// handler write-throughs changes to the record so the existing flow keeps
+// working — user edits godotProjectRoot in Preferences → restart → server
+// reads the new value from the project record at boot.
 
 const preferencesFile = path.join(config.dataRoot, "preferences.json");
 
@@ -32,6 +44,23 @@ async function write(p: Preferences): Promise<Preferences> {
   return validated;
 }
 
+/** Propagate the saved godotProjectRoot into the active project record so
+ *  config.ts reads the new value on the next boot. No-op when no project
+ *  is active (the prefs file still gets written; first-run flow handles
+ *  the no-project state separately). */
+function writeGodotRootThrough(prefs: Preferences): void {
+  if (!config.activeProjectSlug) return;
+  const registry = readRegistry(config.bleepforgeRoot);
+  if (!registry) return;
+  const project = findProject(registry, config.activeProjectSlug);
+  if (!project) return;
+  const next = prefs.godotProjectRoot.trim() || null;
+  if (project.godotProjectRoot === next) return;
+  project.godotProjectRoot = next;
+  project.lastOpened = new Date().toISOString();
+  writeRegistry(config.bleepforgeRoot, registry);
+}
+
 export const preferencesRouter = Router();
 
 preferencesRouter.get("/", async (_req, res) => {
@@ -45,5 +74,6 @@ preferencesRouter.put("/", async (req, res) => {
     return;
   }
   const saved = await write(parsed.data);
+  writeGodotRootThrough(saved);
   res.json({ entity: saved, tresWrite: { attempted: false } });
 });

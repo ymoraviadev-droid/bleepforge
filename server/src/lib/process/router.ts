@@ -42,7 +42,9 @@ export interface ProcessInfo {
   dataRoot: string;
   assetRoot: string;
   godotProjectRoot: string | null;
-  godotProjectRootSource: "preferences" | "env" | null;
+  godotProjectRootSource: "project" | "env" | null;
+  bleepforgeRoot: string;
+  activeProjectSlug: string | null;
 }
 
 export const processRouter: Router = Router();
@@ -60,6 +62,8 @@ processRouter.get("/", async (_req, res) => {
     assetRoot: config.assetRoot,
     godotProjectRoot: config.godotProjectRoot,
     godotProjectRootSource: config.godotProjectRootSource,
+    bleepforgeRoot: config.bleepforgeRoot,
+    activeProjectSlug: config.activeProjectSlug,
   };
   res.json(info);
 });

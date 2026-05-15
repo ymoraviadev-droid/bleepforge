@@ -268,7 +268,9 @@ export interface ProcessInfo {
   dataRoot: string;
   assetRoot: string;
   godotProjectRoot: string | null;
-  godotProjectRootSource: "preferences" | "env" | null;
+  godotProjectRootSource: "project" | "env" | null;
+  bleepforgeRoot: string;
+  activeProjectSlug: string | null;
 }
 
 export const processApi = {

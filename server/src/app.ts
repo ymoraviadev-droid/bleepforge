@@ -103,10 +103,13 @@ interface SeedManifest {
 }
 
 function seedManifestPath(): string {
-  // <dataRoot>/help → parent of dataRoot is the userData root (packaged) or
-  // the repo root (dev with BLEEPFORGE_SEED_ROOT set, rare).
-  const userDataRoot = path.resolve(config.dataRoot, "..");
-  return path.join(userDataRoot, ".bleepforge-seed-manifest.json");
+  // Manifest lives at the Bleepforge install root (one above the projects/
+  // tree), NOT at the per-project level. The help seed itself currently
+  // lands inside each project's data/help/ (the v0.2.6 migration moved it
+  // there with the rest of data/) but the manifest tracks "what version of
+  // the help library did we last ship to this user" — an app-level
+  // concern. Hoisting help out of per-project storage is a phase-5 follow-up.
+  return path.join(config.bleepforgeRoot, ".bleepforge-seed-manifest.json");
 }
 
 function loadSeedManifest(): SeedManifest {
