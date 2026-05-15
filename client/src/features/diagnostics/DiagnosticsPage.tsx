@@ -1,6 +1,7 @@
 import { Navigate, NavLink, Route, Routes, useParams } from "react-router";
 import { IntegrityTab } from "./IntegrityTab";
 import { LogsTab } from "./LogsTab";
+import { ManifestTab } from "./ManifestTab";
 import { ProcessTab } from "./ProcessTab";
 import { ReconcileTab } from "./ReconcileTab";
 import { SavesTab } from "./SavesTab";
@@ -31,6 +32,7 @@ const VALID_TABS: DiagnosticsTabId[] = [
   "saves",
   "process",
   "watcher",
+  "manifest",
 ];
 
 export function DiagnosticsPage() {
@@ -78,6 +80,7 @@ function TabbedView() {
         {active === "saves" && <SavesTab />}
         {active === "process" && <ProcessTab />}
         {active === "watcher" && <WatcherTab />}
+        {active === "manifest" && <ManifestTab />}
       </div>
     </div>
   );

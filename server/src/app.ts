@@ -33,6 +33,7 @@ import { godotProjectRouter } from "./lib/godotProject/router.js";
 import { helpRouter } from "./features/help/router.js";
 import { itemIconRouter } from "./features/item/iconRouter.js";
 import { logsRouter } from "./lib/logs/router.js";
+import { manifestRouter } from "./lib/manifest/router.js";
 import { pickupsRouter } from "./lib/pickup/router.js";
 import { preferencesRouter } from "./features/preferences/router.js";
 import { processRouter } from "./lib/process/router.js";
@@ -504,6 +505,7 @@ export async function startServer(): Promise<StartedServer> {
   });
   app.use("/api/reconcile", reconcileRouter);
   app.use("/api/logs", logsRouter);
+  app.use("/api/manifest", manifestRouter);
   app.use("/api/process", processRouter);
   app.use("/api/watcher", watcherRouter);
   app.use("/api/saves", savesRouter);

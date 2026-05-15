@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import {
   logsApi,
+  manifestApi,
   reconcileApi,
   type LogEntry,
+  type ManifestLoadResult,
   type ReconcileStatus,
 } from "../../lib/api";
 import { computeIssues } from "../../lib/integrity/issues";
@@ -23,7 +25,8 @@ export type DiagnosticsTabId =
   | "logs"
   | "saves"
   | "process"
-  | "watcher";
+  | "watcher"
+  | "manifest";
 
 export interface TabSignal {
   id: DiagnosticsTabId;
@@ -100,6 +103,29 @@ export function useDiagnostics(): DiagnosticsStatus {
     };
   }, []);
 
+  // Manifest — one-shot fetch. The Manifest tab handles its own refresh.
+  // Severity contribution: only "error" status (parse / schema-validation
+  // failure) bumps to warning. "missing" is the normal case for FoB-shaped
+  // projects without godot-lib installed; "not-applicable" is normal for
+  // notebook-mode projects.
+  const [manifest, setManifest] = useState<ManifestLoadResult | null | undefined>(
+    undefined,
+  );
+  useEffect(() => {
+    let cancelled = false;
+    manifestApi
+      .get()
+      .then((m) => {
+        if (!cancelled) setManifest(m);
+      })
+      .catch(() => {
+        if (!cancelled) setManifest(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const integrityTab: TabSignal = (() => {
     if (issues === null)
       return { id: "integrity", label: "Integrity", severity: "loading", count: 0 };
@@ -170,7 +196,31 @@ export function useDiagnostics(): DiagnosticsStatus {
     count: 0,
   };
 
-  const tabs = [integrityTab, reconcileTab, logsTab, savesTab, processTab, watcherTab];
+  const manifestTab: TabSignal = (() => {
+    if (manifest === undefined || manifest === null)
+      return { id: "manifest", label: "Manifest", severity: "loading", count: 0 };
+    if (manifest.status === "error")
+      return {
+        id: "manifest",
+        label: "Manifest",
+        severity: "warning",
+        count: manifest.issues?.length ?? 1,
+      };
+    // "ok", "missing", and "not-applicable" are all clean — none of them
+    // are "something went wrong." The user sees the badge color in the
+    // tab itself, not in the header icon.
+    return { id: "manifest", label: "Manifest", severity: "clean", count: 0 };
+  })();
+
+  const tabs = [
+    integrityTab,
+    reconcileTab,
+    logsTab,
+    savesTab,
+    processTab,
+    watcherTab,
+    manifestTab,
+  ];
   const worstSeverity = tabs.reduce<TabSignal["severity"]>(
     (worst, t) => (SEVERITY_RANK[t.severity] > SEVERITY_RANK[worst] ? t.severity : worst),
     "clean",

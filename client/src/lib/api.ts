@@ -11,6 +11,7 @@ import type {
   HelpEntry,
   Item,
   KarmaImpact,
+  Manifest,
   Npc,
   Pickup,
   Preferences,
@@ -423,6 +424,38 @@ export const processApi = {
   get: async (): Promise<ProcessInfo> => {
     const r = await fetch("/api/process");
     if (!r.ok) throw new Error(`get process failed: ${r.status}`);
+    return r.json();
+  },
+};
+
+// Bleepforge manifest — Diagnostics → Manifest tab. Reads
+// bleepforge_manifest.json from the active project's Godot root (sync
+// mode only). The library on the Godot side (godot-lib, v0.2.6 Phase 3)
+// emits this file; the editor consumes it to drive generic surfaces in
+// v0.2.7+.
+export type ManifestLoadStatus = "not-applicable" | "missing" | "ok" | "error";
+
+export interface ManifestValidationIssue {
+  path: string;
+  message: string;
+}
+
+export interface ManifestLoadResult {
+  status: ManifestLoadStatus;
+  filePath?: string;
+  resPath?: string;
+  mtime?: string;
+  sizeBytes?: number;
+  manifest?: Manifest;
+  error?: string;
+  issues?: ManifestValidationIssue[];
+  reason?: string;
+}
+
+export const manifestApi = {
+  get: async (): Promise<ManifestLoadResult> => {
+    const r = await fetch("/api/manifest");
+    if (!r.ok) throw new Error(`get manifest failed: ${r.status}`);
     return r.json();
   },
 };
