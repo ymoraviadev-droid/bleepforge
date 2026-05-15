@@ -198,7 +198,16 @@ export interface GodotProjectValidation {
 // restart is what actually swaps paths over).
 export interface ProjectsList {
   projects: Project[];
+  /** What the NEXT server boot will load. Written on create / switch /
+   *  import-once. */
   activeSlug: string | null;
+  /** What THIS server's in-process config has captured — the project
+   *  currently being served. Diverges from activeSlug when a create or
+   *  switch wrote a new pointer but the server hasn't been restarted
+   *  yet. Components that need to display "what's the user seeing right
+   *  now" should read this; components that need "what was queued" read
+   *  activeSlug. */
+  runtimeActiveSlug: string | null;
   bleepforgeRoot: string;
 }
 

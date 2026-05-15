@@ -37,9 +37,19 @@ export const projectsRouter: Router = Router();
 projectsRouter.get("/", (_req, res) => {
   const registry = readRegistry(config.bleepforgeRoot);
   const pointer = readActivePointer(config.bleepforgeRoot);
+  // Two distinct "active" slugs:
+  //   - activeSlug:        on-disk pointer. What the NEXT boot will load.
+  //   - runtimeActiveSlug: what THIS server's config has captured. What
+  //                        the rest of the API is currently serving from.
+  // These desync between create/switch (which writes the pointer) and
+  // the next restart (which captures it into config). The chip + the
+  // /projects page surface the mismatch so the user knows when a
+  // restart is pending. Pre-v0.2.5 there was only one slug because
+  // there was only one project.
   res.json({
     projects: registry?.projects ?? [],
     activeSlug: pointer?.activeSlug ?? null,
+    runtimeActiveSlug: config.activeProjectSlug,
     bleepforgeRoot: config.bleepforgeRoot,
   });
 });

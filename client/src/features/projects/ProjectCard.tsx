@@ -7,7 +7,13 @@ import { formatRelative, modeBadgeClass } from "./format";
 
 interface ProjectCardProps {
   project: Project;
+  /** True when this project is what the server is CURRENTLY serving. */
   active: boolean;
+  /** True when this project is what the on-disk pointer says will load
+   *  next, but the server hasn't restarted yet to apply it. Surfaces a
+   *  small "queued" hint so the user can tell apart "active right now"
+   *  from "active after restart". */
+  queued?: boolean;
   onSwitch?: (slug: string) => void;
   onRename?: (slug: string) => void;
   onRemove?: (slug: string) => void;
@@ -34,6 +40,7 @@ interface ProjectCardProps {
 export function ProjectCard({
   project,
   active,
+  queued = false,
   onSwitch,
   onRename,
   onRemove,
@@ -86,6 +93,8 @@ export function ProjectCard({
       className={`card-lift flex flex-col gap-2 border-2 p-3 ${
         active
           ? "border-emerald-600/70 bg-emerald-950/20"
+          : queued
+          ? "border-amber-700/60 bg-amber-950/20"
           : "border-neutral-800 bg-neutral-950"
       }`}
       onContextMenu={onCardContextMenu}
@@ -113,6 +122,14 @@ export function ProjectCard({
           {active && (
             <span className="border border-emerald-600/60 bg-emerald-950/60 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-emerald-300">
               active
+            </span>
+          )}
+          {queued && !active && (
+            <span
+              className="border border-amber-600/60 bg-amber-950/60 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-amber-300"
+              title="Queued for next restart — server is still serving the previous project"
+            >
+              queued
             </span>
           )}
           {(onRename || onRemove) && (

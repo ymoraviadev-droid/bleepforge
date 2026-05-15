@@ -12,6 +12,7 @@ import {
 import { isElectron, restartApp } from "../../lib/electron";
 import { NewProjectModal } from "./NewProjectModal";
 import { ProjectCard } from "./ProjectCard";
+import { emitProjectsChanged } from "./projectsBus";
 
 // /projects — the multi-project management surface. Lists every
 // registered project with the active one marked; clicking a non-active
@@ -36,6 +37,14 @@ export function ProjectsPage() {
     } catch (err) {
       setError((err as Error).message);
     }
+  }
+
+  // Notify the sidebar chip (and any other listener) that project state
+  // changed. Refresh first so our local view is up to date, then emit —
+  // the chip's listener re-fetches from /api/projects.
+  async function refreshAndNotify(): Promise<void> {
+    await refresh();
+    emitProjectsChanged();
   }
 
   useEffect(() => {
@@ -79,7 +88,7 @@ export function ProjectsPage() {
         // banner instead of pretending the switch is live.
         setRestartPending(target.displayName);
         setSwitchingTo(null);
-        await refresh();
+        await refreshAndNotify();
       }
     } catch (err) {
       setSwitchingTo(null);
@@ -103,7 +112,7 @@ export function ProjectsPage() {
     if (trimmed === project.displayName) return;
     try {
       await projectsApi.rename(slug, trimmed);
-      await refresh();
+      await refreshAndNotify();
       pushToast({
         id: `projects:renamed:${slug}`,
         title: `Renamed to "${trimmed}"`,
@@ -139,7 +148,7 @@ export function ProjectsPage() {
     if (!choice || choice === "cancel") return;
     try {
       const result = await projectsApi.remove(slug, choice === "wipe");
-      await refresh();
+      await refreshAndNotify();
       if (result.wipeError) {
         pushToast({
           id: `projects:wipe-partial:${slug}`,
@@ -168,7 +177,7 @@ export function ProjectsPage() {
 
   async function handleCreated(result: CreateProjectResult): Promise<void> {
     setShowNewModal(false);
-    await refresh();
+    await refreshAndNotify();
     if (!result.restartRequired) return;
     const electronMode = isElectron();
     const ok = await showConfirm({
@@ -207,8 +216,14 @@ export function ProjectsPage() {
     );
   }
 
-  const { projects, activeSlug } = data;
+  const { projects, activeSlug, runtimeActiveSlug } = data;
   const hasProjects = projects.length > 0;
+  const restartQueued =
+    activeSlug !== null && activeSlug !== runtimeActiveSlug;
+  const queuedProject = restartQueued
+    ? projects.find((p) => p.slug === activeSlug)
+    : null;
+  const runtimeProject = projects.find((p) => p.slug === runtimeActiveSlug);
 
   return (
     <div className="space-y-4">
@@ -239,6 +254,25 @@ export function ProjectsPage() {
         </div>
       )}
 
+      {restartQueued && !restartPending && (
+        <div className="border-2 border-amber-700/60 bg-amber-950/30 p-3 text-xs text-amber-200">
+          <div className="font-medium text-amber-100">Restart pending</div>
+          <p className="mt-1">
+            Server is currently serving{" "}
+            <span className="font-mono text-amber-100">
+              {runtimeProject?.displayName ?? runtimeActiveSlug ?? "(none)"}
+            </span>
+            ; on-disk pointer is queued for{" "}
+            <span className="font-mono text-amber-100">
+              {queuedProject?.displayName ?? activeSlug ?? "(none)"}
+            </span>
+            . Restart Bleepforge so the new project's paths apply — until then
+            every page still shows the previous project's data even if the
+            switcher claims otherwise.
+          </p>
+        </div>
+      )}
+
       {!hasProjects && (
         <div className="border-2 border-neutral-800 bg-neutral-950 p-4">
           <div className="font-display text-sm tracking-wider text-neutral-200">
@@ -260,12 +294,19 @@ export function ProjectsPage() {
             <ProjectCard
               key={p.slug}
               project={p}
-              active={p.slug === activeSlug}
+              // ACTIVE marker reflects what the running server is
+              // serving — not the on-disk pointer. The disk pointer
+              // is a queue for the next restart; calling THAT "active"
+              // would lie to the user about what data they're seeing.
+              active={p.slug === runtimeActiveSlug}
+              queued={p.slug === activeSlug && p.slug !== runtimeActiveSlug}
               onSwitch={handleSwitch}
               onRename={handleRename}
               onRemove={handleRemove}
               // Server refuses both anyway, but disabling the menu item
               // when delete is impossible keeps the affordance honest.
+              // Gate on the on-disk pointer — that's what DELETE
+              // refuses to remove.
               canRemove={p.slug !== activeSlug && projects.length > 1}
               busy={switchingTo === p.slug}
             />
