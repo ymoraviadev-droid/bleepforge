@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="Note" load_steps=2 format=3 uid="uid://test_note_welcome"]
+
+[ext_resource type="Script" path="res://src/Resources/Note.cs" id="1_note"]
+
+[resource]
+script = ExtResource("1_note")
+Slug = "welcome"
+Title = "Welcome to the test project"
+Body = "This .tres file demonstrates the domain entry kind. The NoteRegistry walks data/notes/ and indexes every .tres by Note.Slug."
+CreatedAt = "2026-05-16"

@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="ElementData" load_steps=2 format=3 uid="uid://test_elem_air"]
+
+[ext_resource type="Script" path="res://src/Resources/ElementData.cs" id="1_elem"]
+
+[resource]
+script = ExtResource("1_elem")
+ElementKind = 3
+DisplayName = "Air"
+Color = "#94a3b8"
+Strength = 4

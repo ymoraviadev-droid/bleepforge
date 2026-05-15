@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="Note" load_steps=2 format=3 uid="uid://test_note_spec"]
+
+[ext_resource type="Script" path="res://src/Resources/Note.cs" id="1_note"]
+
+[resource]
+script = ExtResource("1_note")
+Slug = "manifest-spec"
+Title = "Where the manifest spec lives"
+Body = "shared/src/manifest.ts in the Bleepforge monorepo. Phase 0's audit walked every FoB schema to confirm the 12 field types and 4 entry kinds covered reality."
+CreatedAt = "2026-05-16"

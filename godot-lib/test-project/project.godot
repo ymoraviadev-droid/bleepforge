@@ -1,0 +1,35 @@
+; Engine configuration file.
+;
+; Godot will rewrite this file on first open (rebalancing whitespace,
+; adding a config_version header, etc.). The values below are the
+; minimum needed to make the test project openable in Godot 4.4+.
+;
+; The four registries are configured as autoloads so they're alive in
+; the editor's running scene tree (each is [Tool]-annotated, so it
+; runs in editor too — that's what gives us hot reload on .tres
+; changes via EditorInterface.Singleton.GetResourceFilesystem
+; .FilesystemChanged).
+
+config_version=5
+
+[application]
+
+config/name="Bleepforge test project"
+config/description="Synthetic Godot project that exercises godot-lib + the Bleepforge manifest emitter against all four entry kinds (domain / foldered / discriminatedFamily / enumKeyed). NOT a real game — Phase 5 of the v0.2.6 genericization arc."
+config/features=PackedStringArray("4.4", "C#", "Forward Plus")
+config/icon="res://icon.svg"
+
+[autoload]
+
+NoteRegistry="*res://src/Registries/NoteRegistry.cs"
+SnippetRegistry="*res://src/Registries/SnippetRegistry.cs"
+ElementRegistry="*res://src/Registries/ElementRegistry.cs"
+EquipmentRegistry="*res://src/Registries/EquipmentRegistry.cs"
+
+[dotnet]
+
+project/assembly_name="BleepforgeTestProject"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/bleepforge/plugin.cfg")

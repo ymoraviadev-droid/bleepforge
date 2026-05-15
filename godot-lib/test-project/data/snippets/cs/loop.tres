@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="Snippet" load_steps=2 format=3 uid="uid://test_snip_cs_loop"]
+
+[ext_resource type="Script" path="res://src/Resources/Snippet.cs" id="1_snip"]
+
+[resource]
+script = ExtResource("1_snip")
+Body = "for (var i = 0; i < 10; i++) { Console.WriteLine(i); }"
+Language = "csharp"

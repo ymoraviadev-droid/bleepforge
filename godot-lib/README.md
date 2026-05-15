@@ -2,14 +2,14 @@
 
 A small companion library you drop into your Godot 4 / C# project to make it Bleepforge-compatible.
 
-**Status: v0.2.6 Phase 3 — manifest emitter shipped.** The library now produces a manifest. A user with `BleepforgeResource` subclasses + matching registries enables the plugin and gets `bleepforge_manifest.json` at their project root on editor load. The editor-side consumer (Phase 4) hasn't shipped yet, so the manifest doesn't yet drive the Bleepforge editor.
+**Status: v0.2.6 Phase 5 — synthetic test project shipped, end-to-end round-trip validated.** The library + emitter + Bleepforge consumer chain is exercisable today against [test-project/](test-project/) — a minimal Godot project with all four entry kinds. Stable cut + AssetLib publish remain (Phase 6).
 
 - **Phase 1** ✓ — folder structure, `plugin.cfg`, placeholder GDScript stub, Apache 2.0 LICENSE.
 - **Phase 2** ✓ — C# library tier 1: `BleepforgeResource` + 4 registry base classes. Walk paths, index by key, opt-in editor hot reload.
 - **Phase 3** ✓ — Manifest emitter. `ManifestEmitter` reflects over registry subclasses + their resource types, builds a `Manifest` POCO matching the zod schema in [shared/src/manifest.ts](../shared/src/manifest.ts), writes `bleepforge_manifest.json` at the Godot project root. Triggered automatically on plugin enter-tree (editor load) and via a `Tools → Re-export Bleepforge manifest` menu item. Build hook (CI) deferred to a later release.
-- **Phase 4** — Editor-side manifest consumption (lands in the Bleepforge editor, not here).
-- **Phase 5** — Validation harness. Tiny synthetic Godot project at `godot-lib/test-project/` with 2-3 resource types covering different kinds (`domain` + `foldered` minimum). Library exports manifest, editor reads it, registry hot reload works. NOT FoB.
-- **Phase 6** — Docs + release. AssetLib publish via release artifact pointing at the `addons/bleepforge/` subfolder.
+- **Phase 4** ✓ — Editor-side manifest consumption (lands in the Bleepforge editor, not here). Server reads + parses + validates via shared zod schema; new Diagnostics → Manifest tab surfaces detection state. NO UI changes to existing FoB workflows.
+- **Phase 5** ✓ — Validation harness at [test-project/](test-project/). Synthetic Godot 4.4+ project with 4 BleepforgeResource subclasses covering all 4 entry kinds: `Note` (domain), `Snippet` (foldered, groupBy=ParentDir), `ElementData` (enumKeyed over a 4-value enum), `Equipment` (discriminatedFamily with `Sword` + `Shield` variants). 13 sample `.tres` files demonstrate the round-trip. See [test-project/README.md](test-project/README.md) for the walkthrough.
+- **Phase 6** — Docs + release. AssetLib publish via release artifact pointing at the `addons/bleepforge/` subfolder, Help library entry, release notes, stable bump.
 
 ## What works today (Phase 2 + 3)
 

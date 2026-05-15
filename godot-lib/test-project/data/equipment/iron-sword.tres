@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="Sword" load_steps=2 format=3 uid="uid://test_eq_iron_sword"]
+
+[ext_resource type="Script" path="res://src/Resources/Sword.cs" id="1_sword"]
+
+[resource]
+script = ExtResource("1_sword")
+Slug = "iron-sword"
+Name = "Iron Sword"
+Type = 0
+Weight = 3.5
+Damage = 12

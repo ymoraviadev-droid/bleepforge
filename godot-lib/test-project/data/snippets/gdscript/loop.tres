@@ -1,0 +1,8 @@
+[gd_resource type="Resource" script_class="Snippet" load_steps=2 format=3 uid="uid://test_snip_gd_loop"]
+
+[ext_resource type="Script" path="res://src/Resources/Snippet.cs" id="1_snip"]
+
+[resource]
+script = ExtResource("1_snip")
+Body = "for i in range(10):\n    print(i)"
+Language = "gdscript"

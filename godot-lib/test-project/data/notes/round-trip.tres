@@ -1,0 +1,10 @@
+[gd_resource type="Resource" script_class="Note" load_steps=2 format=3 uid="uid://test_note_roundtrip"]
+
+[ext_resource type="Script" path="res://src/Resources/Note.cs" id="1_note"]
+
+[resource]
+script = ExtResource("1_note")
+Slug = "round-trip"
+Title = "Phase 5 round-trip target"
+Body = "Open this in Godot, the manifest emitter writes bleepforge_manifest.json at the project root. Open Bleepforge with this project as active, the Manifest tab shows the parse result."
+CreatedAt = "2026-05-16"

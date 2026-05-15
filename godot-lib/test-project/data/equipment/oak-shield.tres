@@ -1,0 +1,11 @@
+[gd_resource type="Resource" script_class="Shield" load_steps=2 format=3 uid="uid://test_eq_oak_shield"]
+
+[ext_resource type="Script" path="res://src/Resources/Shield.cs" id="1_shield"]
+
+[resource]
+script = ExtResource("1_shield")
+Slug = "oak-shield"
+Name = "Oak Shield"
+Type = 1
+Weight = 4.0
+Defense = 18

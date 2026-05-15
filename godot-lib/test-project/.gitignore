@@ -1,0 +1,25 @@
+# Godot-generated state — recreated on first open.
+.godot/
+.import/
+*.import
+
+# Mono / .NET build artifacts.
+.mono/
+bin/
+obj/
+mono_crash.*.json
+
+# The addon symlink — created by setup.sh, points at ../../addons/bleepforge/
+# (the canonical copy that ships with godot-lib). Not tracked because
+# (a) it's a symlink, (b) committing the duplicate file content would
+# cause drift between the two locations.
+addons/bleepforge
+
+# The manifest — emitted on every editor load by the bleepforge plugin.
+# Not tracked because it's derived output; the test data + source classes
+# are the inputs that matter.
+bleepforge_manifest.json
+
+# Editor scratch.
+*.tmp
+*~
