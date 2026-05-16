@@ -22,7 +22,12 @@
     "smoke:generic-arrays": "tsx src/internal/tres/generic/arraysSmoke.ts",
     "smoke:generic-subresource": "tsx src/internal/tres/generic/subresourceSmoke.ts",
     "harness:generic-karma": "tsx --env-file=../.env src/internal/tres/genericKarmaHarness.ts",
-    "smoke:manifest-classify": "tsx src/lib/projectIndex/manifestClassifySmoke.ts"
+    "smoke:manifest-classify": "tsx src/lib/projectIndex/manifestClassifySmoke.ts",
+    "smoke:import-scalars": "tsx src/internal/import/generic/scalarsSmoke.ts",
+    "smoke:import-refs": "tsx src/internal/import/generic/refsSmoke.ts",
+    "smoke:import-arrays": "tsx src/internal/import/generic/arraysSmoke.ts",
+    "smoke:import-subresource": "tsx src/internal/import/generic/subresourceSmoke.ts",
+    "harness:import-karma": "tsx --env-file=../.env src/internal/import/genericKarmaHarness.ts"
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",

@@ -6,24 +6,19 @@
 // type means dropping a new file under `handlers/` and registering it
 // here — no orchestrator changes.
 //
-// Phase 1 wires 10 entries (Phase 2 implements the bodies):
-//   - 7 scalars via the three string-shaped types collapsing onto one
-//     handler (string + multiline + flag → stringHandler)
-//   - 1 numeric pair (int → intHandler, float → floatHandler)
-//   - bool, enum, ref, texture, scene, array, subresource each get a
-//     dedicated handler
-// Total: 12 FieldType values, 9 handler files (string covers 3 types,
-// numeric covers 2).
+// 10 entries cover all 12 FieldType values (string + multiline + flag
+// collapse onto one handler; int + float share the numeric.ts file).
+// `array` and `subresource` are absent here because they need their own
+// signature (recurse into orchestrator.readFlatFields, can't return a
+// flat JSON scalar) — the orchestrator dispatches them directly.
 
 import type { FieldType } from "@bleepforge/shared";
-import { arrayHandler } from "./array.js";
 import { boolHandler } from "./bool.js";
 import { enumHandler } from "./enum.js";
 import { floatHandler, intHandler } from "./numeric.js";
 import { refHandler } from "./ref.js";
 import { sceneHandler } from "./scene.js";
 import { stringHandler } from "./string.js";
-import { subresourceHandler } from "./subresource.js";
 import { textureHandler } from "./texture.js";
 import type { FieldReader } from "../types.js";
 
@@ -38,8 +33,6 @@ const HANDLERS: Partial<Record<FieldType, FieldReader>> = {
   ref: refHandler,
   texture: textureHandler,
   scene: sceneHandler,
-  array: arrayHandler,
-  subresource: subresourceHandler,
 };
 
 export function getHandler(type: FieldType): FieldReader | null {

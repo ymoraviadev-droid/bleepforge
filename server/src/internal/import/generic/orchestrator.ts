@@ -11,22 +11,26 @@
 // against the source .tres — any asymmetry in field-walk semantics
 // between writer and reader produces a diff and fails the harness.
 //
-// Loop shape (Phase 2+):
+// Loop shape:
 //   for each prop in entry.fieldOrder:
-//     if showWhen predicate fails → field absent from JSON
+//     if showWhen predicate fails → field absent from JSON entirely
 //     else → dispatch to handler, collect normalized value
+//
+// `array` + `subresource` fields get their own dispatchers (same
+// pattern as the writer side) because they need access to
+// ParsedTres.subResources for recursion and they don't fit the flat
+// scalar return shape.
 //
 // Returns the assembled JSON value object + accumulated warnings. Hard
 // errors throw and are caught by the caller so a single bad field
 // doesn't kill the whole read.
-//
-// v0.2.8 Phase 1 ships the skeleton + override registry only. Phase 2
-// lands the 12 field-type handlers. Phase 3 wires this orchestrator
-// into boot reconcile for manifest-discovered domains. Phase 4 wires
-// the same path into watcher reimport.
 
-import type { Entry } from "@bleepforge/shared";
-import type { ParsedTres } from "../tresParser.js";
+import type { Entry, FieldsRecord } from "@bleepforge/shared";
+import { isFieldApplicable } from "../../tres/generic/showWhen.js";
+import type { ParsedTres, TresValue } from "../tresParser.js";
+import { readArrayField } from "./handlers/array.js";
+import { getHandler } from "./handlers/registry.js";
+import { readSubresourceField } from "./handlers/subresource.js";
 import type { ReaderContext } from "./types.js";
 
 export interface GenericReadResult {
@@ -35,21 +39,83 @@ export interface GenericReadResult {
 }
 
 export function readFromManifest(
-  _parsed: ParsedTres,
+  parsed: ParsedTres,
   entry: Entry,
   ctx: ReaderContext,
 ): GenericReadResult {
   if (entry.kind === "discriminatedFamily") {
     ctx.warnings.push(
-      `generic importer: discriminatedFamily ("${entry.domain}") not yet supported (Phase 2+)`,
+      `generic importer: discriminatedFamily ("${entry.domain}") not yet supported`,
     );
     return { entity: null, warnings: ctx.warnings };
   }
 
-  // Phase 1: skeleton only. Phase 2 lands the field-walk loop +
-  // per-handler dispatch (mirrors writer's applyFlatFields).
-  ctx.warnings.push(
-    `generic importer: field-walk loop not yet wired (Phase 2+); domain="${entry.domain}"`,
+  // Discovery happens upstream: ProjectIndex tags the .tres with its
+  // domain, and the dispatcher already chose which manifest entry to
+  // walk. Here we just read user-authored fields off the [resource]
+  // section's props.
+  const entity = readFlatFields(
+    parsed.resourceProps,
+    entry.fields,
+    entry.fieldOrder,
+    ctx,
   );
-  return { entity: null, warnings: ctx.warnings };
+  return { entity, warnings: ctx.warnings };
+}
+
+// Reusable flat-field read loop. Used by the orchestrator for
+// `domain` / `foldered` / `enumKeyed` entries today; sub_resource
+// sections walk their props through the same function via the
+// subresource + array handlers.
+export function readFlatFields(
+  props: Record<string, TresValue>,
+  fields: FieldsRecord,
+  fieldOrder: readonly string[],
+  ctx: ReaderContext,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const propName of fieldOrder) {
+    const fieldDef = fields[propName];
+    if (!fieldDef) continue; // manifest validates fieldOrder ⊆ fields keys
+
+    // showWhen is evaluated against the accumulator-so-far (the
+    // discriminator field has to come before its dependents in
+    // fieldOrder, which the manifest spec already requires). When the
+    // predicate fails the field is absent from JSON entirely — matches
+    // the writer's "omit line" behavior on the symmetric side.
+    if (!isFieldApplicable(fieldDef.showWhen, out)) continue;
+
+    const rawValue = props[propName];
+
+    if (fieldDef.type === "array") {
+      try {
+        out[propName] = readArrayField(rawValue, fieldDef, propName, ctx);
+      } catch (err) {
+        ctx.warnings.push(`prop "${propName}": ${(err as Error).message}`);
+      }
+      continue;
+    }
+    if (fieldDef.type === "subresource") {
+      try {
+        out[propName] = readSubresourceField(rawValue, fieldDef, propName, ctx);
+      } catch (err) {
+        ctx.warnings.push(`prop "${propName}": ${(err as Error).message}`);
+      }
+      continue;
+    }
+
+    const handler = getHandler(fieldDef.type);
+    if (!handler) {
+      ctx.warnings.push(
+        `no handler for field type "${fieldDef.type}" (prop "${propName}")`,
+      );
+      continue;
+    }
+    try {
+      out[propName] = handler(rawValue, fieldDef, propName, ctx);
+    } catch (err) {
+      ctx.warnings.push(`prop "${propName}": ${(err as Error).message}`);
+    }
+  }
+  return out;
 }
