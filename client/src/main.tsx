@@ -9,6 +9,8 @@ import { DialogList } from "./features/dialog/List";
 import { DialogEdit } from "./features/dialog/Edit";
 import { DialogGraph } from "./features/dialog/Graph";
 import { AssetList } from "./features/asset/List";
+import { DomainList as ManifestDomainList } from "./features/manifest/DomainList";
+import { ManifestIndex } from "./features/manifest/ManifestIndex";
 import { ShaderEdit } from "./features/shader/Edit";
 import { ShaderList } from "./features/shader/List";
 import { BalloonList } from "./features/balloon/List";
@@ -185,6 +187,8 @@ const router = createBrowserRouter([
       { path: "health/reconcile", element: <Navigate to="/diagnostics/reconcile" replace /> },
       { path: "integrity", element: <Navigate to="/diagnostics/integrity" replace /> },
       { path: "reconcile", element: <Navigate to="/diagnostics/reconcile" replace /> },
+      { path: "manifest", element: <ManifestIndex /> },
+      { path: "manifest/:domain", element: <ManifestDomainList /> },
       { path: "preferences", element: <PreferencesPage /> },
       { path: "projects", element: <ProjectsPage /> },
       { path: "import", element: <Navigate to="/preferences" replace /> },

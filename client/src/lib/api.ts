@@ -460,6 +460,50 @@ export const manifestApi = {
   },
 };
 
+// Manifest-declared domain discovery — the read-only MVP surface for
+// v0.2.7. Two routes:
+//   - GET /api/manifest-domain        → { domains: ManifestDomainSummary[] }
+//   - GET /api/manifest-domain/:name  → { entry, entities }
+
+export interface ManifestDomainSummary {
+  domain: string;
+  kind: "domain" | "foldered" | "enumKeyed" | "discriminatedFamily";
+  class: string | null;
+  view: "list" | "cards" | "graph";
+  overrideUi: string | null;
+  displayName: string | null;
+  entityCount: number;
+}
+
+export interface ManifestEntity {
+  id: string;
+  absPath: string;
+  resPath: string;
+  uid: string | null;
+  scriptClass: string | null;
+  folder: string | null;
+}
+
+import type { Entry as ManifestEntry } from "@bleepforge/shared";
+
+export interface ManifestDomainDetail {
+  entry: ManifestEntry;
+  entities: ManifestEntity[];
+}
+
+export const manifestDomainsApi = {
+  list: async (): Promise<{ domains: ManifestDomainSummary[] }> => {
+    const r = await fetch("/api/manifest-domain");
+    if (!r.ok) throw new Error(`list manifest domains failed: ${r.status}`);
+    return r.json();
+  },
+  get: async (domain: string): Promise<ManifestDomainDetail> => {
+    const r = await fetch(`/api/manifest-domain/${encodeURIComponent(domain)}`);
+    if (!r.ok) throw new Error(`get manifest domain "${domain}" failed: ${r.status}`);
+    return r.json();
+  },
+};
+
 // Watcher status — Diagnostics → Watcher tab. Combines a liveness check
 // with a small ring of recent .tres events + their outcomes.
 export type WatcherEventKind = "add" | "change" | "unlink";

@@ -20,6 +20,7 @@ import {
 import { RestartIcon } from "./RestartIcon";
 import { DiagnosticsIcon } from "../features/diagnostics/DiagnosticsIcon";
 import { useDiagnostics } from "../features/diagnostics/useDiagnostics";
+import { useManifestDomains } from "../features/manifest/useManifestDomains";
 import { GearIcon } from "../features/preferences/GearIcon";
 import { HelpIcon } from "../features/help/HelpIcon";
 import { ProjectChip } from "../features/projects/ProjectChip";
@@ -190,6 +191,11 @@ const NAV_ITEMS: NavEntry[] = [
 export function Sidebar() {
   const diagnostics = useDiagnostics();
   const restartRequired = useRestartRequired();
+  // Manifest-declared domains appear as a dynamic section below the FoB
+  // hardcoded nav. Read-only MVP in v0.2.7; clicking takes the user to
+  // a generic discovery page. The section disappears entirely when the
+  // project has no manifest-declared domains (FoB's case today).
+  const manifestDomains = useManifestDomains();
 
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r-2 border-neutral-800 bg-neutral-950">
@@ -305,6 +311,28 @@ export function Sidebar() {
             <span>{item.label}</span>
           </NavLink>
         ))}
+        {manifestDomains.data && manifestDomains.data.length > 0 && (
+          <>
+            <div className="mt-3 px-3 pb-1 text-[10px] font-medium tracking-wider text-neutral-500 uppercase">
+              Manifest
+            </div>
+            {manifestDomains.data.map((d) => (
+              <NavLink
+                key={d.domain}
+                to={`/manifest/${encodeURIComponent(d.domain)}`}
+                className={navLinkClass}
+                title={`${d.kind} · ${d.entityCount} ${d.entityCount === 1 ? "entity" : "entities"}`}
+              >
+                <span className="flex w-4 shrink-0 items-center justify-center text-neutral-500">
+                  ◇
+                </span>
+                <span className="truncate">
+                  {d.displayName ?? d.domain}
+                </span>
+              </NavLink>
+            ))}
+          </>
+        )}
       </nav>
     </aside>
   );
