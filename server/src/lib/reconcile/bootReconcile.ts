@@ -12,6 +12,7 @@
 
 import { config } from "../../config.js";
 import { runImport } from "../../internal/import/orchestrator.js";
+import { runManifestReconcile } from "./manifestReconcile.js";
 import { setReconcileStatus, type DomainCounts } from "./router.js";
 
 const RECONCILED_DOMAINS = [
@@ -32,7 +33,6 @@ export async function runBootReconcile(): Promise<void> {
     const result = await runImport({
       godotProjectRoot: config.godotProjectRoot!,
     });
-    const durationMs = Date.now() - t0;
 
     // Flatten per-domain errors / skips into one list each. Each domain's
     // result type carries `{ imported, skipped, errors }` arrays (the
@@ -61,11 +61,22 @@ export async function runBootReconcile(): Promise<void> {
       ]),
     ) as Record<ReconciledDomain, DomainCounts>;
 
+    // Manifest-discovered domains: runs after FoB so FoB classifiers
+    // win on collision. Best-effort — errors here don't flip ok=false
+    // (per-entry errors already collected into errorDetails alongside
+    // FoB's).
+    const manifest = await runManifestReconcile(config.godotProjectRoot!);
+    for (const e of manifest.errorDetails) errorDetails.push(e);
+    for (const s of manifest.skippedDetails) skippedDetails.push(s);
+
+    const durationMs = Date.now() - t0;
+
     setReconcileStatus({
       ranAt: new Date().toISOString(),
       durationMs,
       ok: true,
       perDomain,
+      manifestDomains: manifest.perDomain,
       errorDetails,
       skippedDetails,
     });
@@ -73,16 +84,15 @@ export async function runBootReconcile(): Promise<void> {
     // Compact one-liner. Per-domain segment looks like `dialogs=43` when
     // clean and `dialogs=42 (skipped:1)` or `quests=3 (errors:1)` when
     // not, so anomalies pop without drowning the log on a healthy boot.
+    // Manifest-discovered domains land in the same line after the FoB
+    // section, prefixed with `manifest:` so they're visually distinct
+    // (e.g. `manifest:notes=4`).
     const segments: string[] = [];
     for (const [name, c] of Object.entries(perDomain)) {
-      const tags: string[] = [];
-      if (c.skipped > 0) tags.push(`skipped:${c.skipped}`);
-      if (c.errors > 0) tags.push(`errors:${c.errors}`);
-      segments.push(
-        tags.length === 0
-          ? `${name}=${c.imported}`
-          : `${name}=${c.imported} (${tags.join(",")})`,
-      );
+      segments.push(formatSegment(name, c));
+    }
+    for (const [name, c] of Object.entries(manifest.perDomain)) {
+      segments.push(formatSegment(`manifest:${name}`, c));
     }
     console.log(
       `[bleepforge/server] reconcile ok in ${durationMs}ms — ${segments.join(" ")}`,
@@ -112,6 +122,7 @@ export async function runBootReconcile(): Promise<void> {
       durationMs: Date.now() - t0,
       ok: false,
       perDomain: emptyPerDomain(),
+      manifestDomains: {},
       errorDetails: [],
       skippedDetails: [],
       error: message,
@@ -132,4 +143,13 @@ function emptyPerDomain(): Record<ReconciledDomain, DomainCounts> {
   return Object.fromEntries(
     RECONCILED_DOMAINS.map((d) => [d, z]),
   ) as Record<ReconciledDomain, DomainCounts>;
+}
+
+function formatSegment(name: string, c: DomainCounts): string {
+  const tags: string[] = [];
+  if (c.skipped > 0) tags.push(`skipped:${c.skipped}`);
+  if (c.errors > 0) tags.push(`errors:${c.errors}`);
+  return tags.length === 0
+    ? `${name}=${c.imported}`
+    : `${name}=${c.imported} (${tags.join(",")})`;
 }

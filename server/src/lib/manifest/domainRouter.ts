@@ -1,18 +1,18 @@
 // Generic HTTP surface for manifest-declared domains.
 //
 // `GET /api/manifest-domain/:domain` returns both the manifest Entry
-// declaration and the IndexedTres entries discovered for that domain.
-// The client uses the entry to know how to render (field types, view,
-// fieldOrder) and the entries to populate the list.
+// declaration and the entities discovered for that domain. Each entity
+// carries identity (id, absPath, resPath, scriptClass, folder) PLUS
+// the user-authored field values read from the JSON cache that boot
+// reconcile populates via the generic importer.
 //
-// Identity-only result: v0.2.7's read-only MVP intentionally doesn't
-// extract user-authored field VALUES from each .tres (that's the
-// generic importer's job in v0.2.8). Each returned entity carries
-// identity (id, absPath, resPath, scriptClass, folder) — enough to
-// display a populated list and link each row to the .tres file.
-// Building a list of "yes I see your Notes domain has these N entries"
-// is the proof-of-discovery for v0.2.7; reading field values comes
-// next cycle.
+// v0.2.7 shipped this as identity-only (no field values — that was the
+// generic importer's job in v0.2.8). v0.2.8 Phase 3 flips it to
+// include values inline: a single fetch gives the client everything
+// it needs to render a populated list. The JSON cache is the source
+// of truth at request time so watcher-driven .tres edits propagate to
+// the UI without a server restart (Phase 4 wires the watcher into the
+// same generic path).
 //
 // 404 when the domain isn't declared in the manifest. FoB's hardcoded
 // domains (item / quest / karma / faction / npc / dialog / balloon)
@@ -22,6 +22,7 @@
 
 import { Router } from "express";
 import { manifestCache } from "./cache.js";
+import { listEntities } from "./storage.js";
 import { projectIndex } from "../projectIndex/index.js";
 
 export const manifestDomainRouter: Router = Router();
@@ -42,7 +43,7 @@ manifestDomainRouter.get("/", (_req, res) => {
   res.json({ domains });
 });
 
-manifestDomainRouter.get("/:domain", (req, res) => {
+manifestDomainRouter.get("/:domain", async (req, res) => {
   const { domain } = req.params;
   const entry = manifestCache.getDomain(domain);
   if (!entry) {
@@ -51,6 +52,12 @@ manifestDomainRouter.get("/:domain", (req, res) => {
     });
     return;
   }
+  // Pre-read the JSON cache once and look up per-id during the
+  // projectIndex walk. Avoids N filesystem reads in series while still
+  // preserving projectIndex's stable insertion order on the response.
+  const byId = new Map<string, Record<string, unknown>>();
+  for (const e of await listEntities(entry)) byId.set(e.id, e.values);
+
   const entities = projectIndex.list(domain).map((e) => ({
     id: e.id,
     absPath: e.absPath,
@@ -58,6 +65,7 @@ manifestDomainRouter.get("/:domain", (req, res) => {
     uid: e.uid,
     scriptClass: e.scriptClass,
     folder: e.folder,
+    values: byId.get(e.id) ?? null,
   }));
   res.json({ entry, entities });
 });

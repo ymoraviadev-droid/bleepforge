@@ -464,8 +464,9 @@ export const manifestApi = {
   },
 };
 
-// Manifest-declared domain discovery — the read-only MVP surface for
-// v0.2.7. Two routes:
+// Manifest-declared domain discovery. v0.2.7 shipped this identity-only;
+// v0.2.8 Phase 3 added `values` to each entity, populated from the JSON
+// cache that boot reconcile writes via the generic importer.
 //   - GET /api/manifest-domain        → { domains: ManifestDomainSummary[] }
 //   - GET /api/manifest-domain/:name  → { entry, entities }
 
@@ -486,6 +487,11 @@ export interface ManifestEntity {
   uid: string | null;
   scriptClass: string | null;
   folder: string | null;
+  /** User-authored field values, from the JSON cache. `null` when the
+   *  cache hasn't been populated for this entry yet (boot reconcile
+   *  skipped it — e.g. discriminatedFamily kind). v0.2.9's generic
+   *  edit form consumes this. */
+  values: Record<string, unknown> | null;
 }
 
 import type { Entry as ManifestEntry } from "@bleepforge/shared";

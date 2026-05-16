@@ -27,6 +27,10 @@ export interface ReconcileStatus {
     "items" | "quests" | "karma" | "factions" | "dialogs" | "npcs" | "balloons",
     DomainCounts
   >;
+  /** Per-manifest-domain counts, keyed by the manifest's domain name.
+   *  Populated by runManifestReconcile after the FoB pass. Empty when
+   *  no manifest is loaded or no non-FoB domains were discovered. */
+  manifestDomains: Record<string, DomainCounts>;
   errorDetails: { domain: string; file: string; error: string }[];
   skippedDetails: { domain: string; file: string; reason: string }[];
   /** When ok=false, the top-level error message. */
