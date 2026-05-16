@@ -55,10 +55,12 @@ import { syncRouter } from "./lib/sync/router.js";
 import { makeCrudRouter, makeJsonStorage } from "./lib/util/jsonCrud.js";
 import { startTresWatcher, stopTresWatcher } from "./internal/tres/watcher.js";
 import { watcherRouter } from "./internal/tres/watcherRouter.js";
-// Side-effect import: registers the seven FoB writers as overrides
-// against the unified writeTres dispatcher. Must precede any router that
-// dispatches saves.
+// Side-effect imports: register the seven FoB writers + importers as
+// overrides against the unified writeTres / readTres dispatchers. Must
+// precede any router that dispatches saves and any reconcile path that
+// reads .tres through the unified dispatcher.
 import "./internal/tres/generic/registerFobOverrides.js";
+import "./internal/import/generic/registerFobOverrides.js";
 import { writeTres } from "./internal/tres/generic/writer.js";
 import type { SyncDomain } from "./lib/sync/eventBus.js";
 
