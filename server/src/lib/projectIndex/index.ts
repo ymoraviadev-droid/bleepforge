@@ -42,8 +42,11 @@ class ProjectIndex {
   private root: string | null = null;
 
   constructor() {
-    // Pre-create per-domain maps so callers can rely on get() returning a
-    // Map (never undefined) when they want to iterate.
+    // Pre-create per-domain maps for FoB's reserved set so existing
+    // callers (writer.ts overrides, integrity checks) hit a non-empty
+    // bucket on first lookup. Manifest-declared domains get their maps
+    // created lazily on first insert (see insertTres). When FoB ports
+    // (end of v0.2.9), this prepop drops and every domain is lazy.
     for (const d of [
       "item",
       "quest",
@@ -52,7 +55,7 @@ class ProjectIndex {
       "npc",
       "dialog",
       "balloon",
-    ] as IndexedDomain[]) {
+    ]) {
       this.byDomain.set(d, new Map());
     }
   }
@@ -132,6 +135,15 @@ class ProjectIndex {
     return m ? Array.from(m.values()) : [];
   }
 
+  /** Every domain name the index currently knows about — FoB's hardcoded
+   *  set plus any manifest-declared domains that classified at least one
+   *  file (or were pre-allocated empty). Order: FoB names first by
+   *  insertion, manifest names after. Used by the diagnostics surface
+   *  and the generic UI's route resolution. */
+  listAllDomains(): IndexedDomain[] {
+    return Array.from(this.byDomain.keys());
+  }
+
   /** All pickup .tscn entries. */
   listPickups(): IndexedPickup[] {
     return Array.from(this.pickups.values());
@@ -174,7 +186,14 @@ class ProjectIndex {
   }
 
   private insertTres(entry: IndexedTres): void {
-    this.byDomain.get(entry.domain)?.set(entry.id, entry);
+    // Lazy-create the per-domain map for manifest-declared domains that
+    // weren't in the constructor's prepop list.
+    let bucket = this.byDomain.get(entry.domain);
+    if (!bucket) {
+      bucket = new Map();
+      this.byDomain.set(entry.domain, bucket);
+    }
+    bucket.set(entry.id, entry);
     this.byAbsPath.set(entry.absPath, entry);
     this.byResPath.set(entry.resPath, entry);
     if (entry.uid) this.byUid.set(entry.uid, entry);
@@ -193,10 +212,14 @@ class ProjectIndex {
     this.byAbsPath.delete(absPath);
     this.byResPath.delete(existing.resPath);
     if (existing.uid) this.byUid.delete(existing.uid);
-    if (existing.domain === "pickup") {
-      this.pickups.delete(absPath);
-    } else {
+    // `"id" in existing` narrows the union — IndexedTres has `id`,
+    // IndexedPickup has `name`. Reads cleaner than `domain !== "pickup"`
+    // and survives the loosened IndexedDomain (which now includes
+    // manifest-declared names that could in principle be "pickup" too).
+    if ("id" in existing) {
       this.byDomain.get(existing.domain)?.delete(existing.id);
+    } else {
+      this.pickups.delete(absPath);
     }
   }
 

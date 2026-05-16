@@ -33,26 +33,49 @@ export interface ReimportResult {
   error?: string;
 }
 
+// Set of SyncDomain literals — kept here to gate "is this entry's
+// domain known to the sync bus?" Manifest-declared domains aren't in
+// this set, so they correctly return null from detectDomain (no
+// existing import mapper exists for them; reimport is a no-op until
+// the generic importer lands in v0.2.8).
+const SYNC_DOMAINS: ReadonlySet<SyncDomain> = new Set<SyncDomain>([
+  "item",
+  "karma",
+  "quest",
+  "dialog",
+  "npc",
+  "faction",
+  "balloon",
+  "shader",
+]);
+
+function asSyncDomain(domain: string): SyncDomain | null {
+  return SYNC_DOMAINS.has(domain as SyncDomain) ? (domain as SyncDomain) : null;
+}
+
 // Determines the domain + canonical id from a .tres path. Reads from
 // ProjectIndex — content-driven, no hardcoded folder pattern matching.
 // Returns null if the file isn't indexed (e.g. a support resource the
-// classifier didn't bucket into any domain).
+// classifier didn't bucket into any domain) OR if the file's domain is
+// manifest-declared (not yet in the sync event bus's vocabulary).
 export function detectDomain(absPath: string): {
   domain: SyncDomain;
   key: string;
 } | null {
   const entry = projectIndex.getByAbsPath(absPath);
   if (!entry) return null;
-  if (entry.domain === "pickup") return null; // pickups not a sync-domain
+  if (!("id" in entry)) return null; // IndexedPickup — has no id
+  const domain = asSyncDomain(entry.domain);
+  if (!domain) return null; // manifest-only domain; v0.2.8 wires reimport
   // entry.id is the canonical identity (Slug for items, NpcId for npcs,
   // composite "folder/basename" for balloons + dialogs, Faction enum
   // string for factions). For dialogs, the SyncEvent shape historically
   // used "folder/Id" — preserve that for the client subscribers (they
   // listen on the composite key from the dialog list pages).
-  if (entry.domain === "dialog" && entry.folder) {
+  if (domain === "dialog" && entry.folder) {
     return { domain: "dialog", key: `${entry.folder}/${entry.id}` };
   }
-  return { domain: entry.domain, key: entry.id };
+  return { domain, key: entry.id };
 }
 
 export async function reimportOne(absPath: string): Promise<ReimportResult> {

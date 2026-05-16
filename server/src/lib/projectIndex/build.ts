@@ -15,6 +15,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 
+import type { Entry, FieldDef } from "@bleepforge/shared";
+import { manifestCache } from "../manifest/cache.js";
 import type { IndexedTres, IndexedPickup } from "./types.js";
 
 // ---- Regexes ---------------------------------------------------------------
@@ -237,8 +239,143 @@ export async function classifyTresOne(
     };
   }
 
+  // Manifest-declared domains. FoB classifiers above run first; this
+  // path fires only when no FoB rule matched the file. Each manifest
+  // domain's classification predicate is derived from its entry kind +
+  // class name + (for foldered) parent-dir convention. The manifest
+  // cache holds the parsed manifest; if it's empty or not loaded, this
+  // loop is a cheap no-op.
+  for (const entry of manifestCache.listDomains()) {
+    const classified = classifyAgainstManifestEntry(
+      entry,
+      text,
+      absPath,
+      godotRoot,
+      scriptClass,
+      uid,
+      resPath,
+    );
+    if (classified) return classified;
+  }
+
   // Anything else (inline LootTable, support resources, etc.) is ignored.
   return null;
+}
+
+// ---- Manifest-driven classification ---------------------------------------
+
+/** Match one .tres against one manifest entry. Returns the IndexedTres if
+ *  the file matches the entry's classification predicate, null otherwise.
+ *  Each of the four entry kinds has its own predicate shape — see kind
+ *  switch below for the rules. Exported for the smoke test; production
+ *  callers go through classifyTresOne. */
+export function classifyAgainstManifestEntry(
+  entry: Entry,
+  text: string,
+  absPath: string,
+  godotRoot: string,
+  scriptClass: string | null,
+  uid: string | null,
+  resPath: string,
+): IndexedTres | null {
+  switch (entry.kind) {
+    case "domain": {
+      if (scriptClass !== entry.class) return null;
+      const id = extractKeyValue(text, entry.fields, entry.key);
+      if (!id) return null;
+      return { domain: entry.domain, id, absPath, resPath, uid, scriptClass, folder: null };
+    }
+    case "foldered": {
+      if (scriptClass !== entry.class) return null;
+      // Path-based identity: <folder>/<basename>. `folder` is whichever
+      // ancestor dir level the manifest declared (parentDir or
+      // grandparentDir). `parentNameMustBe` defends against stray
+      // .tres files of the same class placed elsewhere in the tree.
+      const parentDir = path.dirname(absPath);
+      const parentName = path.basename(parentDir);
+      if (
+        entry.folderDiscovery.parentNameMustBe &&
+        parentName !== entry.folderDiscovery.parentNameMustBe
+      ) {
+        return null;
+      }
+      const folder =
+        entry.folderDiscovery.groupBy === "grandparentDir"
+          ? path.basename(path.dirname(parentDir))
+          : parentName;
+      const basename = path.basename(absPath, ".tres");
+      return {
+        domain: entry.domain,
+        id: `${folder}/${basename}`,
+        absPath,
+        resPath,
+        uid,
+        scriptClass,
+        folder,
+      };
+    }
+    case "enumKeyed": {
+      if (scriptClass !== entry.class) return null;
+      // Identity = the enum value's string name. Godot serializes
+      // enums as ints, so we read the int + index into entry.enumValues.
+      // Default-omission (Godot drops the line when value === enum's
+      // first variant) means a missing line maps to enumValues[0].
+      const keyRe = new RegExp(`^\\s*${escapeRegex(entry.key)}\\s*=\\s*(-?\\d+)`, "m");
+      const m = keyRe.exec(text);
+      const idx = m && m[1] ? Number(m[1]) : 0;
+      const id = entry.enumValues[idx];
+      if (!id) return null;
+      return { domain: entry.domain, id, absPath, resPath, uid, scriptClass, folder: null };
+    }
+    case "discriminatedFamily": {
+      // Match against the base class OR any variant class. scriptClass
+      // is the underlying file's declared class — for variants it's
+      // the variant's name (Sword, Shield), not the base (Equipment).
+      // We preserve scriptClass on the entry so downstream consumers
+      // (generic edit UI) can route to the right variant fields.
+      const baseClass = entry.base.class;
+      const variantClasses = entry.variants.map((v) => v.class);
+      const matches =
+        scriptClass === baseClass || variantClasses.includes(scriptClass ?? "");
+      if (!matches) return null;
+      const id = extractKeyValue(text, entry.base.fields, entry.key);
+      if (!id) return null;
+      return { domain: entry.domain, id, absPath, resPath, uid, scriptClass, folder: null };
+    }
+  }
+}
+
+/** Pulls the key field's value from .tres text, picking the regex shape
+ *  based on the manifest-declared field type. String / multiline / flag
+ *  use the quoted-value form; enum / int use the bare-number form;
+ *  others aren't valid identity types in v0.2.7. */
+function extractKeyValue(
+  text: string,
+  fields: Record<string, FieldDef>,
+  keyName: string,
+): string | null {
+  const field = fields[keyName];
+  if (!field) return null;
+  if (field.type === "string" || field.type === "multiline" || field.type === "flag") {
+    const re = new RegExp(`^\\s*${escapeRegex(keyName)}\\s*=\\s*"([^"]*)"`, "m");
+    const m = re.exec(text);
+    return m && m[1] ? m[1] : null;
+  }
+  if (field.type === "int") {
+    const re = new RegExp(`^\\s*${escapeRegex(keyName)}\\s*=\\s*(-?\\d+)`, "m");
+    return re.exec(text)?.[1] ?? null;
+  }
+  if (field.type === "enum") {
+    const re = new RegExp(`^\\s*${escapeRegex(keyName)}\\s*=\\s*(-?\\d+)`, "m");
+    const m = re.exec(text);
+    const idx = m && m[1] ? Number(m[1]) : 0;
+    return field.values[idx] ?? null;
+  }
+  return null;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 async function classifyTscn(

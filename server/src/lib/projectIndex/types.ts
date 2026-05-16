@@ -14,14 +14,24 @@
 // uid-lookup callers get everything they need from a single lookup, never
 // re-walking the project.
 
-export type IndexedDomain =
-  | "item"
-  | "quest"
-  | "karma"
-  | "faction"
-  | "npc"
-  | "dialog"
-  | "balloon";
+/**
+ * Domain identifier. Open type because manifest-declared domains add to
+ * the set at boot — the closed union was a v0.2.6 holdover when only
+ * FoB's hardcoded set existed.
+ *
+ * FoB's reserved literals (still in use through the v0.2.7 → v0.2.9
+ * genericization arc, retire when FoB ports to BleepforgeRegistry):
+ *   "item" | "quest" | "karma" | "faction" | "npc" | "dialog" | "balloon"
+ *
+ * Manifest domains use whatever name the user declared in
+ * `bleepforge_manifest.json`'s `domains[].domain` field. Conflicts
+ * with FoB's reserved set: FoB classifiers run first; manifest
+ * classifiers only fire when no FoB classifier matched the file. A
+ * future schema validation could surface name collisions at manifest
+ * parse time, but for v0.2.7 we rely on "FoB wins" + a watcher-log
+ * note (no FoB names should appear in user manifests post-port).
+ */
+export type IndexedDomain = string;
 
 export interface IndexedTres {
   domain: IndexedDomain;
