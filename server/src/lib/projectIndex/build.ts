@@ -126,6 +126,29 @@ export async function classifyTresOne(
   const uid = TRES_UID_RE.exec(text)?.[1] ?? null;
   const resPath = absToResPath(absPath, godotRoot);
 
+  // Manifest-declared domains FIRST. Earlier (v0.2.7 #9) ordering put
+  // FoB classifiers first with manifest as fallback, but test-project
+  // discovered the flaw: FoB's "any resource with a Slug field is an
+  // item" check is greedy and would eat user-domain .tres files whose
+  // schema also happens to have a Slug field (test-project's Note +
+  // Equipment both do). Manifest-first matches the load-bearing
+  // direction of the genericization arc — the user's manifest IS the
+  // source of truth for their project; FoB's hardcoded classifiers are
+  // a fallback that gets emptier with every release until FoB ports.
+  // Empty/missing manifest → loop is a cheap no-op, FoB unaffected.
+  for (const entry of manifestCache.listDomains()) {
+    const classified = classifyAgainstManifestEntry(
+      entry,
+      text,
+      absPath,
+      godotRoot,
+      scriptClass,
+      uid,
+      resPath,
+    );
+    if (classified) return classified;
+  }
+
   // script_class-discriminated domains.
   switch (scriptClass) {
     case "Quest": {
