@@ -24,6 +24,7 @@ import type { Entry, FieldsRecord } from "@bleepforge/shared";
 import { reconcileProperty } from "../mutate.js";
 import type { Doc, Section } from "../types.js";
 import { applyArrayField } from "./handlers/array.js";
+import { applySubresourceField } from "./handlers/subresource.js";
 import { getHandler } from "./handlers/registry.js";
 import { isFieldApplicable } from "./showWhen.js";
 import type { WriterContext } from "./types.js";
@@ -86,10 +87,20 @@ export function applyFlatFields(
       applyArrayField(section, fieldOrder, propName, fieldDef, json[propName], ctx);
       continue;
     }
+    if (fieldDef.type === "subresource") {
+      applySubresourceField(
+        section,
+        fieldOrder,
+        propName,
+        fieldDef,
+        json[propName],
+        ctx,
+      );
+      continue;
+    }
 
     const handler = getHandler(fieldDef.type);
     if (!handler) {
-      // Subresource (single inline) falls here until commit #5.
       ctx.warnings.push(
         `no handler for field type "${fieldDef.type}" (prop "${propName}")`,
       );
