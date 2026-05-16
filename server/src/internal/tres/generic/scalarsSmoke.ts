@@ -287,6 +287,12 @@ function runCase(c: Case): string | null {
     godotRoot: "/tmp/smoke",
     doc,
     warnings: [],
+    // Scalar smoke test never hits a ref/texture/scene handler, so these
+    // resolvers return null defensively — the dedicated refs smoke covers
+    // the resolver paths.
+    resolveRef: () => null,
+    resolveTextureUid: () => null,
+    resolveSceneUid: () => null,
   };
   writeFromManifest(doc, c.entry, c.json, ctx);
   const emitted = emitTres(doc);

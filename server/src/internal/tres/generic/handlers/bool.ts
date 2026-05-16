@@ -8,7 +8,7 @@
 import { serializeBool } from "../../mutate.js";
 import type { FieldHandler } from "../types.js";
 
-export const boolHandler: FieldHandler = (jsonValue, fieldDef) => {
+export const boolHandler: FieldHandler = (jsonValue, fieldDef, _section, _propName, _ctx) => {
   if (fieldDef.type !== "bool") {
     throw new Error(`boolHandler: unsupported field type "${fieldDef.type}"`);
   }

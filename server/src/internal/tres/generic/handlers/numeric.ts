@@ -13,7 +13,7 @@
 import { serializeInt } from "../../mutate.js";
 import type { FieldHandler } from "../types.js";
 
-export const intHandler: FieldHandler = (jsonValue, fieldDef) => {
+export const intHandler: FieldHandler = (jsonValue, fieldDef, _section, _propName, _ctx) => {
   if (fieldDef.type !== "int") {
     throw new Error(`intHandler: unsupported field type "${fieldDef.type}"`);
   }
@@ -26,7 +26,7 @@ export const intHandler: FieldHandler = (jsonValue, fieldDef) => {
   return serializeInt(value);
 };
 
-export const floatHandler: FieldHandler = (jsonValue, fieldDef) => {
+export const floatHandler: FieldHandler = (jsonValue, fieldDef, _section, _propName, _ctx) => {
   if (fieldDef.type !== "float") {
     throw new Error(`floatHandler: unsupported field type "${fieldDef.type}"`);
   }

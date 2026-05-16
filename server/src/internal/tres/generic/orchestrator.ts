@@ -89,7 +89,7 @@ export function applyFlatFields(
 
     let rawValue: string | null;
     try {
-      rawValue = handler(json[propName], fieldDef, ctx);
+      rawValue = handler(json[propName], fieldDef, section, propName, ctx);
     } catch (err) {
       ctx.warnings.push(`prop "${propName}": ${(err as Error).message}`);
       continue;

@@ -22,7 +22,7 @@
 import { serializeString } from "../../mutate.js";
 import type { FieldHandler } from "../types.js";
 
-export const stringHandler: FieldHandler = (jsonValue, fieldDef) => {
+export const stringHandler: FieldHandler = (jsonValue, fieldDef, _section, _propName, _ctx) => {
   if (fieldDef.type !== "string" && fieldDef.type !== "multiline" && fieldDef.type !== "flag") {
     throw new Error(`stringHandler: unsupported field type "${fieldDef.type}"`);
   }

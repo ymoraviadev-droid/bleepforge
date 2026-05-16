@@ -15,7 +15,7 @@
 
 import type { FieldHandler } from "../types.js";
 
-export const enumHandler: FieldHandler = (jsonValue, fieldDef) => {
+export const enumHandler: FieldHandler = (jsonValue, fieldDef, _section, _propName, _ctx) => {
   if (fieldDef.type !== "enum") {
     throw new Error(`enumHandler: unsupported field type "${fieldDef.type}"`);
   }

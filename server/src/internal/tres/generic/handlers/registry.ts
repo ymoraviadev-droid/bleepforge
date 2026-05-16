@@ -13,7 +13,10 @@ import type { FieldType } from "@bleepforge/shared";
 import { boolHandler } from "./bool.js";
 import { enumHandler } from "./enum.js";
 import { floatHandler, intHandler } from "./numeric.js";
+import { refHandler } from "./ref.js";
+import { sceneHandler } from "./scene.js";
 import { stringHandler } from "./string.js";
+import { textureHandler } from "./texture.js";
 import type { FieldHandler } from "../types.js";
 
 const HANDLERS: Partial<Record<FieldType, FieldHandler>> = {
@@ -24,6 +27,9 @@ const HANDLERS: Partial<Record<FieldType, FieldHandler>> = {
   float: floatHandler,
   bool: boolHandler,
   enum: enumHandler,
+  ref: refHandler,
+  texture: textureHandler,
+  scene: sceneHandler,
 };
 
 export function getHandler(type: FieldType): FieldHandler | null {
