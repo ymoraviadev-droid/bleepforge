@@ -46,6 +46,10 @@ function buildSource(body: string): string {
 // Convenience: builds a `domain` entry with the given fields/fieldOrder
 // plus the conventional script + metadata lines that every FoB .tres
 // carries (kept outside the manifest because they're not user-authored).
+// Manifest entries declare ONLY user-authored fields. The orchestrator
+// adds Godot's `script` + `metadata/_custom_type_script` wrapper lines
+// as positioning anchors (see wrapWithGodotConventions in orchestrator).
+// Builder helper kept minimal to mirror the real manifest shape.
 function buildDomainEntry(
   fields: Record<string, FieldDef>,
   fieldOrder: string[],
@@ -56,12 +60,8 @@ function buildDomainEntry(
     class: "SmokeTest",
     key: fieldOrder[0]!,
     folder: "smoke",
-    fields: {
-      script: { type: "string", required: false },
-      ...fields,
-      "metadata/_custom_type_script": { type: "string", required: false },
-    },
-    fieldOrder: ["script", ...fieldOrder, "metadata/_custom_type_script"],
+    fields,
+    fieldOrder,
     view: "list",
     overrideUi: null,
   };

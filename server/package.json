@@ -20,7 +20,8 @@
     "smoke:generic": "tsx src/internal/tres/generic/scalarsSmoke.ts",
     "smoke:generic-refs": "tsx src/internal/tres/generic/refsSmoke.ts",
     "smoke:generic-arrays": "tsx src/internal/tres/generic/arraysSmoke.ts",
-    "smoke:generic-subresource": "tsx src/internal/tres/generic/subresourceSmoke.ts"
+    "smoke:generic-subresource": "tsx src/internal/tres/generic/subresourceSmoke.ts",
+    "harness:generic-karma": "tsx --env-file=../.env src/internal/tres/genericKarmaHarness.ts"
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",

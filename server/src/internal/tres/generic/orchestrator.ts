@@ -52,8 +52,26 @@ export function writeFromManifest(
     return { warnings: ctx.warnings };
   }
 
-  applyFlatFields(resourceSection, entry.fields, entry.fieldOrder, json, ctx);
+  // Expand fieldOrder with Godot's conventional wrapper keys (script
+  // first, metadata trailer last). The manifest declares user-authored
+  // fields only; these wrapper lines exist on every authored Resource
+  // and need positioning anchors so user fields land between them.
+  // Same expansion pattern applies inside sub_resource sections (the
+  // array/subresource handlers do their own equivalent — see those
+  // files). Keys absent from entry.fields are skipped by applyFlatFields
+  // so the existing wrapper lines stay untouched.
+  const fullFieldOrder = wrapWithGodotConventions(entry.fieldOrder);
+  applyFlatFields(resourceSection, entry.fields, fullFieldOrder, json, ctx);
   return { warnings: ctx.warnings };
+}
+
+// Shared with the array + subresource handlers' identical expansion
+// pattern, but kept here as an export so callers can reuse it for any
+// new section-level shape that lands in a future cycle.
+export function wrapWithGodotConventions(
+  userFieldOrder: readonly string[],
+): readonly string[] {
+  return ["script", ...userFieldOrder, "metadata/_custom_type_script"];
 }
 
 // Reusable flat-field application loop. Used by the orchestrator for
