@@ -263,14 +263,14 @@ Server-side dev tools (run via `pnpm --filter @bleepforge/server <name>`):
 
 **In progress (v0.2.6 → v0.3.0):**
 
-- **Genericize for any Godot project.** Five releases on this arc; two shipped, three remaining:
+- **Genericize for any Godot project.** Five releases on this arc; three shipped, two remaining:
   - **v0.2.6** ✓ shipped — manifest contract + library tier 1 (abstract base classes for the four entry kinds: `domain` / `discriminatedFamily` / `foldered` / `enumKeyed`) + editor reads manifest. Editor UI didn't change; FoB workflow stayed unchanged. Foundation.
   - **v0.2.7** ✓ shipped — generic `.tres` mapper (writer half — 12 field-type handler dispatch, override registry, sub-resource reconciliation, ext-resource minting, AtlasTexture preservation, scriptIndex module) + manifest-driven discovery end-to-end (manifestCache singleton, projectIndex extension for all 4 entry kinds, `/api/manifest-domain` endpoints, generic `<DomainList>` UI, dynamic sidebar nav, AppSearch indexing). **Read-only MVP** — Bleepforge edits any manifest project enough to see its declared domains + discovered entities. Karma byte-identical writeback validation (6/6 against real FoB corpus) proves the writer works; production dispatch waits for v0.2.9.
-  - **v0.2.8** — generic importer (`.tres → JSON`), JSON cache for manifest domains, boot reconcile extension, watcher reimport extension, round-trip harness. v0.2.8 = "manifest domains have a JSON cache, edits in Godot propagate to Bleepforge."
+  - **v0.2.8** ✓ shipped — generic `.tres` importer (reader half — 10 handler files covering all 12 field types via uniform dispatch, override registry for FoB's seven hand-rolled importers, `_subId` populated on sub-resource array reads, AtlasTexture preservation contract). JSON cache for manifest-discovered domains (kind-aware paths, `.gitignore` markers per domain folder), boot reconcile extension, watcher reimport extension keeping the cache live via the same generic path. `SyncEvent.domain` widened to `string` so manifest names flow through the sync bus + saves audit feed + toast bridge. **Round-trip harness** (`parse → import → write → emit`, byte-identical) locks the contract: karma 6/6 architectural proof + faction 4/4 + balloon 2/2. FoB workflow unchanged; production dispatch + override retirement land in v0.2.9.
   - **v0.2.9** — edit UI + dispatch wiring + FoB port. Generic `<DomainEdit>` driven by manifest field declarations; per-field-type form renderers; `overrideUi` mechanism so bespoke FoB UIs keep working unchanged; writeTresGeneric wired through dispatch fallthrough; FoB ports to BleepforgeRegistry at cycle end. After v0.2.9, Bleepforge core has zero FoB-specific code.
   - **v0.3.0** — headline cut: "Bleepforge is a generic content studio for any 2D Godot 4 project, or works standalone in notebook mode." Polish, docs, the advertise-able release.
 
-  See the **Genericization arc** section in [CLAUDE.md](CLAUDE.md) for the full design — manifest spec (4 entry kinds + 12 field types), locked decisions (monorepo, FoB port at v0.2.9 close, tiered library, no demo game), and the v0.2.7 generic-mapper architecture.
+  See the **Genericization arc** section in [CLAUDE.md](CLAUDE.md) for the full design — manifest spec (4 entry kinds + 12 field types), locked decisions (monorepo, FoB port at v0.2.9 close, tiered library, no demo game), and the v0.2.7 + v0.2.8 generic mapper + importer architecture.
 
 **Next:**
 

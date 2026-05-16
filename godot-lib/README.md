@@ -2,7 +2,7 @@
 
 A small companion library you drop into your Godot 4 / C# project to make it Bleepforge-compatible.
 
-**Status: v0.2.6 Phase 5 — synthetic test project shipped, end-to-end round-trip validated.** The library + emitter + Bleepforge consumer chain is exercisable today against [test-project/](test-project/) — a minimal Godot project with all four entry kinds. Stable cut + AssetLib publish remain (Phase 6).
+**Status: v0.0.4 — library stable through v0.2.8.** The library + emitter + Bleepforge consumer chain is exercisable today against [test-project/](test-project/) — a minimal Godot project with all four entry kinds. The Bleepforge editor now ships its full round-trip pipeline for manifest-declared domains: v0.2.7 added the generic .tres mapper (writer half), v0.2.8 added the generic .tres importer (reader half) + JSON cache + watcher reimport + round-trip harness. Edit UI + FoB port land in v0.2.9. AssetLib publish stays deferred until the v0.3.0 headline cut.
 
 - **Phase 1** ✓ — folder structure, `plugin.cfg`, placeholder GDScript stub, Apache 2.0 LICENSE.
 - **Phase 2** ✓ — C# library tier 1: `BleepforgeResource` + 4 registry base classes. Walk paths, index by key, opt-in editor hot reload.
@@ -45,7 +45,7 @@ The emitter maps C# types to manifest field types as follows:
 3. **Build C# first.** Click the hammer icon (top-right) or Project → Tools → C# → Build Project. Wait for "Build successful" in the Output panel.
 4. Project → Project Settings → Plugins → enable **Bleepforge**.
 5. The library writes `bleepforge_manifest.json` at your project root immediately.
-6. Point Bleepforge at your Godot project (sync mode) — the Manifest tab in Diagnostics shows the parse result; v0.2.7+ will drive the generic editor surfaces from it.
+6. Point Bleepforge at your Godot project (sync mode) — the Manifest tab in Diagnostics shows the parse result. v0.2.7 surfaces the discovery + identity-only list pages; v0.2.8 populates the JSON cache so the list pages render field values too. Generic edit UI lands v0.2.9.
 
 > **Why step 3 matters:** Godot's plugin loader runs before the project's C# build by default. If you skip the manual build on first install, Godot will try to enable Bleepforge against an empty assembly, fail with `Unable to load addon script from path: 'res://addons/bleepforge/BleepforgePlugin.cs'`, and silently disable the plugin. After step 3 builds the assembly, step 4's enable works on first try. **Subsequent project opens work normally** — the build runs alongside the editor and the plugin loads cleanly. This is a Godot 4 C# addon platform limitation; every C# addon hits it on fresh install.
 
