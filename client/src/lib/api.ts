@@ -209,6 +209,10 @@ export interface ProjectsList {
    *  now" should read this; components that need "what was queued" read
    *  activeSlug. */
   runtimeActiveSlug: string | null;
+  /** The Godot root the running server captured for the active project
+   *  at boot. May lag behind the registry's stored value after a
+   *  Preferences save; useRestartRequired surfaces the discrepancy. */
+  runtimeGodotProjectRoot: string | null;
   bleepforgeRoot: string;
 }
 

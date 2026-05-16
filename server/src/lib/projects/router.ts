@@ -51,6 +51,12 @@ projectsRouter.get("/", (_req, res) => {
     projects: registry?.projects ?? [],
     activeSlug: pointer?.activeSlug ?? null,
     runtimeActiveSlug: config.activeProjectSlug,
+    // What the running server's config has captured for the active
+    // project's Godot root. Clients (useRestartRequired) compare this
+    // against the registry's stored godotProjectRoot for the runtime
+    // active project — when they differ, the user changed the path in
+    // Preferences but the server hasn't reloaded yet.
+    runtimeGodotProjectRoot: config.godotProjectRoot,
     bleepforgeRoot: config.bleepforgeRoot,
   });
 });

@@ -554,6 +554,29 @@ function setGodotProjectRoot(value: string) {
   godotProjectRoot = value.trim();
   persist();
   notify();
+  // Fire projectsBus so useRestartRequired (which watches the
+  // running-vs-stored godotProjectRoot delta) re-checks immediately
+  // after a Preferences save. Without this, the restart icon would
+  // stay dark until the next pointer-changing action.
+  void emitProjectsChangedLazy();
+}
+
+// Lazy + best-effort to avoid pulling features/ into styles/ at the
+// top-level import graph (would create a circular through features/
+// projects/projectsBus → styles/GlobalTheme via other deps). One-time
+// dynamic import; failure is silent.
+let emitProjectsChangedCached: (() => void) | null = null;
+async function emitProjectsChangedLazy(): Promise<void> {
+  try {
+    if (!emitProjectsChangedCached) {
+      const mod = await import("../features/projects/projectsBus");
+      emitProjectsChangedCached = mod.emitProjectsChanged;
+    }
+    emitProjectsChangedCached();
+  } catch {
+    // Bus import / emit failure is non-fatal — the icon will catch up
+    // on its next mount or other projectsBus event.
+  }
 }
 
 export function useGodotProjectRoot(): {
