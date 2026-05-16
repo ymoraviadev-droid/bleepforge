@@ -108,12 +108,13 @@ The Electron app-restart IPC stays in place as a recovery action (Bleepforge upg
 
 Bleepforge ships hardcoded against Flock of Bleeps' seven game-domain schemas + per-domain edit forms + per-domain `.tres` mappers. The bones underneath — `.tres` parser/emitter/writer/watcher, JSON CRUD machinery, asset surface, diagnostics shell, theming, the SSE channels — are all project-agnostic. The schema layer is the only project-specific code.
 
-The v0.2.6 → v0.3.0 arc replaces hardcoded schemas with a **manifest contract** the user's Godot project emits via a small companion library (`godot-lib/`). Three intermediate releases land between today and v0.3.0:
+The v0.2.6 → v0.3.0 arc replaces hardcoded schemas with a **manifest contract** the user's Godot project emits via a small companion library (`godot-lib/`). The arc was originally scoped as four releases (v0.2.6/2.7/2.8/3.0); during v0.2.7 execution it split into five so each release stays small and reviewable. **Schema authoring + C# stub generation** (originally v0.2.8) gets pushed out to a post-v0.3.0 cycle — keeping the v0.2.6 → v0.3.0 arc focused purely on "Bleepforge edits any project that has a manifest" end-to-end.
 
-- **v0.2.6** — Manifest contract + library tier 1 (abstract base classes for the four entry kinds) + editor reads manifest. **Editor UI does NOT change in v0.2.6**; FoB workflow stays unchanged. This release is the foundation; nothing user-visible flips.
-- **v0.2.7** — Generic editor surfaces + override mechanism. Generic `<DomainList>` + `<DomainEdit>` driven by manifest field declarations; generic `.tres` mapper for writeback (the meaty bit — sub-resource reconciliation, ext-resource minting, default-aware per-field, AtlasTexture preservation); bespoke FoB UIs (DialogGraph, NpcEdit, BalloonCard) keep working via override. v0.2.7 = "Bleepforge edits any project that has a manifest."
-- **v0.2.8** — Schema authoring + C# stub generation. Schema editor surface in Bleepforge lets users define new domains (name, fields, key, folder layout, view). Library tier 1.5 reads Bleepforge-authored manifest entries and generates C# stub classes into the user's project; users extend via `partial class`. Two-way: edit schema in Bleepforge → C# in Godot → user wires runtime logic → manifest re-exports → Bleepforge sees it.
-- **v0.3.0** — Headline cut: "Bleepforge is generic." Polish, docs, README pass, the advertise-able release.
+- **v0.2.6** ✓ Shipped 2026-05-16. Manifest contract + library tier 1 (abstract base classes for the four entry kinds) + editor reads manifest. **Editor UI does NOT change in v0.2.6**; FoB workflow stays unchanged. Foundation.
+- **v0.2.7** ✓ Shipped 2026-05-16. Generic `.tres` mapper (writer half — 12 field-type handler dispatch, override registry, ext-resource minting, sub-resource reconcile, AtlasTexture preservation, scriptIndex module) + manifest-driven discovery end-to-end (manifestCache singleton, projectIndex extension for all four entry kinds, `/api/manifest-domain` endpoints, generic `<DomainList>` + `<ManifestIndex>` UI, dynamic sidebar nav, AppSearch indexing). **Read-only MVP** — editor edits any manifest project enough to *see* its declared domains + discovered entities. Karma byte-identical writeback validation (6/6 against real FoB corpus) proves the writer half works end-to-end; production dispatch waits for v0.2.9's edit UI to land.
+- **v0.2.8** — Generic importer (`.tres → JSON`). Mirror-scale to v0.2.7's writer architecture. Plus JSON cache for manifest domains, boot reconcile extension, watcher reimport extension, and a round-trip harness (parse → import → write → emit, byte-identical). v0.2.8 = "manifest domains have a JSON cache, edits in Godot propagate to Bleepforge."
+- **v0.2.9** — Edit UI + dispatch wiring + FoB port. Generic `<DomainEdit>` driven by manifest field declarations; per-field-type form renderers (text input / textarea / number / checkbox / select / AssetPicker / autocomplete-ref / array editor / inline subresource); `overrideUi` mechanism so bespoke FoB UIs keep working unchanged; writeTresGeneric wired through the dispatch fallthrough; **FoB ports to BleepforgeRegistry at cycle end** — its seven overrides retire and Bleepforge core has zero FoB-specific code.
+- **v0.3.0** — Headline cut: "Bleepforge is a generic content studio for any 2D Godot 4 project, or works standalone in notebook mode." Polish, docs, README pass, the advertise-able release.
 
 ### Locked design decisions (2026-05-16)
 
@@ -194,11 +195,13 @@ v0.2.6 / v0.2.7 enums are always read-only in the editor — values come from C#
 
 ### What's NOT in v0.2.6 (deferred)
 
-- Generic edit forms / list views / mappers (v0.2.7).
-- FoB port to the library — never required; future user-side choice for FoB.
+- Generic list views + .tres writer mapper — landed v0.2.7.
+- Generic importer + JSON cache + watcher reimport for manifest domains — scheduled v0.2.8.
+- Generic edit forms + writeTresGeneric dispatch wiring — scheduled v0.2.9.
+- FoB port to the library — scheduled v0.2.9 at cycle close. Originally framed as "never required" during v0.2.6; that constraint was about library development, not the arc's end state. By v0.3.0 Bleepforge core has zero FoB-specific code and FoB consumes Bleepforge via the public manifest contract.
 - Tier 2 helpers (DialogRunner, FlagStore, KarmaApplier) — deferred indefinitely.
-- Schema authoring in Bleepforge (v0.2.8).
-- C# stub generation (v0.2.8).
+- Schema authoring in Bleepforge — pushed out of the v0.2.6 → v0.3.0 arc entirely. Post-v0.3.0 cycle.
+- C# stub generation — same as schema authoring, post-v0.3.0.
 - Demo game (v0.3.0 if at all).
 - Editor UI changes — FoB workflow MUST be unchanged through v0.2.6.
 
@@ -214,7 +217,9 @@ v0.2.6 / v0.2.7 enums are always read-only in the editor — values come from C#
 
 ### Riskiest call across the arc
 
-The v0.2.7 generic mapper. The current per-domain mappers in `server/src/internal/tres/domains/` encode subtle behavior (sub-resource positional reconcile, default-aware emit, ext-resource dedup, AtlasTexture preservation, typed-array literal output). Collapsing to a manifest-driven generic without losing fidelity is the part most likely to balloon. Mitigation: Phase 0's mapper audit (in-file rationale block at the top of [shared/src/manifest.ts](shared/src/manifest.ts)) enumerated every behavior currently relied on — each became either a manifest field or a documented "generic-mapper behavior" the v0.2.7 work knows it has to handle.
+The v0.2.7 generic mapper. ✓ Shipped 2026-05-16 — 12 field-type handlers, override registry for FoB's seven bespoke writers, ext-resource minting + dedup, sub-resource reconcile via `_subId`, AtlasTexture preservation, recursive teardown for nested sub_resources, scriptIndex module. Validated 49 in-process smoke cases + 6/6 byte-identical against the real FoB karma corpus. Phase 0's mapper audit (in-file rationale block at the top of [shared/src/manifest.ts](shared/src/manifest.ts)) enumerated every behavior currently relied on — each became either a manifest field or a documented "generic-mapper behavior" the v0.2.7 work knew it had to handle.
+
+The next riskiest is v0.2.8's **generic importer** (`.tres → JSON`). Mirror-scale work to the writer — every field type needs a read handler, refs reverse-resolve from ext_resource ids back to target keys, `_subId` populates on read. Mitigation: same architecture as the writer (uniform handler signature, smoke harness per field type, validation gate against real corpus). After v0.2.8 ships, a round-trip harness (parse → import → write → emit, byte-identical) becomes possible and locks the contract from both sides.
 
 ## v1 plan (decided)
 
@@ -1023,7 +1028,7 @@ UI subscribers: every list/edit page wires `useSyncRefresh` for its domain (item
 - **Shaders Phase 9+ (deferred)** — `varying` support if we ever build a vertex pipeline; spatial / particles / sky / fog shader types; `#include` directives (would need a resolver for relative `.gdshaderinc` paths).
 - ~~**Wrap with Electron (Phase 1 — dev window)**~~ — done. `pnpm dev:desktop` runs server + client + electron in parallel, the desktop window loads `http://localhost:5173`, HMR + SSE + TS strict mode all preserved.
 - ~~**Wrap with Electron (Phase 2 — Linux AppImage)**~~ — done. `pnpm dist` produces a single self-contained `Bleepforge-<v>-x86_64.AppImage` (~115MB) that runs without sudo on Fedora 44 / KDE / Wayland. Server bundle (esbuild, ~211KB) + client bundle (Vite) + Help library seed all ride inside `app.asar`; user state lives outside in `~/.config/Bleepforge/data/`. macOS (.dmg) / Windows (NSIS) targets are a config-only follow-up — the build pipeline is platform-generic. Auto-update + code signing are deferred until distribution is something other than "the user runs the AppImage from disk." See "Electron desktop wrap" below for the packaging architecture and the five Linux-specific landmines we hit (workspace dep resolution, sandbox flag conflict, /dev/shm, asar fs.cpSync, asar+send).
-- **Genericize for any Godot project** — in progress as the v0.2.6 → v0.3.0 arc. See "Genericization arc (v0.2.6 → v0.3.0)" near the top of this doc for the full plan: manifest contract + library tier 1 in v0.2.6 (Phase 0 schema landed 2026-05-16), generic editor surfaces + override mechanism in v0.2.7, schema authoring + C# stub generation in v0.2.8, headline cut in v0.3.0.
+- **Genericize for any Godot project** — in progress as the v0.2.6 → v0.3.0 arc. See "Genericization arc (v0.2.6 → v0.3.0)" near the top of this doc for the full plan: manifest contract + library tier 1 in v0.2.6 (foundation, shipped 2026-05-16), generic .tres mapper + read-only discovery in v0.2.7 (shipped 2026-05-16), generic importer + JSON cache + watcher reimport in v0.2.8, edit UI + dispatch wiring + FoB port in v0.2.9, headline cut in v0.3.0. Schema authoring + C# stub generation pushed out to a post-v0.3.0 cycle.
 - v1 polish on existing UIs (deferred — Yehonatan: "we'll polish with time").
 
 ## Client `src/` structure

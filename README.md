@@ -188,7 +188,7 @@ bleepforge/
 ├── server/            Express + TS - REST API, .tres parser/writer, watcher
 ├── client/            React + TS + Tailwind + Vite - every authoring UI
 ├── electron/          Electron main process + preload (desktop wrap)
-├── godot-lib/         Godot companion library (v0.2.6 — scaffolding only)
+├── godot-lib/         Godot companion library (v0.2.6+ — manifest emitter, runtime registry bases)
 ├── projects.json      Multi-project registry (gitignored — absolute paths)
 ├── active-project.json Active-project pointer (gitignored)
 └── projects/<slug>/   Per-project storage
@@ -263,13 +263,14 @@ Server-side dev tools (run via `pnpm --filter @bleepforge/server <name>`):
 
 **In progress (v0.2.6 → v0.3.0):**
 
-- **Genericize for any Godot project.** Three intermediate releases land between today and v0.3.0:
-  - **v0.2.6** (in progress) — manifest contract + library tier 1 (abstract base classes for the four entry kinds: `domain` / `discriminatedFamily` / `foldered` / `enumKeyed`) + editor reads manifest. Phase 0 (zod schema in [shared/src/manifest.ts](shared/src/manifest.ts)) shipped 2026-05-16. Editor UI does NOT change; FoB workflow stays unchanged.
-  - **v0.2.7** — generic editor surfaces + override mechanism. Generic `<DomainList>` + `<DomainEdit>` driven by manifest field declarations; generic `.tres` mapper for writeback; bespoke FoB UIs (DialogGraph, NpcEdit, BalloonCard) keep working via override. v0.2.7 = "Bleepforge edits any project that has a manifest."
-  - **v0.2.8** — schema authoring + C# stub generation. Define new domains in Bleepforge → library generates C# stubs into your Godot project → you wire runtime logic via `partial class` → manifest re-exports → Bleepforge sees it.
-  - **v0.3.0** — headline cut: "Bleepforge is generic." Polish, docs, the advertise-able release.
+- **Genericize for any Godot project.** Five releases on this arc; two shipped, three remaining:
+  - **v0.2.6** ✓ shipped — manifest contract + library tier 1 (abstract base classes for the four entry kinds: `domain` / `discriminatedFamily` / `foldered` / `enumKeyed`) + editor reads manifest. Editor UI didn't change; FoB workflow stayed unchanged. Foundation.
+  - **v0.2.7** ✓ shipped — generic `.tres` mapper (writer half — 12 field-type handler dispatch, override registry, sub-resource reconciliation, ext-resource minting, AtlasTexture preservation, scriptIndex module) + manifest-driven discovery end-to-end (manifestCache singleton, projectIndex extension for all 4 entry kinds, `/api/manifest-domain` endpoints, generic `<DomainList>` UI, dynamic sidebar nav, AppSearch indexing). **Read-only MVP** — Bleepforge edits any manifest project enough to see its declared domains + discovered entities. Karma byte-identical writeback validation (6/6 against real FoB corpus) proves the writer works; production dispatch waits for v0.2.9.
+  - **v0.2.8** — generic importer (`.tres → JSON`), JSON cache for manifest domains, boot reconcile extension, watcher reimport extension, round-trip harness. v0.2.8 = "manifest domains have a JSON cache, edits in Godot propagate to Bleepforge."
+  - **v0.2.9** — edit UI + dispatch wiring + FoB port. Generic `<DomainEdit>` driven by manifest field declarations; per-field-type form renderers; `overrideUi` mechanism so bespoke FoB UIs keep working unchanged; writeTresGeneric wired through dispatch fallthrough; FoB ports to BleepforgeRegistry at cycle end. After v0.2.9, Bleepforge core has zero FoB-specific code.
+  - **v0.3.0** — headline cut: "Bleepforge is a generic content studio for any 2D Godot 4 project, or works standalone in notebook mode." Polish, docs, the advertise-able release.
 
-  See the **Genericization arc** section in [CLAUDE.md](CLAUDE.md) for the full design — manifest spec (4 entry kinds + 12 field types), locked decisions (monorepo, no FoB port required, tiered library, no demo game), 7-phase plan for v0.2.6.
+  See the **Genericization arc** section in [CLAUDE.md](CLAUDE.md) for the full design — manifest spec (4 entry kinds + 12 field types), locked decisions (monorepo, FoB port at v0.2.9 close, tiered library, no demo game), and the v0.2.7 generic-mapper architecture.
 
 **Next:**
 
