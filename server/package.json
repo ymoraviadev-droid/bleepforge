@@ -27,7 +27,8 @@
     "smoke:import-refs": "tsx src/internal/import/generic/refsSmoke.ts",
     "smoke:import-arrays": "tsx src/internal/import/generic/arraysSmoke.ts",
     "smoke:import-subresource": "tsx src/internal/import/generic/subresourceSmoke.ts",
-    "harness:import-karma": "tsx --env-file=../.env src/internal/import/genericKarmaHarness.ts"
+    "harness:import-karma": "tsx --env-file=../.env src/internal/import/genericKarmaHarness.ts",
+    "harness:round-trip": "tsx --env-file=../.env src/internal/tres/genericRoundTripHarness.ts"
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",
