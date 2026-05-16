@@ -24,6 +24,7 @@ import { config, folderAbs, isSyncMode, reloadActiveProject } from "./config.js"
 import { assetRouter } from "./lib/asset/router.js";
 import { assetsRouter } from "./lib/assets/router.js";
 import { rebuildAssetCache } from "./lib/assets/cache.js";
+import { manifestCache } from "./lib/manifest/cache.js";
 import { projectIndex } from "./lib/projectIndex/index.js";
 import { scriptIndex } from "./lib/scriptIndex/index.js";
 import { balloonRouter } from "./features/balloon/router.js";
@@ -339,6 +340,16 @@ async function runActiveProjectBoot(): Promise<void> {
     // classification means moving files around in the Godot project
     // doesn't break Bleepforge (until/unless we add a domain whose
     // identity isn't extractable from the file's body).
+    // Manifest cache builds FIRST so projectIndex's manifest-aware
+    // classifiers (commit #9+) can consume it during the index walk.
+    // Empty / missing / invalid manifests are non-fatal — they just
+    // mean no manifest-declared domains get indexed; FoB's hardcoded
+    // classifiers still run independently.
+    await manifestCache.build();
+    const manifestStatus = manifestCache.status();
+    console.log(
+      `[bleepforge/server] manifest: ${manifestStatus.state ?? "not-loaded"} (${manifestStatus.domains} domain(s), ${manifestStatus.subResources} sub-resource(s))`,
+    );
     const stats = await projectIndex.build(config.godotProjectRoot);
     console.log(
       `[bleepforge/server] project index: ${stats.tresCount} .tres + ${stats.pickupCount} pickup .tscn in ${stats.durationMs}ms (${stats.filesVisited} files visited)`,
@@ -357,12 +368,14 @@ async function runActiveProjectBoot(): Promise<void> {
     // previous sync-mode active don't leak into /api/pickups etc.
     projectIndex.reset();
     scriptIndex.reset();
+    manifestCache.reset();
     console.log(
       `[bleepforge/server] notebook mode: skipping project index + boot reconcile (no .tres tree)`,
     );
   } else {
     projectIndex.reset();
     scriptIndex.reset();
+    manifestCache.reset();
     console.warn(
       `[bleepforge/server] limp mode: no Godot root → skipping project index + boot reconcile`,
     );

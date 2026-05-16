@@ -20,10 +20,12 @@
 import chokidar, { type FSWatcher } from "chokidar";
 import type { Stats } from "node:fs";
 
+import { MANIFEST_FILENAME } from "@bleepforge/shared";
 import { config, isSyncMode } from "../../config.js";
 import { removeImage, upsertImage } from "../../lib/assets/cache.js";
 import { isImagePath } from "../../lib/assets/discover.js";
 import { publishAssetEvent } from "../../lib/assets/eventBus.js";
+import { manifestCache } from "../../lib/manifest/cache.js";
 import { projectIndex } from "../../lib/projectIndex/index.js";
 import { recordSave } from "../../lib/saves/buffer.js";
 import { removeShader, upsertShader } from "../../lib/shaders/cache.js";
@@ -116,6 +118,10 @@ export function startTresWatcher(): void {
         if (p.endsWith(".tscn")) return false;
         if (isImagePath(p)) return false;
         if (p.endsWith(".gdshader")) return false;
+        // Manifest file (one specific filename at the project root).
+        // Catches both edits from the godot-lib emitter (Tools menu, build
+        // hook, editor-load auto-export) AND hand-edits during dev.
+        if (p.endsWith(`/${MANIFEST_FILENAME}`)) return false;
         return true;
       }
       return false;
@@ -171,6 +177,27 @@ export function stopTresWatcher(): void {
 }
 
 async function handleEvent(absPath: string, kind: WatcherEventKind): Promise<void> {
+  // Manifest file: refresh the in-memory cache. Affects projectIndex's
+  // manifest-derived classifiers + any consumer of manifestCache.get().
+  // No SSE event for now — manifest changes are rare (per godot-lib's
+  // export triggers: editor open / Tools menu / build hook) and the
+  // consumers that care (generic mapper, projectIndex) re-read on
+  // demand. If a future feature needs reactive manifest awareness,
+  // publish here.
+  if (absPath.endsWith(`/${MANIFEST_FILENAME}`)) {
+    if (kind === "unlink") {
+      manifestCache.reset();
+      console.log(`[tres-watcher] manifest removed`);
+    } else {
+      await manifestCache.refresh();
+      const s = manifestCache.status();
+      console.log(
+        `[tres-watcher] manifest ${kind}: ${s.domains} domain(s), ${s.subResources} sub-resource(s)`,
+      );
+    }
+    return;
+  }
+
   // Image files take a separate, much simpler path: refresh the asset
   // cache entry and publish an AssetEvent. No domain detection, no
   // self-write suppression (Bleepforge doesn't write images yet — Phase 3).
