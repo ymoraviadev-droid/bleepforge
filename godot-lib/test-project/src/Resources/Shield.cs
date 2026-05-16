@@ -4,16 +4,11 @@
 
 namespace BleepforgeTestProject;
 
+using Bleepforge;
 using Godot;
 
-[GlobalClass]
+[GlobalClass, BleepforgeVariantValue("Shield")]
 public partial class Shield : Equipment
 {
-    public Shield()
-    {
-        // See Sword.cs for why this constructor exists.
-        Type = EquipmentType.Shield;
-    }
-
     [Export] public int Defense { get; set; } = 0;
 }

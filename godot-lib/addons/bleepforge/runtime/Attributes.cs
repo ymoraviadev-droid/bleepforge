@@ -223,3 +223,53 @@ public sealed class BleepforgeDomainAttribute : Attribute
         Name = name;
     }
 }
+
+/// <summary>
+/// Declares the discriminator-field value for a variant in a
+/// <c>discriminatedFamily</c> entry. Applied to a subclass of a
+/// <see cref="BleepforgeResource"/> base whose registry is a
+/// <see cref="BleepforgeDiscriminatedRegistry{TBase}"/>.
+///
+/// <para>
+/// Background: the manifest emitter needs to know which discriminator
+/// value selects each variant (so the editor can map .tres rows back to
+/// the right variant entry). Without this attribute the emitter falls
+/// back to <c>Activator.CreateInstance</c> on the variant type and
+/// reads the discriminator property's default — but C# inheritance
+/// means every variant inherits the base class's default initializer
+/// for the discriminator field, so <c>new Sword()</c> and
+/// <c>new Shield()</c> both report <c>EquipmentType.Sword</c> (the
+/// enum's first value) unless each variant explicitly reassigns the
+/// field. Result without per-variant assignment: every variant gets
+/// the same discriminator value in the manifest and the editor
+/// misclassifies every row.
+/// </para>
+///
+/// <para>
+/// Apply this attribute to each variant class to declare its
+/// discriminator value explicitly. The value string must match one of
+/// the discriminator enum's value names (the manifest stores enums as
+/// their string-name form). The pre-attribute workaround was to set
+/// the discriminator in each variant's constructor; that still works
+/// but shifts type-system responsibility onto runtime code.
+/// </para>
+/// </summary>
+/// <example>
+/// <code>
+/// [GlobalClass, BleepforgeVariantValue("Sword")]
+/// public partial class Sword : Equipment
+/// {
+///     [Export] public int Damage { get; set; } = 0;
+/// }
+/// </code>
+/// </example>
+[AttributeUsage(AttributeTargets.Class, AllowMultiple = false, Inherited = false)]
+public sealed class BleepforgeVariantValueAttribute : Attribute
+{
+    public string Value { get; }
+
+    public BleepforgeVariantValueAttribute(string value)
+    {
+        Value = value;
+    }
+}

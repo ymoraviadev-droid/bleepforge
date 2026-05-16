@@ -893,6 +893,14 @@ public sealed class ManifestEmitter
     private static string? TryReadDiscriminatorValue(Type variantType, string? discriminatorName)
     {
         if (string.IsNullOrEmpty(discriminatorName)) return null;
+        // Prefer the explicit attribute. C# inheritance makes the
+        // instance-default fallback unreliable: every variant inherits
+        // the base's default initializer for the discriminator field, so
+        // `new Sword()` and `new Shield()` both report the base enum's
+        // first value unless each variant reassigns the field. Reading
+        // the attribute first avoids that whole class of misclassification.
+        var attr = variantType.GetCustomAttribute<BleepforgeVariantValueAttribute>(inherit: false);
+        if (attr != null) return attr.Value;
         var instance = TryInstantiate(variantType);
         if (instance == null) return null;
         var prop = variantType.GetProperty(
