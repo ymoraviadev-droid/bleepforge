@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useCatalog } from "../lib/useCatalog";
+import { useManifestDomains } from "../features/manifest/useManifestDomains";
 import {
   buildSearchFuse,
   buildSearchItems,
@@ -21,6 +22,7 @@ const KIND_LABEL: Record<SearchKind, string> = {
   balloon: "Balloon",
   codex: "Codex",
   shader: "Shader",
+  manifest: "Domain",
   page: "Page",
 };
 
@@ -46,6 +48,12 @@ const KIND_STYLE: Record<SearchKind, string> = {
   // canvas_item tint, so the search-row badge feels like the same surface
   // even before the user opens it.
   shader: "border-lime-700/60 text-lime-300",
+  // Manifest-declared domains use teal — distinct from every FoB kind
+  // (which sit on the warm-and-bright half of the palette: amber, cyan,
+  // red, violet, orange, blue, pink, lime). Teal reads "generic /
+  // platform" in this context, which matches the "this domain comes
+  // from the user's project, not Bleepforge core" semantic.
+  manifest: "border-teal-700/60 text-teal-300",
   page: "border-neutral-700/60 text-neutral-400",
 };
 
@@ -84,6 +92,7 @@ function SearchIcon({ size = 12 }: { size?: number }) {
 
 export function AppSearch() {
   const catalog = useCatalog();
+  const manifestDomains = useManifestDomains();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -93,8 +102,11 @@ export function AppSearch() {
   const activeRef = useRef<HTMLLIElement>(null);
 
   const fuse = useMemo(
-    () => (catalog ? buildSearchFuse(buildSearchItems(catalog)) : null),
-    [catalog],
+    () =>
+      catalog
+        ? buildSearchFuse(buildSearchItems(catalog, manifestDomains.data))
+        : null,
+    [catalog, manifestDomains.data],
   );
 
   const results = useMemo<SearchItem[]>(() => {

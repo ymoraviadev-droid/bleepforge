@@ -1,4 +1,5 @@
 import Fuse, { type IFuseOptions } from "fuse.js";
+import type { ManifestDomainSummary } from "../api";
 import type { Catalog } from "../useCatalog";
 
 export type SearchKind =
@@ -11,6 +12,7 @@ export type SearchKind =
   | "balloon"
   | "codex"
   | "shader"
+  | "manifest"
   | "page";
 
 export interface SearchItem {
@@ -53,7 +55,10 @@ const STATIC_PAGES: SearchItem[] = [
   { kind: "page", key: "page:help", label: "Help", href: "/help" },
 ];
 
-export function buildSearchItems(catalog: Catalog): SearchItem[] {
+export function buildSearchItems(
+  catalog: Catalog,
+  manifestDomains?: ManifestDomainSummary[] | null,
+): SearchItem[] {
   const items: SearchItem[] = [];
 
   for (const npc of catalog.npcs) {
@@ -165,6 +170,24 @@ export function buildSearchItems(catalog: Catalog): SearchItem[] {
       sublabel: sh.basename,
       context: sh.parentRel || undefined,
       href: `/shaders/edit?path=${encodeURIComponent(sh.path)}`,
+    });
+  }
+
+  // Manifest-declared domains — each becomes a search target linking
+  // to the domain's list page. Individual entities are NOT indexed yet:
+  // there's no per-entity detail route in v0.2.7's read-only MVP, so an
+  // entity match would resolve to the same /manifest/<domain> page as
+  // the domain match itself. Entity indexing waits for v0.2.9 when each
+  // entity has an edit route. Domain-level indexing is enough to make
+  // "type the domain name and jump there" work via Ctrl+K.
+  for (const d of manifestDomains ?? []) {
+    items.push({
+      kind: "manifest",
+      key: `manifest:${d.domain}`,
+      label: d.displayName ?? d.domain,
+      sublabel: d.kind,
+      context: d.class ?? undefined,
+      href: `/manifest/${encodeURIComponent(d.domain)}`,
     });
   }
 
