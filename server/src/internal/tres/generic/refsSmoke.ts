@@ -277,6 +277,10 @@ function runCase(c: Case): string | null {
       c.resolvers?.resolveTextureUid ?? (failOnUnexpectedResolve("resolveTextureUid") as () => string | null),
     resolveSceneUid:
       c.resolvers?.resolveSceneUid ?? (failOnUnexpectedResolve("resolveSceneUid") as () => string | null),
+    resolveScriptByClassName: failOnUnexpectedResolve("resolveScriptByClassName") as () =>
+      | { resPath: string; uid: string }
+      | null,
+    subResources: new Map(),
   };
   writeFromManifest(doc, c.entry, c.json, ctx);
   const emitted = emitTres(doc);

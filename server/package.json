@@ -18,7 +18,8 @@
     "test-mutations": "tsx --env-file=../.env src/internal/tres/test-mutations.ts",
     "migrate-subids": "tsx --env-file=../.env src/internal/tres/migrate-subids.ts",
     "smoke:generic": "tsx src/internal/tres/generic/scalarsSmoke.ts",
-    "smoke:generic-refs": "tsx src/internal/tres/generic/refsSmoke.ts"
+    "smoke:generic-refs": "tsx src/internal/tres/generic/refsSmoke.ts",
+    "smoke:generic-arrays": "tsx src/internal/tres/generic/arraysSmoke.ts"
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",

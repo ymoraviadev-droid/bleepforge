@@ -12,7 +12,7 @@
 // sub_resource sections) read/mutate via the WriterContext rather than
 // returning structured side-effects.
 
-import type { FieldDef } from "@bleepforge/shared";
+import type { FieldDef, SubResource } from "@bleepforge/shared";
 import type { Doc, Section } from "../types.js";
 
 // Resolver callbacks the orchestrator's caller (writeTres in the wired
@@ -48,6 +48,20 @@ export interface WriterContext {
   // either a `res://` path (FoB JSON convention) or an absolute fs
   // path. ProjectIndex.getByResPath in the wired path.
   resolveSceneUid: (resPathOrAbsPath: string) => string | null;
+  // array handler (sub-resource arrays) needs to look up the
+  // underlying C# script for each sub-resource class, so it can find
+  // or mint the script ext_resource that every sub_resource section
+  // references via its `script = ExtResource(...)` line. Returns the
+  // .cs file's res:// path + Godot UID. scriptIndex-backed in the
+  // wired path.
+  resolveScriptByClassName: (className: string) =>
+    | { resPath: string; uid: string }
+    | null;
+  // Manifest sub-resource declarations keyed by `subResource` name.
+  // Used when an `array.of` or `subresource.of` field needs to know
+  // the target's fields + fieldOrder + class name. The wired path
+  // populates this from the loaded manifest's `subResources` array.
+  subResources: Map<string, SubResource>;
 }
 
 export type FieldHandler = (

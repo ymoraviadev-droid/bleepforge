@@ -23,6 +23,7 @@
 import type { Entry, FieldsRecord } from "@bleepforge/shared";
 import { reconcileProperty } from "../mutate.js";
 import type { Doc, Section } from "../types.js";
+import { applyArrayField } from "./handlers/array.js";
 import { getHandler } from "./handlers/registry.js";
 import { isFieldApplicable } from "./showWhen.js";
 import type { WriterContext } from "./types.js";
@@ -76,11 +77,19 @@ export function applyFlatFields(
       continue;
     }
 
+    // Array fields have their own dispatcher: sub-resource arrays
+    // mutate the doc (insert/remove sub_resource sections), ref arrays
+    // dedup-mint ext_resources. Both update the property line via
+    // reconcileProperty themselves, so the generic handler-table
+    // dispatch below doesn't apply.
+    if (fieldDef.type === "array") {
+      applyArrayField(section, fieldOrder, propName, fieldDef, json[propName], ctx);
+      continue;
+    }
+
     const handler = getHandler(fieldDef.type);
     if (!handler) {
-      // Non-scalar types fall here in commit #2 (ref, texture, scene,
-      // array, subresource). Skipped + flagged so downstream commits
-      // can flip this branch on as each handler lands.
+      // Subresource (single inline) falls here until commit #5.
       ctx.warnings.push(
         `no handler for field type "${fieldDef.type}" (prop "${propName}")`,
       );

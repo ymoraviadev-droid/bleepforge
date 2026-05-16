@@ -293,6 +293,8 @@ function runCase(c: Case): string | null {
     resolveRef: () => null,
     resolveTextureUid: () => null,
     resolveSceneUid: () => null,
+    resolveScriptByClassName: () => null,
+    subResources: new Map(),
   };
   writeFromManifest(doc, c.entry, c.json, ctx);
   const emitted = emitTres(doc);

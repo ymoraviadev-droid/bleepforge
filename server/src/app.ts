@@ -25,6 +25,7 @@ import { assetRouter } from "./lib/asset/router.js";
 import { assetsRouter } from "./lib/assets/router.js";
 import { rebuildAssetCache } from "./lib/assets/cache.js";
 import { projectIndex } from "./lib/projectIndex/index.js";
+import { scriptIndex } from "./lib/scriptIndex/index.js";
 import { balloonRouter } from "./features/balloon/router.js";
 import { codexRouter } from "./features/codex/router.js";
 import { conceptRouter } from "./features/concept/router.js";
@@ -342,17 +343,26 @@ async function runActiveProjectBoot(): Promise<void> {
     console.log(
       `[bleepforge/server] project index: ${stats.tresCount} .tres + ${stats.pickupCount} pickup .tscn in ${stats.durationMs}ms (${stats.filesVisited} files visited)`,
     );
+    // Script index runs alongside the project index. Cheap (~5ms for
+    // FoB's ~80 .cs files); used by the generic mapper's array +
+    // subresource handlers when minting new sub_resource sections.
+    await scriptIndex.build(config.godotProjectRoot);
+    console.log(
+      `[bleepforge/server] script index: ${scriptIndex.list().length} .cs files`,
+    );
     await runBootReconcile();
   } else if (config.projectMode === "notebook") {
     // Notebook projects don't have a .tres tree, so the index would
     // be empty by definition. Reset it so leftover entries from a
     // previous sync-mode active don't leak into /api/pickups etc.
     projectIndex.reset();
+    scriptIndex.reset();
     console.log(
       `[bleepforge/server] notebook mode: skipping project index + boot reconcile (no .tres tree)`,
     );
   } else {
     projectIndex.reset();
+    scriptIndex.reset();
     console.warn(
       `[bleepforge/server] limp mode: no Godot root → skipping project index + boot reconcile`,
     );
