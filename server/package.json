@@ -16,7 +16,8 @@
     "canary-dialog": "tsx --env-file=../.env src/internal/tres/canary-dialog.ts",
     "canary-quest": "tsx --env-file=../.env src/internal/tres/canary-quest.ts",
     "test-mutations": "tsx --env-file=../.env src/internal/tres/test-mutations.ts",
-    "migrate-subids": "tsx --env-file=../.env src/internal/tres/migrate-subids.ts"
+    "migrate-subids": "tsx --env-file=../.env src/internal/tres/migrate-subids.ts",
+    "smoke:generic": "tsx src/internal/tres/generic/scalarsSmoke.ts"
   },
   "dependencies": {
     "@bleepforge/shared": "workspace:*",
