@@ -2,7 +2,8 @@ import { Router } from "express";
 import { DialogSequenceSchema } from "@bleepforge/shared";
 import * as storage from "./storage.js";
 import { recordSave } from "../../lib/saves/buffer.js";
-import { writeDialogTres, type TresWriteResult } from "../../internal/tres/writer.js";
+import type { TresWriteResult } from "../../internal/tres/writer.js";
+import { writeTres } from "../../internal/tres/generic/writer.js";
 
 export const dialogRouter: Router = Router();
 
@@ -54,7 +55,7 @@ dialogRouter.put("/:folder/:id", async (req, res) => {
   const saved = await storage.write(folder, parsed.data);
   let tresWrite: TresWriteResult = { attempted: false };
   try {
-    tresWrite = await writeDialogTres(folder, saved);
+    tresWrite = await writeTres("dialog", saved, { folder });
   } catch (err) {
     tresWrite = { attempted: true, ok: false, error: String(err) };
   }

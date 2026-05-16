@@ -2,7 +2,8 @@ import { Router } from "express";
 import { BalloonSchema } from "@bleepforge/shared";
 import * as storage from "./storage.js";
 import { recordSave } from "../../lib/saves/buffer.js";
-import { writeBalloonTres, type TresWriteResult } from "../../internal/tres/writer.js";
+import type { TresWriteResult } from "../../internal/tres/writer.js";
+import { writeTres } from "../../internal/tres/generic/writer.js";
 
 // Folder-aware HTTP surface for the Balloons domain. Mirrors dialog/router.ts.
 // The PUT handler also writes back to the matching .tres in the Godot project
@@ -45,7 +46,7 @@ balloonRouter.put("/:folder/:id", async (req, res) => {
   const saved = await storage.write(folder, parsed.data);
   let tresWrite: TresWriteResult = { attempted: false };
   try {
-    tresWrite = await writeBalloonTres(folder, saved);
+    tresWrite = await writeTres("balloon", saved, { folder });
   } catch (err) {
     tresWrite = { attempted: true, ok: false, error: String(err) };
   }
