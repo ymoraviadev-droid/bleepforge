@@ -23,9 +23,17 @@ export function useSyncToasts(): void {
   useEffect(() => {
     const onSync = (e: CustomEvent<SyncEvent>) => {
       const { domain, key, action } = e.detail;
-      const info = DOMAIN_LABELS[domain];
-      if (!info) return;
       const updated = action === "updated";
+      const info = DOMAIN_LABELS[domain];
+      // FoB domains have explicit metadata (label + per-action route).
+      // Manifest-discovered domains use the raw domain name + route to
+      // /manifest/:domain — close enough until v0.2.9's edit form adds
+      // per-entity deep links.
+      const label = info?.label ?? domain;
+      const body = info ? toToastBody(domain, key) : `${domain}/${key}`;
+      const route = info
+        ? (updated ? info.updatedRoute(key) : info.deletedRoute(key))
+        : `/manifest/${encodeURIComponent(domain)}`;
       pushToast({
         // Dedupe by domain+key so rapid re-saves of the same entity
         // replace the existing toast instead of stacking. Action is
@@ -37,9 +45,9 @@ export function useSyncToasts(): void {
         // would just read "X saved" and be visually distinguishable
         // only by color, which fails accessibility for color-blind
         // users.
-        title: `${info.label} ${updated ? "updated externally" : "deleted externally"}`,
-        body: toToastBody(domain, key),
-        to: updated ? info.updatedRoute(key) : info.deletedRoute(key),
+        title: `${label} ${updated ? "updated externally" : "deleted externally"}`,
+        body,
+        to: route,
         variant: updated ? "success" : "warn",
       });
     };

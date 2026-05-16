@@ -16,7 +16,15 @@ export type SyncDomain =
   | "shader";
 
 export interface SyncEvent {
-  domain: SyncDomain;
+  /**
+   * Domain identifier. One of the hardcoded SyncDomain literals (FoB
+   * game domains + shader) OR a manifest-discovered domain name. The
+   * type is widened to `string` since manifest names are user-defined
+   * and can't be enumerated at compile time. Consumers that exhaustively
+   * dispatch (the store-refresh map, save-feed labels) handle unknown
+   * names via Map miss / fallback string.
+   */
+  domain: string;
   // For dialog: "<folder>/<id>". For others: the entity's primary key.
   key: string;
   action: "updated" | "deleted";

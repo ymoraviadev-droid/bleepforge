@@ -9,6 +9,11 @@
 
 import type { SaveAction, SaveDomain } from "../api";
 
+// Domain accepts any string — SaveDomain literals + manifest-discovered
+// domain names. The Record below remains exhaustive for the SaveDomain
+// literals (via `satisfies`); unknown names fall through to a manifest
+// route + raw-name label.
+
 interface DomainRoute {
   label: string;
   // The optional `path` arg carries SaveEvent.path (absolute filesystem
@@ -20,7 +25,7 @@ interface DomainRoute {
   deleted: (key: string) => string;
 }
 
-const DOMAIN: Record<SaveDomain, DomainRoute> = {
+const DOMAIN = {
   item: {
     label: "Item",
     updated: (key) => `/items/${encodeURIComponent(key)}`,
@@ -117,34 +122,47 @@ const DOMAIN: Record<SaveDomain, DomainRoute> = {
     updated: (key) => `/codex/${encodeURIComponent(key)}/_meta`,
     deleted: () => "/codex",
   },
-};
+} satisfies Record<SaveDomain, DomainRoute>;
+
+// Lookup helper that accepts any string. Returns undefined for
+// manifest-discovered domains so callers can fall back to manifest-
+// generic behavior (route to /manifest/<domain>, label = raw name).
+function lookup(domain: string): DomainRoute | undefined {
+  return (DOMAIN as Record<string, DomainRoute>)[domain];
+}
 
 export function routeForSave(
-  domain: SaveDomain,
+  domain: string,
   key: string,
   action: SaveAction,
   path?: string,
 ): string {
-  const route = DOMAIN[domain];
+  const route = lookup(domain);
+  if (!route) {
+    // Manifest-discovered domain — no per-entity edit page yet (v0.2.9);
+    // route both updated + deleted to the domain list.
+    return `/manifest/${encodeURIComponent(domain)}`;
+  }
   return action === "updated" ? route.updated(key, path) : route.deleted(key);
 }
 
-export function labelForDomain(domain: SaveDomain): string {
-  return DOMAIN[domain].label;
+export function labelForDomain(domain: string): string {
+  return lookup(domain)?.label ?? domain;
 }
 
-/** For composite-key domains (dialog, balloon, codex-entry), render
- *  "folder / id" with breathing room; otherwise the key as-is. Used in
- *  row body so the eye can scan domain + slug fast. */
-export function displayKey(domain: SaveDomain, key: string): string {
-  if (
-    domain !== "dialog" &&
-    domain !== "balloon" &&
-    domain !== "codex-entry"
-  ) {
-    return key;
-  }
+/** For composite-key domains (dialog, balloon, codex-entry, manifest
+ *  foldered), render "folder / id" with breathing room. The manifest
+ *  branch can't know the entry kind from the client side, so use a
+ *  heuristic: composite key contains a slash. */
+export function displayKey(domain: string, key: string): string {
+  const known =
+    domain === "dialog" || domain === "balloon" || domain === "codex-entry";
   const slash = key.indexOf("/");
   if (slash < 0) return key;
-  return `${key.slice(0, slash)} / ${key.slice(slash + 1)}`;
+  // For known composite-key domains always split; for unknown domains
+  // split only when a slash is present (no false positives on plain ids).
+  if (known) {
+    return `${key.slice(0, slash)} / ${key.slice(slash + 1)}`;
+  }
+  return key;
 }

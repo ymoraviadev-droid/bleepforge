@@ -2,7 +2,8 @@ import { useCallback, useState } from "react";
 
 import type { ExternalChangeKind } from "../../components/ExternalChangeBanner";
 import { useSyncRefresh } from "./useSyncRefresh";
-import type { SyncDomain } from "./stream";
+// Domain accepts any string — SyncDomain literals plus manifest-
+// discovered domain names. Phase 4+.
 
 // Dirty-aware bridge over `useSyncRefresh`. Watches a single entity for
 // external changes and:
@@ -23,8 +24,9 @@ import type { SyncDomain } from "./stream";
 // against.
 
 interface Options<T> {
-  /** Which sync domain to watch. */
-  domain: SyncDomain;
+  /** Which sync domain to watch. Any string — SyncDomain literals
+   *  (FoB) or manifest-discovered domain names. */
+  domain: string;
   /** The specific entity key — `<folder>/<id>` for dialog+balloon, the
    *  primary key otherwise. Pass undefined for new-entity forms. */
   key?: string;

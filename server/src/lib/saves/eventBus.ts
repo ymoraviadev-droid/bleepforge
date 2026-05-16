@@ -32,7 +32,13 @@ export type SaveDomain =
 export interface SaveEvent {
   ts: string;
   direction: SaveDirection;
-  domain: SaveDomain;
+  /**
+   * Domain identifier. One of the SaveDomain literals OR a manifest-
+   * discovered domain name. Widened to string for the same reason
+   * SyncEvent.domain is: manifest names are user-defined and can't be
+   * enumerated. See SyncEvent for the consumer-side handling pattern.
+   */
+  domain: string;
   // For dialog: "<folder>/<id>". For others: the entity's primary key.
   key: string;
   // Outgoing is always "updated" (no .tres deletion). Incoming may be

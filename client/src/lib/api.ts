@@ -578,7 +578,10 @@ export type SaveDomain =
 export interface SaveEntry {
   ts: string;
   direction: SaveDirection;
-  domain: SaveDomain;
+  /** Domain identifier. One of the SaveDomain literals OR a manifest-
+   *  discovered domain name. Widened to string in v0.2.8 Phase 4 since
+   *  manifest names are user-defined. */
+  domain: string;
   key: string; // "<folder>/<id>" for dialogs; primary key otherwise
   action: SaveAction;
   outcome: SaveOutcome;

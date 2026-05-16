@@ -16,7 +16,7 @@ export interface DomainInfo {
   deletedRoute: (key: string) => string;
 }
 
-export const DOMAIN_LABELS: Record<SaveDomain, DomainInfo> = {
+const DOMAIN_LABELS_NARROW = {
   item: {
     label: "Item",
     updatedRoute: (key) => `/items/${encodeURIComponent(key)}`,
@@ -112,13 +112,22 @@ export const DOMAIN_LABELS: Record<SaveDomain, DomainInfo> = {
       `/codex/${encodeURIComponent(key)}/_meta`,
     deletedRoute: () => "/codex",
   },
-};
+} satisfies Record<SaveDomain, DomainInfo>;
+
+// Index by any string for manifest-domain compatibility. The
+// `satisfies` clause above keeps the exhaustiveness check for the
+// hardcoded SaveDomain literals — drop one and tsc complains there,
+// not here.
+export const DOMAIN_LABELS: Readonly<Record<string, DomainInfo | undefined>> =
+  DOMAIN_LABELS_NARROW;
 
 // Display body for a toast. Dialog + balloon keys get rendered as
 // "folder / id" with a visible separator for readability; everything
 // else uses the key verbatim. Shader keys are file paths; show just
-// the basename to keep the toast narrow.
-export function toToastBody(domain: SaveDomain, key: string): string {
+// the basename to keep the toast narrow. Manifest-discovered domains
+// use the same heuristic split (composite key contains a slash) since
+// the client can't distinguish kind without a manifest-cache fetch.
+export function toToastBody(domain: string, key: string): string {
   if (
     domain === "dialog" ||
     domain === "balloon" ||

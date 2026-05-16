@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { SyncDomain, SyncEvent } from "./stream";
+import type { SyncEvent } from "./stream";
 
 // Listens for `Bleepforge:sync` events on `window` and calls `onChange`
 // when one matches the given domain (and key, if provided).
@@ -7,9 +7,13 @@ import type { SyncDomain, SyncEvent } from "./stream";
 //   useSyncRefresh({ domain: "item", onChange: refetchList });   // any item
 //   useSyncRefresh({ domain: "item", key: slug, onChange: ... }); // one item
 //   useSyncRefresh({ domain: "dialog", key: `${folder}/${id}`, onChange: ... });
+//   useSyncRefresh({ domain: "note", onChange: refetchManifestDomain });
+//
+// `domain` accepts any string — SyncDomain literals (FoB hardcoded) AND
+// manifest-discovered domain names (v0.2.8 Phase 4+).
 
 export function useSyncRefresh(opts: {
-  domain: SyncDomain;
+  domain: string;
   key?: string;
   onChange: (event: SyncEvent) => void;
 }): void {

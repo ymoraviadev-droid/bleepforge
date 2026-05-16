@@ -7,6 +7,10 @@ import { readFile, writeFile, mkdir, unlink } from "node:fs/promises";
 import { dirname, sep } from "node:path";
 
 import { config, folderAbs } from "../../config.js";
+import {
+  deleteJsonForManifest,
+  reimportOneManifest,
+} from "../../lib/manifest/reimport.js";
 import { projectIndex } from "../../lib/projectIndex/index.js";
 import {
   mapBalloon,
@@ -27,17 +31,16 @@ import type { SyncDomain } from "../../lib/sync/eventBus.js";
 
 export interface ReimportResult {
   ok: boolean;
-  domain?: SyncDomain;
+  domain?: string;
   key?: string;
   jsonPath?: string;
   error?: string;
 }
 
-// Set of SyncDomain literals — kept here to gate "is this entry's
-// domain known to the sync bus?" Manifest-declared domains aren't in
-// this set, so they correctly return null from detectDomain (no
-// existing import mapper exists for them; reimport is a no-op until
-// the generic importer lands in v0.2.8).
+// Set of FoB-hardcoded domain literals — kept here to gate "is this
+// entry's domain handled by a hand-rolled mapper?" Manifest-discovered
+// domains aren't in this set; detectDomain tags them `kind: "manifest"`
+// so reimportOne / deleteJsonFor route them to the generic path.
 const SYNC_DOMAINS: ReadonlySet<SyncDomain> = new Set<SyncDomain>([
   "item",
   "karma",
@@ -53,34 +56,59 @@ function asSyncDomain(domain: string): SyncDomain | null {
   return SYNC_DOMAINS.has(domain as SyncDomain) ? (domain as SyncDomain) : null;
 }
 
+export type DetectedDomain =
+  | { kind: "fob"; domain: SyncDomain; key: string }
+  | { kind: "manifest"; domain: string; key: string };
+
 // Determines the domain + canonical id from a .tres path. Reads from
 // ProjectIndex — content-driven, no hardcoded folder pattern matching.
-// Returns null if the file isn't indexed (e.g. a support resource the
-// classifier didn't bucket into any domain) OR if the file's domain is
-// manifest-declared (not yet in the sync event bus's vocabulary).
-export function detectDomain(absPath: string): {
-  domain: SyncDomain;
-  key: string;
-} | null {
+// Returns null if the file isn't indexed (a support resource the
+// classifier didn't bucket into any domain). Otherwise tags the result
+// `fob` (handled by the seven hardcoded importers) or `manifest`
+// (handled by the generic importer / reimportOneManifest).
+export function detectDomain(absPath: string): DetectedDomain | null {
   const entry = projectIndex.getByAbsPath(absPath);
   if (!entry) return null;
   if (!("id" in entry)) return null; // IndexedPickup — has no id
-  const domain = asSyncDomain(entry.domain);
-  if (!domain) return null; // manifest-only domain; v0.2.8 wires reimport
+  const fobDomain = asSyncDomain(entry.domain);
+  if (!fobDomain) {
+    // Manifest-discovered domain. Composite/foldered ids already live
+    // in entry.id for these (projectIndex tags them at classify time);
+    // no special-case post-processing.
+    return { kind: "manifest", domain: entry.domain, key: entry.id };
+  }
   // entry.id is the canonical identity (Slug for items, NpcId for npcs,
   // composite "folder/basename" for balloons + dialogs, Faction enum
   // string for factions). For dialogs, the SyncEvent shape historically
-  // used "folder/Id" — preserve that for the client subscribers (they
-  // listen on the composite key from the dialog list pages).
-  if (domain === "dialog" && entry.folder) {
-    return { domain: "dialog", key: `${entry.folder}/${entry.id}` };
+  // used "folder/Id" — preserve that for the client subscribers.
+  if (fobDomain === "dialog" && entry.folder) {
+    return { kind: "fob", domain: "dialog", key: `${entry.folder}/${entry.id}` };
   }
-  return { domain, key: entry.id };
+  return { kind: "fob", domain: fobDomain, key: entry.id };
 }
 
 export async function reimportOne(absPath: string): Promise<ReimportResult> {
   const detected = detectDomain(absPath);
   if (!detected) return { ok: false, error: "path doesn't match any authored domain" };
+
+  // Manifest-discovered domains flow through the generic importer
+  // (lib/manifest/reimport.ts). FoB hardcoded domains continue through
+  // the per-domain switch below — they're override-registered per the
+  // (A) lock until v0.2.9 close.
+  if (detected.kind === "manifest") {
+    const root = config.godotProjectRoot;
+    if (!root) {
+      return { ok: false, error: "no godot project root configured" };
+    }
+    const r = await reimportOneManifest(absPath, root);
+    return {
+      ok: r.ok,
+      domain: r.domain,
+      key: r.key,
+      jsonPath: r.jsonPath,
+      error: r.error,
+    };
+  }
 
   let text: string;
   try {
@@ -216,6 +244,16 @@ export async function reimportOne(absPath: string): Promise<ReimportResult> {
 export async function deleteJsonFor(absPath: string): Promise<ReimportResult> {
   const detected = detectDomain(absPath);
   if (!detected) return { ok: false, error: "path doesn't match any authored domain" };
+  if (detected.kind === "manifest") {
+    const r = await deleteJsonForManifest(absPath);
+    return {
+      ok: r.ok,
+      domain: r.domain,
+      key: r.key,
+      jsonPath: r.jsonPath,
+      error: r.error,
+    };
+  }
   let jsonPath: string;
   switch (detected.domain) {
     case "item":

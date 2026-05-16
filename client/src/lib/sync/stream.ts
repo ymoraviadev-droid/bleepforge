@@ -26,7 +26,14 @@ export type SyncDomain =
   | "balloon";
 
 export interface SyncEvent {
-  domain: SyncDomain;
+  /**
+   * Domain identifier. One of the SyncDomain literals (FoB hardcoded
+   * game domains) OR a manifest-discovered domain name. Widened to
+   * `string` since manifest names are user-defined. Consumers that
+   * exhaustively dispatch (wireToBus's store map, toast labels) handle
+   * unknown names via Map miss / fallback string.
+   */
+  domain: string;
   key: string; // for dialog: "<folder>/<id>"; otherwise the entity primary key
   action: "updated" | "deleted";
 }

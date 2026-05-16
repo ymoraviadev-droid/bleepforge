@@ -64,8 +64,11 @@ const allStores: AnyStore[] = [
 
 // SyncDomain → store. Covers every domain the sync SSE stream
 // publishes; pickups + codex + shaders are not part of SyncDomain so
-// they're not in this map.
-const storeForSyncDomain: Record<SyncDomain, AnyStore> = {
+// they're not in this map. Manifest-discovered domain events (v0.2.8
+// Phase 4+) miss the lookup and no-op here — those domains don't have
+// dedicated singleton stores; consumers re-fetch via the manifest list
+// page on event arrival.
+const storeForSyncDomain = {
   item: itemStore,
   npc: npcStore,
   quest: questStore,
@@ -73,7 +76,7 @@ const storeForSyncDomain: Record<SyncDomain, AnyStore> = {
   faction: factionStore,
   dialog: dialogStore,
   balloon: balloonStore,
-};
+} satisfies Partial<Record<SyncDomain, AnyStore>>;
 
 function maybeRefresh(store: AnyStore): void {
   if (store.getSnapshot().status !== "idle") void store.refresh();
@@ -92,7 +95,8 @@ export function wireStoresToBus(): void {
 
   // (2) Per-domain SSE routing.
   window.addEventListener("Bleepforge:sync", (e) => {
-    const store = storeForSyncDomain[e.detail.domain];
+    const map = storeForSyncDomain as Record<string, AnyStore | undefined>;
+    const store = map[e.detail.domain];
     if (store) maybeRefresh(store);
   });
 
